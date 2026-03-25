@@ -1,0 +1,60 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+out/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vs/
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# VS Code
+.vscode/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]enchmark[Dd]ot[Nn]et.Artifacts/
+coverage/
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+!**/.nuget/packages/build/
+
+# Logs
+*.log
+
+# ASP.NET / local settings
+appsettings.Development.json
+appsettings.Local.json
+
+# Azure Functions local settings
+local.settings.json
+
+# Blazor WebAssembly publish artifacts
+wwwroot/_framework/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dotnet tools
+.dotnet/
+
+# JetBrains cache
+*.sln.iml

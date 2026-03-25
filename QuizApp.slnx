@@ -1,2 +1,6 @@
 <Solution>
+  <Project Path="QuizApp.Client/QuizApp.Client.csproj" />
+  <Project Path="QuizApp.Server/QuizApp.Server.csproj" />
+  <Project Path="QuizApp.Shared/QuizApp.Shared.csproj" />
+  <Project Path="QuizApp.Tests/QuizApp.Tests.csproj" />
 </Solution>
