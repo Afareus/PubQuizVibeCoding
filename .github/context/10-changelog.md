@@ -27,3 +27,11 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Přidána konfigurační třída `PostgreSqlOptions` a výchozí hodnoty `PostgreSql:ConnectionString` v `appsettings` souborech.
 - Launch profily serveru směrují po startu na `health` endpoint pro rychlý smoke-check.
 - Ověřeno buildem solution a spuštěním testů projektu `QuizApp.Tests`.
+
+## S03 — Sdílené kontrakty a enumy
+- V projektu `QuizApp.Shared` vznikly základní enumy `SessionStatus`, `OptionKey`, `ApiErrorCode`, `RealtimeEventName`.
+- Přidáno mapování SignalR eventů z enumů na wire názvy (`session.created`, `team.joined`, ...).
+- Přidány základní DTO kontrakty pro create quiz, import CSV, create session, join session a session state snapshot.
+- Odstraněna template třída `QuizApp.Shared/Class1.cs`.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests`.
+- Omezení: ruční kontrola názvosloví kontraktů vůči specifikaci zůstává na uživateli v IDE/review.

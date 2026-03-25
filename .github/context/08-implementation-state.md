@@ -14,7 +14,7 @@ Po každém kroku jej aktualizuj.
 - [x] S00 — Bootstrap repozitáře a solution
 - [x] S01 — Základ hostingu a konfigurace serveru
 - [x] S02 — Základ klienta a routingu
-- [ ] S03 — Sdílené kontrakty a enumy
+- [x] S03 — Sdílené kontrakty a enumy
 - [ ] S04 — Entitní model domény
 - [ ] S05 — EF Core mapování a DbContext
 - [ ] S06 — První migrace a databázový bootstrap
@@ -35,13 +35,13 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S02 — Základ klienta a routingu (ověřeno 2026-03-25 UTC).
+- S03 — Sdílené kontrakty a enumy (ověřeno 2026-03-25 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Client` je připravena landing stránka s volbou role organizátor/tým.
-- Přidány základní routy a placeholder obrazovky pro organizátorský i týmový tok.
-- Navigace i hlavní texty klienta jsou převedeny do češtiny.
-- Další krok je `S03`.
+- V `QuizApp.Shared` jsou přidány enumy `SessionStatus`, `OptionKey`, `ApiErrorCode` a `RealtimeEventName` včetně mapování na SignalR wire názvy.
+- Přidány základní DTO kontrakty pro create quiz, import CSV, create session, join session a session state snapshot.
+- Původní template třída `Class1` byla odstraněna.
+- Další krok je `S04`.
 
 ## Rizika / dluh
 - Zatím žádný evidovaný technický dluh.

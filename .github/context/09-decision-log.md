@@ -52,3 +52,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** V kroku `S01` je použit obecný `health` endpoint přes `AddHealthChecks()` bez napojení na PostgreSQL-specific health check provider.
 - **Důvod:** Cíl kroku je připravit hostingovou kostru, konfiguraci PostgreSQL a middleware bez předčasného rozšiřování závislostí.
 - **Dopad:** Server je připravený na následné databázové kroky a endpoint `GET /health` vrací základní stav hostu.
+
+### D-007 — S03 kontrakty navrženy jako transportní rekordy a enumy
+- **Datum/čas (UTC):** 2026-03-25T12:54:41.9162834Z
+- **Krok:** S03
+- **Rozhodnutí:** Sdílené kontrakty v `QuizApp.Shared` jsou zavedeny jako jednoduché `record` DTO a enumy ve dvou oblastech (`Contracts`, `Enums`), včetně mapování `RealtimeEventName -> wire name`.
+- **Důvod:** Krok S03 vyžaduje čitelné a minimální kontrakty bez předčasného uzamykání interní business logiky nebo persistence detailů.
+- **Dopad:** Následující backendové kroky mají stabilní základ pro API a SignalR názvosloví bez zavádění nadbytečných závislostí.
