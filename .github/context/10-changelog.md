@@ -51,3 +51,11 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Přidán query filter pro logicky smazané kvízy (`Quiz.IsDeleted`) a mapování vztahů mezi všemi entitami.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests`.
 - Omezení: fyzická migrace a bootstrap databáze budou řešeny v kroku `S06`.
+
+## S06 — První migrace a databázový bootstrap
+- V `QuizApp.Server/Persistence/Migrations` byla vygenerována první migrace `InitialCreate` (`*.cs`, `*.Designer.cs`, `QuizAppDbContextModelSnapshot.cs`) odpovídající aktuálnímu doménovému modelu.
+- V `QuizApp.Server/Program.cs` byl přidán databázový bootstrap přes `Database.MigrateAsync()` při startu aplikace.
+- V `QuizApp.Server.csproj` přidán balíček `Microsoft.EntityFrameworkCore.Design` (s `PrivateAssets=all`) pro design-time podporu EF migrací.
+- Do kořene repozitáře přidán `dotnet-tools.json` s lokálním nástrojem `dotnet-ef` (`8.0.12`) pro konzistentní generování/aplikaci migrací.
+- Ověřeno buildem solution, test runem `QuizApp.Tests` a úspěšným vytvořením migrace (`dotnet dotnet-ef migrations add InitialCreate ...`).
+- Omezení: aplikace migrace do databáze (`dotnet dotnet-ef database update ...`) v tomto prostředí selhala kvůli nedostupnému PostgreSQL na `localhost:5432`.

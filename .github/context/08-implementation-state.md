@@ -17,7 +17,7 @@ Po každém kroku jej aktualizuj.
 - [x] S03 — Sdílené kontrakty a enumy
 - [x] S04 — Entitní model domény
 - [x] S05 — EF Core mapování a DbContext
-- [ ] S06 — První migrace a databázový bootstrap
+- [x] S06 — První migrace a databázový bootstrap
 - [ ] S07 — CSV kontrakt, parser a validační report
 - [ ] S08 — Služba pro založení kvízu a import otázek
 - [ ] S09 — REST endpointy pro správu kvízů
@@ -35,19 +35,21 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S05 — EF Core mapování a DbContext (ověřeno 2026-03-25 UTC).
+- S06 — První migrace a databázový bootstrap (ověřeno 2026-03-25 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Server` byl přidán `QuizAppDbContext` v `Persistence/QuizAppDbContext.cs` a registrace DbContextu v `Program.cs` přes `UseNpgsql` s konfigurací `PostgreSqlOptions`.
-- Pro všechny doménové entity jsou nakonfigurovány klíče, vztahy, povinná pole, délky stringů a indexy/unique constraints.
-- Byly doplněny kritické business constraints: unikátní `JoinCode`, unikátní `SessionId + NormalizedTeamName`, unikátní `SessionId + TeamId + QuestionId`.
-- U `QuizSession.ConcurrencyToken` je zapnuta optimistická concurrency (`IsConcurrencyToken`) a u `Quiz` je zapnut query filter pro logické smazání (`IsDeleted`).
-- Další krok je `S06`.
+- V `QuizApp.Server/Persistence/Migrations` byla vytvořena první EF Core migrace `InitialCreate` včetně snapshotu modelu.
+- V `Program.cs` je doplněn databázový bootstrap přes `Database.MigrateAsync()` při startu aplikace.
+- Do `QuizApp.Server.csproj` byl přidán `Microsoft.EntityFrameworkCore.Design` pro design-time migrace.
+- Do kořene repozitáře byl přidán `dotnet-tools.json` s lokálním nástrojem `dotnet-ef` (`8.0.12`) pro konzistentní spouštění migrací.
+- Další krok je `S07`.
 
 ## Rizika / dluh
-- Zatím žádný evidovaný technický dluh.
+- Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
 - Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`)
+- EF migrace: vytvoření úspěšné (`dotnet dotnet-ef migrations add InitialCreate`)
+- EF database update: neúspěšné v tomto prostředí (`Failed to connect to 127.0.0.1:5432`)
 - Ruční smoke check: neproběhl (vyžaduje ruční kontrolu v IDE)
