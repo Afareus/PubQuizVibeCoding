@@ -45,3 +45,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Krok `S00` byl dokončen verifikací již existující solution a projektové kostry místo znovuvytváření projektů.
 - **Důvod:** Uživatel explicitně uvedl, že prázdná solution je již založená.
 - **Dopad:** Změny v tomto kroku jsou minimální a reverzibilní; pokračuje se na `S01`.
+
+### D-006 — S01 bez DB health check závislého na provider balíčku
+- **Datum/čas (UTC):** 2026-03-25T11:55:41Z
+- **Krok:** S01
+- **Rozhodnutí:** V kroku `S01` je použit obecný `health` endpoint přes `AddHealthChecks()` bez napojení na PostgreSQL-specific health check provider.
+- **Důvod:** Cíl kroku je připravit hostingovou kostru, konfiguraci PostgreSQL a middleware bez předčasného rozšiřování závislostí.
+- **Dopad:** Server je připravený na následné databázové kroky a endpoint `GET /health` vrací základní stav hostu.

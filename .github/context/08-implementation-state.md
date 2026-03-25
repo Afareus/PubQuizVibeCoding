@@ -12,7 +12,7 @@ Po každém kroku jej aktualizuj.
 
 ## Roadmap status
 - [x] S00 — Bootstrap repozitáře a solution
-- [ ] S01 — Základ hostingu a konfigurace serveru
+- [x] S01 — Základ hostingu a konfigurace serveru
 - [ ] S02 — Základ klienta a routingu
 - [ ] S03 — Sdílené kontrakty a enumy
 - [ ] S04 — Entitní model domény
@@ -35,12 +35,12 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S00 — Bootstrap repozitáře a solution (ověřeno 2026-03-25 UTC).
+- S01 — Základ hostingu a konfigurace serveru (ověřeno 2026-03-25 UTC).
 
 ## Aktuální poznámky
-- Solution `QuizApp.sln` existuje a obsahuje projekty `QuizApp.Client`, `QuizApp.Server`, `QuizApp.Shared`, `QuizApp.Tests`.
-- Ověřeno, že reference mezi projekty odpovídají roadmapě pro `S00` a solution buildí.
-- Další krok je `S01`.
+- V `QuizApp.Server` je připraven základ hostingu: konfigurace služeb, middleware pipeline a endpoint `GET /health`.
+- Přidána základní registrace `SignalR` a bind konfigurace `PostgreSql:ConnectionString`.
+- Další krok je `S02`.
 
 ## Rizika / dluh
 - Zatím žádný evidovaný technický dluh.
