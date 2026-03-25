@@ -35,3 +35,10 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Odstraněna template třída `QuizApp.Shared/Class1.cs`.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests`.
 - Omezení: ruční kontrola názvosloví kontraktů vůči specifikaci zůstává na uživateli v IDE/review.
+
+## S04 — Entitní model domény
+- V projektu `QuizApp.Server` přidán doménový model v `Domain/Entities` pro entity `Quiz`, `Question`, `QuestionOption`, `QuizSession`, `Team`, `TeamAnswer`, `SessionResult`, `AuditLog`.
+- Přidány základní navigace mezi entitami a interní guard helper pro povinná pole, UTC validaci a rozsahy.
+- Přidána základní stavová logika `QuizSession` (`Start`, `SetCurrentQuestion`, `Finish`, `Cancel`) s obnovou `ConcurrencyToken`.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests`.
+- Omezení: detailní EF mapování, indexy a constraints budou doplněny v navazujícím kroku `S05`.

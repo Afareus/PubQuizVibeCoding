@@ -15,7 +15,7 @@ Po každém kroku jej aktualizuj.
 - [x] S01 — Základ hostingu a konfigurace serveru
 - [x] S02 — Základ klienta a routingu
 - [x] S03 — Sdílené kontrakty a enumy
-- [ ] S04 — Entitní model domény
+- [x] S04 — Entitní model domény
 - [ ] S05 — EF Core mapování a DbContext
 - [ ] S06 — První migrace a databázový bootstrap
 - [ ] S07 — CSV kontrakt, parser a validační report
@@ -35,13 +35,13 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S03 — Sdílené kontrakty a enumy (ověřeno 2026-03-25 UTC).
+- S04 — Entitní model domény (ověřeno 2026-03-25 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Shared` jsou přidány enumy `SessionStatus`, `OptionKey`, `ApiErrorCode` a `RealtimeEventName` včetně mapování na SignalR wire názvy.
-- Přidány základní DTO kontrakty pro create quiz, import CSV, create session, join session a session state snapshot.
-- Původní template třída `Class1` byla odstraněna.
-- Další krok je `S04`.
+- V `QuizApp.Server` byl přidán doménový model `Quiz`, `Question`, `QuestionOption`, `QuizSession`, `Team`, `TeamAnswer`, `SessionResult`, `AuditLog`.
+- Entity obsahují základní navigace, konstrukční validační guardy a UTC/invariant ochrany pro klíčová pole.
+- U `QuizSession` je připraven základ stavových mutací (`Start`, `SetCurrentQuestion`, `Finish`, `Cancel`) včetně obnovy `ConcurrencyToken`.
+- Další krok je `S05`.
 
 ## Rizika / dluh
 - Zatím žádný evidovaný technický dluh.

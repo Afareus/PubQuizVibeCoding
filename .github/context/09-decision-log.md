@@ -59,3 +59,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Sdílené kontrakty v `QuizApp.Shared` jsou zavedeny jako jednoduché `record` DTO a enumy ve dvou oblastech (`Contracts`, `Enums`), včetně mapování `RealtimeEventName -> wire name`.
 - **Důvod:** Krok S03 vyžaduje čitelné a minimální kontrakty bez předčasného uzamykání interní business logiky nebo persistence detailů.
 - **Dopad:** Následující backendové kroky mají stabilní základ pro API a SignalR názvosloví bez zavádění nadbytečných závislostí.
+
+### D-008 — S04 doménový model umístěn do serveru s explicitními guardy
+- **Datum/čas (UTC):** 2026-03-25T13:40:00Z
+- **Krok:** S04
+- **Rozhodnutí:** Entitní model MVP je vytvořen v `QuizApp.Server/Domain/Entities` s privátními konstruktory, továrními metodami a jednoduchými guardy pro povinné hodnoty, UTC časy a základní rozsahy.
+- **Důvod:** Krok S04 požaduje úplný doménový model a základní invariants bez předčasného zavádění persistence konfigurací.
+- **Dopad:** Krok S05 může navázat čistým EF Core mapováním nad již stabilními entitami a navigacemi.
