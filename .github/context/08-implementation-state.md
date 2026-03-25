@@ -13,7 +13,7 @@ Po každém kroku jej aktualizuj.
 ## Roadmap status
 - [x] S00 — Bootstrap repozitáře a solution
 - [x] S01 — Základ hostingu a konfigurace serveru
-- [ ] S02 — Základ klienta a routingu
+- [x] S02 — Základ klienta a routingu
 - [ ] S03 — Sdílené kontrakty a enumy
 - [ ] S04 — Entitní model domény
 - [ ] S05 — EF Core mapování a DbContext
@@ -35,17 +35,18 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S01 — Základ hostingu a konfigurace serveru (ověřeno 2026-03-25 UTC).
+- S02 — Základ klienta a routingu (ověřeno 2026-03-25 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Server` je připraven základ hostingu: konfigurace služeb, middleware pipeline a endpoint `GET /health`.
-- Přidána základní registrace `SignalR` a bind konfigurace `PostgreSql:ConnectionString`.
-- Další krok je `S02`.
+- V `QuizApp.Client` je připravena landing stránka s volbou role organizátor/tým.
+- Přidány základní routy a placeholder obrazovky pro organizátorský i týmový tok.
+- Navigace i hlavní texty klienta jsou převedeny do češtiny.
+- Další krok je `S03`.
 
 ## Rizika / dluh
 - Zatím žádný evidovaný technický dluh.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`QuizApp.Tests.UnitTest1.Test1`)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`)
 - Ruční smoke check: neproběhl (vyžaduje ruční kontrolu v IDE)
