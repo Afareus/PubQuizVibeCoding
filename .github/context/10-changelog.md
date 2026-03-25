@@ -42,3 +42,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Přidána základní stavová logika `QuizSession` (`Start`, `SetCurrentQuestion`, `Finish`, `Cancel`) s obnovou `ConcurrencyToken`.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests`.
 - Omezení: detailní EF mapování, indexy a constraints budou doplněny v navazujícím kroku `S05`.
+
+## S05 — EF Core mapování a DbContext
+- V `QuizApp.Server` přidán `Persistence/QuizAppDbContext.cs` s kompletním EF Core mapováním doménových entit.
+- V `Program.cs` doplněna registrace `DbContext` přes `UseNpgsql` s vazbou na `PostgreSqlOptions`.
+- V `QuizApp.Server.csproj` přidány balíčky `Microsoft.EntityFrameworkCore` a `Npgsql.EntityFrameworkCore.PostgreSQL`.
+- Doplňeny kritické indexy a unique constraints (`JoinCode`, `SessionId + NormalizedTeamName`, `SessionId + TeamId + QuestionId`) a concurrency konfigurace pro `QuizSession.ConcurrencyToken`.
+- Přidán query filter pro logicky smazané kvízy (`Quiz.IsDeleted`) a mapování vztahů mezi všemi entitami.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests`.
+- Omezení: fyzická migrace a bootstrap databáze budou řešeny v kroku `S06`.

@@ -66,3 +66,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Entitní model MVP je vytvořen v `QuizApp.Server/Domain/Entities` s privátními konstruktory, továrními metodami a jednoduchými guardy pro povinné hodnoty, UTC časy a základní rozsahy.
 - **Důvod:** Krok S04 požaduje úplný doménový model a základní invariants bez předčasného zavádění persistence konfigurací.
 - **Dopad:** Krok S05 může navázat čistým EF Core mapováním nad již stabilními entitami a navigacemi.
+
+### D-009 — S05 unikátnost join code řešena globálním unique indexem
+- **Datum/čas (UTC):** 2026-03-25T13:17:57.7467671Z
+- **Krok:** S05
+- **Rozhodnutí:** `QuizSession.JoinCode` je v EF mapování nastaven jako globálně unikátní (`HasIndex(...).IsUnique()`) místo partial indexu jen pro aktivní session.
+- **Důvod:** Zadání vyžaduje provider-agnostické a srozumitelné řešení; partial index dle stavu session by zavedl provider-specific SQL a zbytečnou komplexitu v této fázi.
+- **Dopad:** Business požadavek na praktickou unikátnost join code je pokryt jednoduchým přenositelným omezením, které neblokuje další kroky.

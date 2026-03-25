@@ -1,4 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using QuizApp.Server.Configuration;
+using QuizApp.Server.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,6 +9,12 @@ builder.Services.AddOptions<PostgreSqlOptions>()
     .Bind(builder.Configuration.GetSection(PostgreSqlOptions.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
+
+builder.Services.AddDbContext<QuizAppDbContext>((serviceProvider, options) =>
+{
+    var postgreSqlOptions = serviceProvider.GetRequiredService<IOptions<PostgreSqlOptions>>().Value;
+    options.UseNpgsql(postgreSqlOptions.ConnectionString);
+});
 
 builder.Services.AddSignalR(options =>
 {

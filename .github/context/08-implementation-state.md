@@ -16,7 +16,7 @@ Po každém kroku jej aktualizuj.
 - [x] S02 — Základ klienta a routingu
 - [x] S03 — Sdílené kontrakty a enumy
 - [x] S04 — Entitní model domény
-- [ ] S05 — EF Core mapování a DbContext
+- [x] S05 — EF Core mapování a DbContext
 - [ ] S06 — První migrace a databázový bootstrap
 - [ ] S07 — CSV kontrakt, parser a validační report
 - [ ] S08 — Služba pro založení kvízu a import otázek
@@ -35,13 +35,14 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S04 — Entitní model domény (ověřeno 2026-03-25 UTC).
+- S05 — EF Core mapování a DbContext (ověřeno 2026-03-25 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Server` byl přidán doménový model `Quiz`, `Question`, `QuestionOption`, `QuizSession`, `Team`, `TeamAnswer`, `SessionResult`, `AuditLog`.
-- Entity obsahují základní navigace, konstrukční validační guardy a UTC/invariant ochrany pro klíčová pole.
-- U `QuizSession` je připraven základ stavových mutací (`Start`, `SetCurrentQuestion`, `Finish`, `Cancel`) včetně obnovy `ConcurrencyToken`.
-- Další krok je `S05`.
+- V `QuizApp.Server` byl přidán `QuizAppDbContext` v `Persistence/QuizAppDbContext.cs` a registrace DbContextu v `Program.cs` přes `UseNpgsql` s konfigurací `PostgreSqlOptions`.
+- Pro všechny doménové entity jsou nakonfigurovány klíče, vztahy, povinná pole, délky stringů a indexy/unique constraints.
+- Byly doplněny kritické business constraints: unikátní `JoinCode`, unikátní `SessionId + NormalizedTeamName`, unikátní `SessionId + TeamId + QuestionId`.
+- U `QuizSession.ConcurrencyToken` je zapnuta optimistická concurrency (`IsConcurrencyToken`) a u `Quiz` je zapnut query filter pro logické smazání (`IsDeleted`).
+- Další krok je `S06`.
 
 ## Rizika / dluh
 - Zatím žádný evidovaný technický dluh.
