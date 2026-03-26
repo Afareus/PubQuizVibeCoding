@@ -13,6 +13,7 @@ public static class QuizManagementEndpoints
         var group = endpoints.MapGroup("/api/quizzes");
 
         group.MapPost("/", CreateQuizAsync);
+        group.MapPost("/{quizId:guid}/sessions", CreateSessionAsync);
         group.MapPost("/{quizId:guid}/import-csv", ImportQuizCsvAsync);
         group.MapGet("/{quizId:guid}", GetQuizDetailAsync);
         group.MapDelete("/{quizId:guid}", DeleteQuizAsync);
@@ -51,6 +52,24 @@ public static class QuizManagementEndpoints
         }
 
         return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> CreateSessionAsync(
+        Guid quizId,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.CreateSessionAsync(quizId, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Created($"/api/sessions/{result.Response!.SessionId}", result.Response);
     }
 
     private static async Task<IResult> GetQuizDetailAsync(

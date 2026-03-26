@@ -115,3 +115,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Klientský `HttpClient` čte `ApiBaseUrl` z `QuizApp.Client/wwwroot/appsettings.json` a server povoluje CORS pro localhost originy.
 - **Důvod:** Při běhu klienta (`https://localhost:7184`) a serveru (`https://localhost:7174`) na různých portech neprocházelo vytvoření kvízu z UI, i když Swagger na serveru fungoval.
 - **Dopad:** Organizátorské UI může volat API i v odděleném debug běhu a není závislé na stejném originu klienta a serveru.
+
+### D-016 — S11 join code formát a autorizace vytvoření session
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S11
+- **Rozhodnutí:** Vytvoření session (`POST /api/quizzes/{quizId}/sessions`) je autorizované stejně jako ostatní organizátorské operace (`X-Organizer-Token` **nebo** `X-Quiz-Password`) a join code je generován jako 8 znaků z abecedy `A-Z` bez ambiguit + `2-9`.
+- **Důvod:** Uživatelská preference vyžaduje průběžně rozšiřovat pravidlo „znalost hesla opravňuje k organizátorským úkonům“ i na nové endpointy; zároveň roadmapa S11 požaduje neuhodnutelný join code bez zbytečné komplexity.
+- **Dopad:** Session create backend je konzistentní s předchozí autentizací v S09/S10 a poskytuje prakticky bezpečný, čitelný join code s kontrolou unikátnosti.

@@ -128,6 +128,75 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
+    public async Task CreateSessionAsync_QuizWithoutQuestions_ReturnsQuizHasNoQuestions()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Session test", "heslo"), CancellationToken.None);
+
+        var sessionResult = await service.CreateSessionAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
+
+        Assert.False(sessionResult.IsSuccess);
+        Assert.NotNull(sessionResult.Error);
+        Assert.Equal(ApiErrorCode.QuizHasNoQuestions, sessionResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task CreateSessionAsync_ValidPasswordWithoutToken_CreatesWaitingSessionAndAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Session test", "heslo123"), CancellationToken.None);
+
+        var csv =
+            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
+            "Kolik je 2+2?,3,4,5,6,B,30\n";
+
+        await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+
+        var sessionResult = await service.CreateSessionAsync(createResult.Response.QuizId, null, "heslo123", CancellationToken.None);
+
+        Assert.True(sessionResult.IsSuccess);
+        Assert.NotNull(sessionResult.Response);
+        Assert.Equal(SessionStatus.Waiting, sessionResult.Response!.Status);
+        Assert.Equal(8, sessionResult.Response.JoinCode.Length);
+
+        var storedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == sessionResult.Response.SessionId);
+        Assert.Equal(SessionStatus.Waiting, storedSession.Status);
+
+        var audit = await dbContext.AuditLogs.SingleAsync(x => x.ActionType == "SESSION_CREATED");
+        Assert.Equal(storedSession.SessionId, audit.SessionId);
+        Assert.Equal(createResult.Response.QuizId, audit.QuizId);
+    }
+
+    [Fact]
+    public async Task CreateSessionAsync_RepeatedCallsForSameQuiz_AreAllowed()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Session test", "heslo"), CancellationToken.None);
+
+        var csv =
+            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
+            "Kolik je 2+2?,3,4,5,6,B,30\n";
+
+        await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+
+        var firstSession = await service.CreateSessionAsync(createResult.Response.QuizId, createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
+        var secondSession = await service.CreateSessionAsync(createResult.Response.QuizId, createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
+
+        Assert.True(firstSession.IsSuccess);
+        Assert.True(secondSession.IsSuccess);
+
+        var sessions = await dbContext.Sessions
+            .Where(x => x.QuizId == createResult.Response.QuizId)
+            .ToListAsync();
+
+        Assert.Equal(2, sessions.Count);
+        Assert.All(sessions, x => Assert.Equal(SessionStatus.Waiting, x.Status));
+    }
+
+    [Fact]
     public async Task DeleteQuizAsync_WithActiveSession_ReturnsConflict()
     {
         await using var dbContext = CreateDbContext();

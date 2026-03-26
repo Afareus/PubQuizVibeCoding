@@ -95,3 +95,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Hotfix: v `QuizApp.Server/Program.cs` přidána CORS policy `ClientOrigins` pro localhost originy, aby UI volání API nebyla blokována browserem.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (26 passed).
 - Omezení: ruční smoke-check S10 UI flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.
+
+## S11 — Session create backend a join code
+- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` byla doplněna operace `CreateSessionAsync`, která ověřuje organizátorskou autentizaci (`X-Organizer-Token` nebo `X-Quiz-Password`), kontroluje minimálně 1 otázku v kvízu a vytváří novou session ve stavu `WAITING`.
+- Join code se generuje kryptograficky bezpečně (8 znaků z omezené alfanumerické abecedy bez nejednoznačných znaků) a před uložením se ověřuje jeho unikátnost.
+- Při vytvoření session se zapisuje audit akce `SESSION_CREATED`.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `POST /api/quizzes/{quizId}/sessions`.
+- V `QuizApp.Tests/QuizManagementServiceTests.cs` přibyly testy pro pravidla S11: konflikt pro kvíz bez otázek, vytvoření session přes heslo bez tokenu a opakované create session nad stejným kvízem.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (29 passed).
+- Omezení: ruční smoke-check endpointu S11 v běžícím serveru/UI zatím neproběhl v tomto prostředí.

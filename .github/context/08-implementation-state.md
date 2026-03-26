@@ -22,7 +22,7 @@ Po každém kroku jej aktualizuj.
 - [x] S08 — Služba pro založení kvízu a import otázek
 - [x] S09 — REST endpointy pro správu kvízů
 - [x] S10 — Organizátorské UI pro kvízy
-- [ ] S11 — Session create backend a join code
+- [x] S11 — Session create backend a join code
 - [ ] S12 — Team join backend a reconnect identita
 - [ ] S13 — Organizátorský waiting room a session create UI
 - [ ] S14 — Start/cancel session backend
@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S10 — Organizátorské UI pro kvízy (ověřeno 2026-03-26 UTC).
+- S11 — Session create backend a join code (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -45,12 +45,15 @@ Po každém kroku jej aktualizuj.
 - `QuizApp.Client/Program.cs` registruje `OrganizerQuizLocalStore` do DI; `_Imports.razor` byl rozšířen o `QuizApp.Shared.Contracts` a `QuizApp.Shared.Enums`.
 - Pro opravu volání API z WASM klienta mimo server origin byl doplněn `QuizApp.Client/wwwroot/appsettings.json` s `ApiBaseUrl` a klientský `HttpClient` používá tuto konfiguraci.
 - V `QuizApp.Server/Program.cs` je doplněna CORS policy `ClientOrigins` pro localhost originy, aby UI volání (`POST /api/quizzes` a další) fungovala i při běhu klienta a serveru na různých portech.
-- Další krok je `S11`.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `CreateSessionAsync`, která při autorizaci (`X-Organizer-Token` nebo `X-Quiz-Password`) založí session jen nad kvízem s otázkami, vygeneruje unikátní join code, nastaví stav `WAITING` a zapisuje audit `SESSION_CREATED`.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `POST /api/quizzes/{quizId}/sessions`.
+- V `QuizApp.Tests/QuizManagementServiceTests.cs` přibyly testy pro `CreateSessionAsync` (bez otázek => konflikt, autorizace heslem, opakované vytvoření session).
+- Další krok je `S12`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 26/26 passed)
-- Ruční smoke check: neproběhl (nové UI toky S10 vyžadují ruční ověření v běžícím klientovi/serveru)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 29/29 passed)
+- Ruční smoke check: neproběhl (nový endpoint S11 vyžaduje ruční ověření v běžícím serveru/klientovi)

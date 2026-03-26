@@ -14,6 +14,8 @@ public interface IQuizManagementService
 {
     Task<CreateQuizOperationResult> CreateQuizAsync(CreateQuizRequest request, CancellationToken cancellationToken);
 
+    Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken);
 
     Task<QuizDetailOperationResult> GetQuizDetailAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -24,6 +26,9 @@ public interface IQuizManagementService
 public sealed class QuizManagementService : IQuizManagementService
 {
     private const int OrganizerTokenEntropyBytes = 32;
+    private const string JoinCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private const int JoinCodeLength = 8;
+    private const int MaxJoinCodeGenerationAttempts = 10;
     private const int PasswordSaltBytes = 16;
     private const int PasswordHashBytes = 32;
     private const int PasswordHashIterations = 100_000;
@@ -70,6 +75,45 @@ public sealed class QuizManagementService : IQuizManagementService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return CreateQuizOperationResult.Success(new CreateQuizResponse(quiz.QuizId, organizerToken));
+    }
+
+    public async Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var quiz = await _dbContext.Quizzes
+            .Include(x => x.Questions)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return CreateSessionOperationResult.Fail(authError!);
+        }
+
+        if (quiz.Questions.Count == 0)
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Session lze založit jen nad kvízem, který obsahuje alespoň jednu otázku."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var joinCode = await GenerateUniqueJoinCodeAsync(cancellationToken);
+        var session = QuizSession.Create(Guid.NewGuid(), quiz.QuizId, joinCode, nowUtc);
+
+        _dbContext.Sessions.Add(session);
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "SESSION_CREATED",
+            quiz.QuizId,
+            session.SessionId,
+            JsonSerializer.Serialize(new SessionCreatedAuditPayload(session.SessionId, quiz.QuizId, session.JoinCode))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return CreateSessionOperationResult.Success(new CreateSessionResponse(session.SessionId, session.JoinCode, session.Status));
     }
 
     public async Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken)
@@ -307,6 +351,34 @@ public sealed class QuizManagementService : IQuizManagementService
         return false;
     }
 
+    private async Task<string> GenerateUniqueJoinCodeAsync(CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < MaxJoinCodeGenerationAttempts; attempt++)
+        {
+            var joinCode = GenerateJoinCode();
+            var exists = await _dbContext.Sessions.AnyAsync(x => x.JoinCode == joinCode, cancellationToken);
+            if (!exists)
+            {
+                return joinCode;
+            }
+        }
+
+        throw new InvalidOperationException("Nepodařilo se vygenerovat unikátní join code.");
+    }
+
+    private static string GenerateJoinCode()
+    {
+        Span<char> chars = stackalloc char[JoinCodeLength];
+
+        for (var i = 0; i < chars.Length; i++)
+        {
+            var index = RandomNumberGenerator.GetInt32(JoinCodeAlphabet.Length);
+            chars[i] = JoinCodeAlphabet[index];
+        }
+
+        return new string(chars);
+    }
+
     private static string HashPassword(string password)
     {
         Span<byte> saltBytes = stackalloc byte[PasswordSaltBytes];
@@ -377,6 +449,8 @@ public sealed class QuizManagementService : IQuizManagementService
 
     private sealed record QuizImportedAuditPayload(Guid QuizId, int ImportedQuestionsCount);
 
+    private sealed record SessionCreatedAuditPayload(Guid SessionId, Guid QuizId, string JoinCode);
+
     private sealed record QuizDeletedAuditPayload(Guid QuizId);
 }
 
@@ -400,6 +474,17 @@ public sealed record ImportQuizCsvOperationResult(
     public static ImportQuizCsvOperationResult Success(ImportQuizCsvResponse response) => new(response, null);
 
     public static ImportQuizCsvOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record CreateSessionOperationResult(
+    CreateSessionResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static CreateSessionOperationResult Success(CreateSessionResponse response) => new(response, null);
+
+    public static CreateSessionOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }
 
 public sealed record QuizDetailOperationResult(
