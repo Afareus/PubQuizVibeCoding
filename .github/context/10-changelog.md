@@ -153,3 +153,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy ověřující publikaci realtime eventů (`team.joined`, `session.finished`, `results.ready`).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (45 passed).
 - Omezení: ruční smoke-check realtime synchronizace ve dvou otevřených klientech zatím neproběhl v tomto prostředí.
+
+## S17 — Team UI: join, waiting room, question screen
+- Placeholder `QuizApp.Client/Pages/TeamJoin.razor` byl nahrazen funkčním join formulářem s voláním `POST /api/sessions/join`, zpracováním chyb a uložením týmové identity do `localStorage`.
+- Placeholder `QuizApp.Client/Pages/TeamWaitingRoom.razor` byl nahrazen funkční čekárnou týmu s načtením snapshotu přes `GET /api/sessions/{sessionId}/state?teamId={teamId}`, hlavičkou `X-Team-Reconnect-Token`, realtime subscribe do session group a přechodem na otázku po startu session.
+- Placeholder `QuizApp.Client/Pages/TeamQuestion.razor` byl nahrazen otázkovou obrazovkou se snapshot loadingem, vykreslením odpovědí `A/B/C/D`, lokálním jednorázovým uzamčením odpovědi po odeslání a realtime refresh při `question.changed`/ukončovacích eventech.
+- V `QuizApp.Client/Team/TeamSessionLocalStore.cs` vznikla klientská služba pro lokální uložení týmové identity (`sessionId + teamId + teamName + TeamReconnectToken`) a lokálně uzamčených odpovědí per otázka (`sessionId + questionId`).
+- V `QuizApp.Client/Program.cs` byla doplněna DI registrace `TeamSessionLocalStore`; `_Imports.razor` nyní obsahuje `@using QuizApp.Client.Team`.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (45 passed).
+- Omezení: backend submit odpovědi (`POST /api/sessions/{sessionId}/answers`) ještě není implementován (krok `S18`), proto je v `S17` „odeslání“ řešeno pouze lokálním uzamčením UI.

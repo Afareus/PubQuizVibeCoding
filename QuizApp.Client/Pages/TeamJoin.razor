@@ -1,9 +1,85 @@
 @page "/tym/pripojeni"
+@inject HttpClient HttpClient
+@inject TeamSessionLocalStore TeamSessionLocalStore
+@inject NavigationManager NavigationManager
 
 <PageTitle>Připojení týmu</PageTitle>
 
 <h1>Připojení týmu</h1>
 
-<p>Tato obrazovka je placeholder pro zadání join code a názvu týmu.</p>
+<p class="text-muted">Zadejte join code a unikátní název týmu pro vstup do čekárny.</p>
 
-<a class="btn btn-outline-primary" href="tym/cekarna">Pokračovat do čekárny</a>
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+}
+
+<section class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label" for="joinCode">Join code</label>
+            <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="teamName">Název týmu</label>
+            <InputText id="teamName" class="form-control" @bind-Value="teamName" />
+        </div>
+
+        <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="JoinSessionAsync">
+            @(isLoading ? "Připojuji..." : "Připojit tým")
+        </button>
+    </div>
+</section>
+
+@code {
+    private string joinCode = string.Empty;
+    private string teamName = string.Empty;
+    private bool isLoading;
+    private string? infoMessage;
+    private ApiErrorResponse? apiError;
+
+    private async Task JoinSessionAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isLoading = true;
+
+        var payload = new JoinSessionRequest(joinCode, teamName);
+
+        using var response = await HttpClient.PostAsJsonAsync("/api/sessions/join", payload);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<JoinSessionResponse>();
+            if (result is null)
+            {
+                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst odpověď serveru.");
+            }
+            else
+            {
+                var storedIdentity = new StoredTeamIdentity(result.SessionId, result.TeamId, teamName.Trim(), result.TeamReconnectToken);
+                await TeamSessionLocalStore.UpsertIdentityAsync(storedIdentity);
+
+                infoMessage = "Tým byl připojen. Přesměrovávám do čekárny...";
+                NavigationManager.NavigateTo($"/tym/cekarna/{result.SessionId}");
+            }
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        return error ?? new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Připojení selhalo.");
+    }
+}

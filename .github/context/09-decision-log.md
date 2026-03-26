@@ -157,3 +157,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** SignalR vrstva publikuje do session-specific groups pouze názvy eventů (`team.joined`, `session.started`, `question.changed`, `session.cancelled`, `session.finished`, `results.ready`) bez přenosu plného stavu; klient po eventu načítá autoritativní snapshot přes existující REST endpoint.
 - **Důvod:** Roadmapa S16 vyžaduje realtime synchronizaci bez sekundových ticků; minimální event payload drží protokol jednoduchý a zároveň zachovává server jako jediný zdroj pravdy pro stav session.
 - **Dopad:** Waiting room se synchronizuje téměř okamžitě, reconnect flow je jednoduchý (SignalR resubscribe + REST refresh) a není nutné duplikovat snapshot kontrakty mezi REST a realtime vrstvou.
+
+### D-022 — S17 dočasně uzamyká odpověď lokálně, backend submit přijde v S18
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S17
+- **Rozhodnutí:** V týmovém question UI je „odeslání odpovědi“ v kroku S17 řešeno lokálním uložením a uzamčením per `sessionId + questionId` v `localStorage`; volání backend submit endpointu nebude přidáno dříve než v S18.
+- **Důvod:** Roadmapa explicitně odděluje S17 (Team UI flow) od S18 (`POST /api/sessions/{sessionId}/answers` a `first-write-wins`), takže plná serverová submit logika by v S17 byla scope creep.
+- **Dopad:** Týmové UI už nyní splňuje UX požadavek „po odeslání jasně uzamknout odpověď“, přičemž serverová autorita a business validace zůstanou doplněny v navazujícím kroku S18.

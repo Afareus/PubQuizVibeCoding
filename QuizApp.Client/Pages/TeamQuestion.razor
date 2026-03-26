@@ -1,7 +1,262 @@
 @page "/tym/otazka"
+@page "/tym/otazka/{SessionId:guid}"
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject HttpClient HttpClient
+@inject TeamSessionLocalStore TeamSessionLocalStore
 
 <PageTitle>Otázka</PageTitle>
 
 <h1>Otázka</h1>
 
-<p>Tato obrazovka je placeholder pro odpovídání týmu během hry.</p>
+<p class="text-muted">Odpověď lze během otázky odeslat pouze jednou.</p>
+<p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
+
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+}
+
+@if (identity is null)
+{
+    <div class="alert alert-warning" role="alert">
+        Chybí uložená týmová identita. Nejprve se připojte do session.
+    </div>
+
+    <a class="btn btn-outline-primary" href="/tym/pripojeni">Přejít na připojení týmu</a>
+}
+else if (snapshot is null)
+{
+    <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="LoadSnapshotAsync">
+        @(isLoading ? "Načítám..." : "Načíst otázku")
+    </button>
+}
+else if (snapshot.Status == SessionStatus.Waiting)
+{
+    <div class="alert alert-warning" role="alert">Session ještě neběží. Počkejte v čekárně týmu.</div>
+    <a class="btn btn-outline-primary" href="@($"/tym/cekarna/{snapshot.SessionId}")">Zpět do čekárny</a>
+}
+else if (snapshot.Status is SessionStatus.Cancelled or SessionStatus.Finished)
+{
+    <div class="alert alert-secondary" role="alert">Session již neběží.</div>
+    <a class="btn btn-outline-primary" href="/session/vysledky">Přejít na výsledky</a>
+}
+else if (snapshot.CurrentQuestion is null)
+{
+    <div class="alert alert-warning" role="alert">Aktuálně není aktivní otázka. Vyčkejte na další průběh hry.</div>
+}
+else
+{
+    <section class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5">@snapshot.CurrentQuestion.Text</h2>
+            <p class="mb-1"><strong>Otázka #:</strong> @snapshot.CurrentQuestionIndex</p>
+            <p class="mb-0"><strong>Deadline (UTC):</strong> @snapshot.QuestionDeadlineUtc</p>
+        </div>
+    </section>
+
+    @if (submittedOption.HasValue)
+    {
+        <div class="alert alert-success" role="alert">
+            Odpověď <strong>@submittedOption</strong> byla odeslána. Pro tuto otázku už nelze odpověď změnit.
+        </div>
+    }
+
+    <div class="d-grid gap-2">
+        @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
+        {
+            <button class="btn btn-outline-primary text-start" type="button" disabled="@submittedOption.HasValue" @onclick="() => SubmitAnswerAsync(option.OptionKey)">
+                <strong>@option.OptionKey</strong> — @option.Text
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid? SessionId { get; set; }
+
+    private StoredTeamIdentity? identity;
+    private SessionStateSnapshotResponse? snapshot;
+    private OptionKey? submittedOption;
+    private ApiErrorResponse? apiError;
+    private string? infoMessage;
+    private bool isLoading;
+    private bool isRealtimeConnected;
+
+    private HubConnection? hubConnection;
+    private Guid? realtimeSessionId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+
+        if (!SessionId.HasValue)
+        {
+            return;
+        }
+
+        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value);
+        if (identity is null)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí uložená týmová identita pro tuto session.");
+            return;
+        }
+
+        await LoadSnapshotAsync();
+        await EnsureRealtimeConnectionAsync(SessionId.Value);
+    }
+
+    private async Task LoadSnapshotAsync()
+    {
+        if (!SessionId.HasValue || identity is null)
+        {
+            return;
+        }
+
+        isLoading = true;
+        apiError = null;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{SessionId.Value}/state?teamId={identity.TeamId}");
+        request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+            await ReloadSubmittedAnswerAsync();
+            infoMessage = "Stav otázky byl načten.";
+        }
+        else
+        {
+            snapshot = null;
+            submittedOption = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task SubmitAnswerAsync(OptionKey option)
+    {
+        if (!SessionId.HasValue || snapshot?.CurrentQuestion is null || submittedOption.HasValue)
+        {
+            return;
+        }
+
+        await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, snapshot.CurrentQuestion.QuestionId, option);
+        submittedOption = option;
+        infoMessage = "Odpověď byla odeslána a uzamčena pro tuto otázku.";
+    }
+
+    private async Task ReloadSubmittedAnswerAsync()
+    {
+        if (!SessionId.HasValue || snapshot?.CurrentQuestion is null)
+        {
+            submittedOption = null;
+            return;
+        }
+
+        submittedOption = await TeamSessionLocalStore.FindSubmittedAnswerAsync(SessionId.Value, snapshot.CurrentQuestion.QuestionId);
+    }
+
+    private async Task EnsureRealtimeConnectionAsync(Guid sessionId)
+    {
+        if (hubConnection is null)
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(new Uri(HttpClient.BaseAddress!, "/hubs/sessions"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Načtena nová otázka."));
+            hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla ukončena."));
+            hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));
+            hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));
+
+            hubConnection.Reconnecting += _ =>
+            {
+                isRealtimeConnected = false;
+                return InvokeAsync(StateHasChanged);
+            };
+
+            hubConnection.Reconnected += async _ =>
+            {
+                isRealtimeConnected = true;
+                var reconnectSessionId = realtimeSessionId ?? sessionId;
+                await SubscribeRealtimeSessionAsync(reconnectSessionId);
+                await ReloadSnapshotFromRealtimeAsync("Realtime připojení bylo obnoveno.");
+            };
+
+            hubConnection.Closed += _ =>
+            {
+                isRealtimeConnected = false;
+                return InvokeAsync(StateHasChanged);
+            };
+        }
+
+        if (hubConnection.State == HubConnectionState.Disconnected)
+        {
+            await hubConnection.StartAsync();
+            isRealtimeConnected = true;
+        }
+
+        await SubscribeRealtimeSessionAsync(sessionId);
+    }
+
+    private async Task SubscribeRealtimeSessionAsync(Guid sessionId)
+    {
+        if (hubConnection is null)
+        {
+            return;
+        }
+
+        if (realtimeSessionId.HasValue && realtimeSessionId.Value != sessionId)
+        {
+            await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
+        }
+
+        await hubConnection.InvokeAsync("SubscribeToSessionAsync", sessionId);
+        realtimeSessionId = sessionId;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadSnapshotFromRealtimeAsync(string message)
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadSnapshotAsync();
+            if (snapshot is not null)
+            {
+                infoMessage = message;
+            }
+        });
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        return error ?? new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Načtení otázky selhalo.");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is null)
+        {
+            return;
+        }
+
+        if (realtimeSessionId.HasValue && hubConnection.State == HubConnectionState.Connected)
+        {
+            await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
+        }
+
+        await hubConnection.DisposeAsync();
+    }
+}
