@@ -178,3 +178,17 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** (1) Endpoint `GET /api/sessions/{sessionId}/results` přijímá buď `X-Team-Reconnect-Token` (tým), nebo `X-Organizer-Token`/`X-Quiz-Password` (organizátor); (2) výpočet výsledků a `SessionResult` entit probíhá automaticky při finalizaci session v `ProgressDueSessionsAsync`; (3) `TeamQuestion.razor` byl opraven tak, aby skutečně volal backend submit endpoint z S18, místo pouze lokálního uzamčení ze S17.
 - **Důvod:** (1) Týmy i organizátor potřebují vidět výsledky — sdílený endpoint s dual-auth je nejjednodušší MVP řešení. (2) Výpočet v progression workeru zaručuje, že výsledky existují okamžitě po přechodu do `FINISHED` bez nutnosti lazy computation. (3) S17 záměrně odložil backend submit na S18 (D-022), ale klient se v S18 nenapojil — oprava v S19 zajistí end-to-end funkčnost.
 - **Dopad:** Výsledky jsou dostupné okamžitě po ukončení session, ranking je deterministický (skóre DESC, čas ASC, sdílený rank) a odpovědi se skutečně ukládají na server.
+
+### D-025 — Explicitní StateHasChanged po SignalR async InvokeAsync
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Bugfix (mezi S19 a S20)
+- **Rozhodnutí:** Ve všech Blazor WASM stránkách, které reagují na SignalR eventy přes `InvokeAsync(Func<Task>)`, je na konci callbacku voláno explicitní `StateHasChanged()`.
+- **Důvod:** V Blazor WASM `ComponentBase.InvokeAsync(Func<Task>)` negarantuje automatický re-render po dokončení async práce, protože WASM dispatcher pouze deleguje volání na stejné vlákno bez povědomí o renderu.
+- **Dopad:** UI správně reaguje na SignalR eventy (nová otázka, konec session apod.) bez nutnosti manuálního refreshe stránky.
+
+### D-026 — Countdown timer přes System.Threading.Timer
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Bugfix (mezi S19 a S20)
+- **Rozhodnutí:** Zbývající čas na otázku se zobrazuje jako živý countdown (sekundy), implementovaný přes `System.Threading.Timer` s 1s intervalem.
+- **Důvod:** Surový UTC deadline byl pro hráče nečitelný a nebylo zřejmé, kolik zbývá času.
+- **Dopad:** Hráč vidí odpočet v reálném čase; timer se automaticky restartuje při přechodu na novou otázku a uvolňuje v `DisposeAsync`.

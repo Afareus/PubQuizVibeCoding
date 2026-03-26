@@ -61,7 +61,14 @@ else
         <div class="card-body">
             <h2 class="h5">@snapshot.CurrentQuestion.Text</h2>
             <p class="mb-1"><strong>Otázka #:</strong> @snapshot.CurrentQuestionIndex</p>
-            <p class="mb-0"><strong>Deadline (UTC):</strong> @snapshot.QuestionDeadlineUtc</p>
+            @if (remainingSeconds > 0)
+            {
+                <p class="mb-0 fs-4"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
+            }
+            else
+            {
+                <p class="mb-0 fs-4 text-danger"><strong>⏱ Čas vypršel</strong></p>
+            }
         </div>
     </section>
 
@@ -96,6 +103,8 @@ else
 
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
+    private System.Threading.Timer? countdownTimer;
+    private int remainingSeconds;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -116,6 +125,7 @@ else
 
         await LoadSnapshotAsync();
         await EnsureRealtimeConnectionAsync(SessionId.Value);
+        RestartCountdownTimer();
     }
 
     private async Task LoadSnapshotAsync()
@@ -197,6 +207,40 @@ else
         submittedOption = await TeamSessionLocalStore.FindSubmittedAnswerAsync(SessionId.Value, snapshot.CurrentQuestion.QuestionId);
     }
 
+    private void RestartCountdownTimer()
+    {
+        countdownTimer?.Dispose();
+        countdownTimer = null;
+
+        UpdateRemainingSeconds();
+
+        if (snapshot?.QuestionDeadlineUtc is null || snapshot.Status != SessionStatus.Running)
+        {
+            return;
+        }
+
+        countdownTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                UpdateRemainingSeconds();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateRemainingSeconds()
+    {
+        if (snapshot?.QuestionDeadlineUtc is null)
+        {
+            remainingSeconds = 0;
+            return;
+        }
+
+        var diff = snapshot.QuestionDeadlineUtc.Value - DateTimeOffset.UtcNow;
+        remainingSeconds = Math.Max(0, (int)Math.Ceiling(diff.TotalSeconds));
+    }
+
     private async Task EnsureRealtimeConnectionAsync(Guid sessionId)
     {
         if (hubConnection is null)
@@ -267,6 +311,9 @@ else
             {
                 infoMessage = message;
             }
+
+            RestartCountdownTimer();
+            StateHasChanged();
         });
     }
 
@@ -278,6 +325,9 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        countdownTimer?.Dispose();
+        countdownTimer = null;
+
         if (hubConnection is null)
         {
             return;

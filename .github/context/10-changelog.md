@@ -184,3 +184,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 9 nových testů S19 (výpočet a uložení výsledků, ranked výsledky pro tým/organizátora, chybějící auth, pre-FINISHED odmítnutí, správné odpovědi, tie-break).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (58/58 passed).
 - Omezení: ruční smoke-check results/ranking flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.
+
+## Bugfix — Realtime rendering a countdown timer
+- V `QuizApp.Client/Pages/TeamQuestion.razor` přidáno explicitní volání `StateHasChanged()` na konci `ReloadSnapshotFromRealtimeAsync`, čímž se opravilo nezobrazení nové otázky po přijetí SignalR eventu `question.changed`.
+- Tentýž rendering fix aplikován i v `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` (prevence stejné chyby).
+- V `QuizApp.Client/Pages/TeamQuestion.razor` přidán živý countdown timer (zbývající sekundy do deadline), který se aktualizuje každou sekundu přes `System.Threading.Timer` + `InvokeAsync(StateHasChanged)`.
+- Countdown se automaticky restartuje při přechodu na novou otázku (z `ReloadSnapshotFromRealtimeAsync` i `OnParametersSetAsync`).
+- Timer se korektně uvolňuje v `DisposeAsync`.
+- Nahrazeno zobrazení surového UTC deadline textem „⏱ Zbývá: Xs" / „⏱ Čas vypršel".
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (58/58 passed).
+- Omezení: ruční smoke-check vyžaduje běžící server + klienta s aktivní RUNNING session.
