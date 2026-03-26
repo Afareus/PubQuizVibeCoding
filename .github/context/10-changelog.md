@@ -162,3 +162,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Client/Program.cs` byla doplněna DI registrace `TeamSessionLocalStore`; `_Imports.razor` nyní obsahuje `@using QuizApp.Client.Team`.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (45 passed).
 - Omezení: backend submit odpovědi (`POST /api/sessions/{sessionId}/answers`) ještě není implementován (krok `S18`), proto je v `S17` „odeslání“ řešeno pouze lokálním uzamčením UI.
+
+## S18 — Answer submit backend
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byla přidána operace `SubmitAnswerAsync` s validací vstupu, autentizací přes `X-Team-Reconnect-Token`, kontrolou stavu `RUNNING`, validací aktivní otázky a deadline a uložením odpovědi s výpočtem `IsCorrect` + `ResponseTimeMs`.
+- First-write-wins je vynuceno kombinací aplikační kontroly a databázové unikátnosti (`SessionId + TeamId + QuestionId`) s mapováním kolize na business chybu `AlreadyAnswered`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` byl přidán endpoint `POST /api/sessions/{sessionId}/answers`.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` byly přidány kontrakty `SubmitAnswerRequest` a `SubmitAnswerResponse`.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S18: valid submit, duplicate submit, late submit a invalid reconnect token.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (49 passed).
+- Omezení: ruční smoke-check submit flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.

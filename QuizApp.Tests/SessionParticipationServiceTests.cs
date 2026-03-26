@@ -349,6 +349,103 @@ public class SessionParticipationServiceTests
         Assert.Equal(ApiErrorCode.SessionStateChanged, secondCancel.Error!.Code);
     }
 
+    [Fact]
+    public async Task SubmitAnswerAsync_ValidRequest_StoresAnswerWithCorrectnessAndResponseTime()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+
+        var submitResult = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(submitResult.IsSuccess);
+        Assert.NotNull(submitResult.Response);
+        Assert.Equal(created.SessionId, submitResult.Response!.SessionId);
+        Assert.Equal(created.TeamId, submitResult.Response.TeamId);
+        Assert.Equal(created.QuestionId, submitResult.Response.QuestionId);
+
+        var answer = await dbContext.TeamAnswers.SingleAsync(x => x.SessionId == created.SessionId && x.TeamId == created.TeamId && x.QuestionId == created.QuestionId);
+        Assert.True(answer.IsCorrect);
+        Assert.True(answer.ResponseTimeMs >= 0);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_DuplicateSubmit_ReturnsAlreadyAnswered()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+
+        var firstSubmit = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+        Assert.True(firstSubmit.IsSuccess);
+
+        var secondSubmit = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.False(secondSubmit.IsSuccess);
+        Assert.NotNull(secondSubmit.Error);
+        Assert.Equal(ApiErrorCode.AlreadyAnswered, secondSubmit.Error!.Code);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_AfterDeadline_ReturnsQuestionClosed()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var submitResult = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.False(submitResult.IsSuccess);
+        Assert.NotNull(submitResult.Error);
+        Assert.Equal(ApiErrorCode.QuestionClosed, submitResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_InvalidReconnectToken_ReturnsInvalidAuthToken()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+
+        var submitResult = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            "neplatny-token",
+            CancellationToken.None);
+
+        Assert.False(submitResult.IsSuccess);
+        Assert.NotNull(submitResult.Error);
+        Assert.Equal(ApiErrorCode.InvalidAuthToken, submitResult.Error!.Code);
+    }
+
     private static QuizManagementService CreateQuizService(QuizAppDbContext dbContext)
     {
         return new QuizManagementService(dbContext, new QuizCsvParser());
@@ -405,6 +502,35 @@ public class SessionParticipationServiceTests
         Assert.True(createSessionResult.IsSuccess);
 
         return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
+    }
+
+    private static async Task<(Guid SessionId, Guid TeamId, string TeamReconnectToken, Guid QuestionId)> CreateRunningSessionWithTeamAsync(
+        QuizManagementService quizService,
+        SessionParticipationService sessionService,
+        CancellationToken cancellationToken)
+    {
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, cancellationToken);
+
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Submit"), cancellationToken);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, cancellationToken);
+        Assert.True(startResult.IsSuccess);
+
+        var snapshotResult = await sessionService.GetSessionStateAsync(
+            created.SessionId,
+            joinResult.Response!.TeamId,
+            joinResult.Response.TeamReconnectToken,
+            cancellationToken);
+        Assert.True(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Response);
+        Assert.NotNull(snapshotResult.Response!.CurrentQuestion);
+
+        return (
+            created.SessionId,
+            joinResult.Response.TeamId,
+            joinResult.Response.TeamReconnectToken,
+            snapshotResult.Response.CurrentQuestion!.QuestionId);
     }
 
     private static async Task<(Guid QuizId, Guid SessionId, string JoinCode, string DeletePassword, string OrganizerToken)> CreateWaitingSessionWithTwoQuestionsAsync(QuizManagementService quizService, CancellationToken cancellationToken)

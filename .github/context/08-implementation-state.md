@@ -29,13 +29,13 @@ Po každém kroku jej aktualizuj.
 - [x] S15 — Otázkový engine a timeout progression
 - [x] S16 — SignalR session groups a eventy
 - [x] S17 — Team UI: join, waiting room, question screen
-- [ ] S18 — Answer submit backend
+- [x] S18 — Answer submit backend
 - [ ] S19 — Výsledky, ranking a correct answers
 - [ ] S20 — Hardening a bezpečnostní minimum
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S17 — Team UI: join, waiting room, question screen (ověřeno 2026-03-26 UTC).
+- S18 — Answer submit backend (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -78,12 +78,16 @@ Po každém kroku jej aktualizuj.
 - `QuizApp.Client/Pages/TeamWaitingRoom.razor` bylo rozšířeno na funkční čekárnu týmu: načtení snapshotu přes `GET /api/sessions/{sessionId}/state?teamId={teamId}` s hlavičkou `X-Team-Reconnect-Token`, SignalR subscribe do session group a přechod na otázku po startu session.
 - `QuizApp.Client/Pages/TeamQuestion.razor` bylo rozšířeno na funkční question screen: načtení aktuální otázky ze snapshotu, zobrazení variant `A/B/C/D`, lokální jednorázové uzamčení odpovědi po odeslání a realtime refresh při `question.changed` / ukončovacích eventech.
 - `QuizApp.Client/Program.cs` registruje `TeamSessionLocalStore` do DI; `_Imports.razor` byl rozšířen o namespace `QuizApp.Client.Team`.
-- Další krok je `S18`.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyly kontrakty `SubmitAnswerRequest` a `SubmitAnswerResponse` pro endpoint submitu odpovědi.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyla operace `SubmitAnswerAsync` s validací `X-Team-Reconnect-Token`, pravidel `RUNNING + aktivní otázka + deadline`, first-write-wins (`SessionId + TeamId + QuestionId`) a výpočtem `IsCorrect` + `ResponseTimeMs` při uložení `TeamAnswer`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` byl přidán endpoint `POST /api/sessions/{sessionId}/answers`.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy S18 (valid submit, duplicate submit, late submit, invalid reconnect token).
+- Další krok je `S19`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 45/45 passed)
-- Ruční smoke check: neproběhl (S17 flow vyžaduje běžící server/klienta a interakci ve více oknech)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 49/49 passed)
+- Ruční smoke check: neproběhl (S18 submit flow vyžaduje běžící server/klienta a interakci týmu během RUNNING session)

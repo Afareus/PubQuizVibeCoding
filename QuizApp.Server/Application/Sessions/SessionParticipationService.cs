@@ -21,6 +21,8 @@ public interface ISessionParticipationService
 
     Task<OrganizerSessionStateOperationResult> CancelSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, bool confirmCancellation, CancellationToken cancellationToken);
 
+    Task<SubmitAnswerOperationResult> SubmitAnswerAsync(Guid sessionId, SubmitAnswerRequest request, string? teamReconnectToken, CancellationToken cancellationToken);
+
     Task ProgressDueSessionsAsync(CancellationToken cancellationToken);
 }
 
@@ -167,6 +169,104 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 .ToList());
 
         return SessionStateOperationResult.Success(response);
+    }
+
+    public async Task<SubmitAnswerOperationResult> SubmitAnswerAsync(Guid sessionId, SubmitAnswerRequest request, string? teamReconnectToken, CancellationToken cancellationToken)
+    {
+        var validationErrors = ValidateSubmitAnswerRequest(request);
+        if (validationErrors is not null)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Vstupní data nejsou validní.", validationErrors));
+        }
+
+        if (string.IsNullOrWhiteSpace(teamReconnectToken))
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí hlavička X-Team-Reconnect-Token."));
+        }
+
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz!)
+                .ThenInclude(x => x.Questions)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        var team = session.Teams.SingleOrDefault(x => x.TeamId == request.TeamId);
+        if (team is null)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Tým v session nebyl nalezen."));
+        }
+
+        if (!VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný team reconnect token."));
+        }
+
+        if (session.Status != SessionStatus.Running)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Odpovědi lze odesílat pouze v RUNNING session."));
+        }
+
+        if (!session.CurrentQuestionIndex.HasValue || !session.CurrentQuestionStartedAtUtc.HasValue || !session.QuestionDeadlineUtc.HasValue)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Aktuální otázka není dostupná."));
+        }
+
+        var currentQuestion = session.Quiz?.Questions
+            .SingleOrDefault(x => x.OrderIndex == session.CurrentQuestionIndex.Value);
+
+        if (currentQuestion is null || currentQuestion.QuestionId != request.QuestionId)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Otázka už není aktivní."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        if (nowUtc > session.QuestionDeadlineUtc.Value)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Čas pro odeslání odpovědi vypršel."));
+        }
+
+        var alreadyAnswered = await _dbContext.TeamAnswers.AnyAsync(
+            x => x.SessionId == sessionId && x.TeamId == request.TeamId && x.QuestionId == request.QuestionId,
+            cancellationToken);
+
+        if (alreadyAnswered)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.AlreadyAnswered, "Tým už na tuto otázku odpověděl."));
+        }
+
+        var responseTimeMs = Math.Max(0L, (long)(nowUtc - session.CurrentQuestionStartedAtUtc.Value).TotalMilliseconds);
+        var isCorrect = request.SelectedOption == currentQuestion.CorrectOption;
+
+        _dbContext.TeamAnswers.Add(TeamAnswer.Create(
+            Guid.NewGuid(),
+            sessionId,
+            request.TeamId,
+            request.QuestionId,
+            request.SelectedOption,
+            nowUtc,
+            isCorrect,
+            responseTimeMs));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.AlreadyAnswered, "Tým už na tuto otázku odpověděl."));
+        }
+
+        return SubmitAnswerOperationResult.Success(new SubmitAnswerResponse(
+            sessionId,
+            request.TeamId,
+            request.QuestionId,
+            request.SelectedOption,
+            new DateTimeOffset(nowUtc, TimeSpan.Zero)));
     }
 
     public async Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
@@ -434,6 +534,23 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return errors.Count == 0 ? null : errors;
     }
 
+    private static IReadOnlyDictionary<string, string[]>? ValidateSubmitAnswerRequest(SubmitAnswerRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        if (request.TeamId == Guid.Empty)
+        {
+            errors[nameof(SubmitAnswerRequest.TeamId)] = ["TeamId je povinné."];
+        }
+
+        if (request.QuestionId == Guid.Empty)
+        {
+            errors[nameof(SubmitAnswerRequest.QuestionId)] = ["QuestionId je povinné."];
+        }
+
+        return errors.Count == 0 ? null : errors;
+    }
+
     private static string GenerateTeamReconnectToken()
     {
         Span<byte> tokenBytes = stackalloc byte[TeamReconnectTokenEntropyBytes];
@@ -594,4 +711,15 @@ public sealed record OrganizerSessionStateOperationResult(
     public static OrganizerSessionStateOperationResult Success(OrganizerSessionSnapshotResponse response) => new(response, null);
 
     public static OrganizerSessionStateOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record SubmitAnswerOperationResult(
+    SubmitAnswerResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static SubmitAnswerOperationResult Success(SubmitAnswerResponse response) => new(response, null);
+
+    public static SubmitAnswerOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }

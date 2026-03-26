@@ -23,6 +23,18 @@ public sealed record JoinSessionResponse(
 public sealed record CancelSessionRequest(
     bool ConfirmCancellation);
 
+public sealed record SubmitAnswerRequest(
+    Guid TeamId,
+    Guid QuestionId,
+    OptionKey SelectedOption);
+
+public sealed record SubmitAnswerResponse(
+    Guid SessionId,
+    Guid TeamId,
+    Guid QuestionId,
+    OptionKey SelectedOption,
+    DateTimeOffset SubmittedAtUtc);
+
 public sealed record SessionStateSnapshotResponse(
     Guid SessionId,
     SessionStatus Status,

@@ -16,6 +16,7 @@ public static class SessionParticipationEndpoints
         group.MapPost("/join", JoinSessionAsync);
         group.MapGet("/{sessionId:guid}", GetOrganizerSessionAsync);
         group.MapGet("/{sessionId:guid}/state", GetSessionStateAsync);
+        group.MapPost("/{sessionId:guid}/answers", SubmitAnswerAsync);
         group.MapPost("/{sessionId:guid}/start", StartSessionAsync);
         group.MapPost("/{sessionId:guid}/cancel", CancelSessionAsync);
 
@@ -28,6 +29,23 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var result = await sessionParticipationService.JoinSessionAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> SubmitAnswerAsync(
+        Guid sessionId,
+        SubmitAnswerRequest request,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
+        var result = await sessionParticipationService.SubmitAnswerAsync(sessionId, request, teamReconnectToken, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));

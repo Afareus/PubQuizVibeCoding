@@ -164,3 +164,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** V týmovém question UI je „odeslání odpovědi“ v kroku S17 řešeno lokálním uložením a uzamčením per `sessionId + questionId` v `localStorage`; volání backend submit endpointu nebude přidáno dříve než v S18.
 - **Důvod:** Roadmapa explicitně odděluje S17 (Team UI flow) od S18 (`POST /api/sessions/{sessionId}/answers` a `first-write-wins`), takže plná serverová submit logika by v S17 byla scope creep.
 - **Dopad:** Týmové UI už nyní splňuje UX požadavek „po odeslání jasně uzamknout odpověď“, přičemž serverová autorita a business validace zůstanou doplněny v navazujícím kroku S18.
+
+### D-023 — S18 submit request nese `QuestionId`, response nevrací `IsCorrect`
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S18
+- **Rozhodnutí:** Kontrakt `POST /api/sessions/{sessionId}/answers` používá `SubmitAnswerRequest(TeamId, QuestionId, SelectedOption)` a úspěšná odpověď vrací pouze potvrzení uložení bez pole `IsCorrect`.
+- **Důvod:** `QuestionId` umožňuje serveru bezpečně validovat, že submit patří právě aktivní otázce (ochrana proti race při přepnutí otázky), a nevracení `IsCorrect` drží pravidlo MVP „během hry nezobrazovat správné odpovědi“. 
+- **Dopad:** Backend first-write-wins je deterministický i při pozdních/opožděných requestech a API neprozrazuje správnost odpovědi před krokem výsledků (`S19`).
