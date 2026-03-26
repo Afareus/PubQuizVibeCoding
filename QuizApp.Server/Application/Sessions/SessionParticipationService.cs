@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using QuizApp.Server.Domain.Entities;
 using QuizApp.Server.Persistence;
@@ -15,6 +16,10 @@ public interface ISessionParticipationService
     Task<SessionStateOperationResult> GetSessionStateAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken);
 
     Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<OrganizerSessionStateOperationResult> CancelSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, bool confirmCancellation, CancellationToken cancellationToken);
 }
 
 public sealed class SessionParticipationService : ISessionParticipationService
@@ -192,6 +197,122 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return OrganizerSessionStateOperationResult.Success(response);
     }
 
+    public async Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return OrganizerSessionStateOperationResult.Fail(authError!);
+        }
+
+        if (session.Status != SessionStatus.Waiting)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze spustit pouze ze stavu WAITING."));
+        }
+
+        if (session.Teams.Count == 0)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session nelze spustit bez připojeného týmu."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        session.Start(nowUtc);
+
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "SESSION_STARTED",
+            session.QuizId,
+            session.SessionId,
+            JsonSerializer.Serialize(new SessionStartedAuditPayload(session.SessionId, session.QuizId))));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
+        }
+
+        return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    public async Task<OrganizerSessionStateOperationResult> CancelSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, bool confirmCancellation, CancellationToken cancellationToken)
+    {
+        if (!confirmCancellation)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zrušení session musí být explicitně potvrzeno."));
+        }
+
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return OrganizerSessionStateOperationResult.Fail(authError!);
+        }
+
+        if (session.Status is SessionStatus.Finished or SessionStatus.Cancelled)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Terminální session nelze měnit."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        session.Cancel(nowUtc);
+
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "SESSION_CANCELLED",
+            session.QuizId,
+            session.SessionId,
+            JsonSerializer.Serialize(new SessionCancelledAuditPayload(session.SessionId, session.QuizId))));
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
+        }
+
+        return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    private static OrganizerSessionSnapshotResponse ToOrganizerSnapshot(QuizSession session)
+    {
+        return new OrganizerSessionSnapshotResponse(
+            session.SessionId,
+            session.QuizId,
+            session.JoinCode,
+            session.Status,
+            new DateTimeOffset(session.CreatedAtUtc, TimeSpan.Zero),
+            ToUtcOffset(session.StartedAtUtc),
+            ToUtcOffset(session.EndedAtUtc),
+            session.Teams
+                .OrderBy(x => x.JoinedAtUtc)
+                .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
+                .ToList());
+    }
+
     private static DateTimeOffset? ToUtcOffset(DateTime? value)
     {
         return value is null ? null : new DateTimeOffset(value.Value, TimeSpan.Zero);
@@ -337,6 +458,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         return expectedHash.Length == actualHash.Length && CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
     }
+
+    private sealed record SessionStartedAuditPayload(Guid SessionId, Guid QuizId);
+
+    private sealed record SessionCancelledAuditPayload(Guid SessionId, Guid QuizId);
 }
 
 public sealed record JoinSessionOperationResult(

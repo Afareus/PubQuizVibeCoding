@@ -20,6 +20,9 @@ public sealed record JoinSessionResponse(
     string TeamReconnectToken,
     SessionStatus Status);
 
+public sealed record CancelSessionRequest(
+    bool ConfirmCancellation);
+
 public sealed record SessionStateSnapshotResponse(
     Guid SessionId,
     SessionStatus Status,

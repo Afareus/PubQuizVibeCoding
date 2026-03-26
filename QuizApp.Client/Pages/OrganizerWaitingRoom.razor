@@ -2,6 +2,7 @@
 @page "/organizator/session/cekarna/{SessionId:guid}"
 @inject HttpClient HttpClient
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Čekárna session</PageTitle>
 
@@ -56,6 +57,22 @@
             <p class="mb-1"><strong>Quiz ID:</strong> <code>@snapshot.QuizId</code></p>
             <p class="mb-1"><strong>Join code:</strong> <code>@snapshot.JoinCode</code></p>
             <p class="mb-3"><strong>Stav:</strong> @snapshot.Status</p>
+
+            <div class="d-flex gap-2 mb-3">
+                @if (snapshot.Status == SessionStatus.Waiting)
+                {
+                    <button class="btn btn-success" type="button" disabled="@isLoading" @onclick="StartSessionAsync">
+                        @(isLoading ? "Provádím..." : "Spustit session")
+                    </button>
+                }
+
+                @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running)
+                {
+                    <button class="btn btn-outline-danger" type="button" disabled="@isLoading" @onclick="CancelSessionAsync">
+                        @(isLoading ? "Provádím..." : "Zrušit session")
+                    </button>
+                }
+            </div>
 
             <h3 class="h6">Připojené týmy (@snapshot.Teams.Count)</h3>
 
@@ -139,6 +156,79 @@
         else
         {
             snapshot = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task StartSessionAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/start");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            infoMessage = "Session byla spuštěna.";
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task CancelSessionAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Opravdu chcete zrušit session?");
+        if (!confirmed)
+        {
+            infoMessage = "Zrušení session bylo stornováno.";
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/cancel")
+        {
+            Content = JsonContent.Create(new CancelSessionRequest(true))
+        };
+
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            infoMessage = "Session byla zrušena.";
+        }
+        else
+        {
             apiError = await ReadApiErrorAsync(response);
         }
 

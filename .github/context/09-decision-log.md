@@ -136,3 +136,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Pro organizátorskou čekárnu byl doplněn endpoint `GET /api/sessions/{sessionId}` vracející snapshot session (join code, stav, týmy) a autentizace je platná přes `X-Organizer-Token` **nebo** `X-Quiz-Password`.
 - **Důvod:** S13 vyžaduje waiting room se seznamem připojených týmů; týmový snapshot endpoint ze S12 vyžaduje `X-Team-Reconnect-Token`, takže pro organizátora nebyl použitelný.
 - **Dopad:** UI čekárny může bezpečně načítat aktuální stav WAITING session bez zavádění SignalR v tomto kroku a bez scope creep do game engine.
+
+### D-019 — S14 cancel endpoint vyžaduje explicitní potvrzení v requestu
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S14
+- **Rozhodnutí:** Endpoint `POST /api/sessions/{sessionId}/cancel` přijímá payload `CancelSessionRequest` a backend vyžaduje `ConfirmCancellation=true`; bez něj vrací validační chybu.
+- **Důvod:** Roadmapa S14 požaduje potvrzovací krok pro zrušení session v UI; explicitní potvrzení v API kontraktu zajišťuje, že tento požadavek nepůjde obejít omylem klientskou chybou.
+- **Dopad:** Cancel flow je bezpečnější a konzistentní mezi klienty, přitom scope zůstává v rámci MVP (jen start/cancel přechody a potvrzení zrušení).

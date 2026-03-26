@@ -145,6 +145,112 @@ public class SessionParticipationServiceTests
         Assert.Equal(ApiErrorCode.MissingAuthToken, snapshotResult.Error!.Code);
     }
 
+    [Fact]
+    public async Task StartSessionAsync_WithoutTeams_ReturnsSessionStateChanged()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+
+        var result = await sessionService.StartSessionAsync(created.SessionId, null, created.DeletePassword, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ApiErrorCode.SessionStateChanged, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task StartSessionAsync_WithTeam_TransitionsToRunningAndWritesAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Start"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+
+        Assert.True(startResult.IsSuccess);
+        Assert.NotNull(startResult.Response);
+        Assert.Equal(SessionStatus.Running, startResult.Response!.Status);
+        Assert.NotNull(startResult.Response.StartedAtUtc);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Running, session.Status);
+        Assert.NotNull(session.StartedAtUtc);
+
+        var audit = await dbContext.AuditLogs.SingleAsync(x => x.ActionType == "SESSION_STARTED");
+        Assert.Equal(created.SessionId, audit.SessionId);
+    }
+
+    [Fact]
+    public async Task CancelSessionAsync_WithoutExplicitConfirmation_ReturnsValidationFailed()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+
+        var result = await sessionService.CancelSessionAsync(created.SessionId, null, created.DeletePassword, confirmCancellation: false, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ApiErrorCode.ValidationFailed, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task CancelSessionAsync_RunningSession_TransitionsToCancelledAndWritesAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Cancel"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var cancelResult = await sessionService.CancelSessionAsync(created.SessionId, null, created.DeletePassword, confirmCancellation: true, CancellationToken.None);
+
+        Assert.True(cancelResult.IsSuccess);
+        Assert.NotNull(cancelResult.Response);
+        Assert.Equal(SessionStatus.Cancelled, cancelResult.Response!.Status);
+        Assert.NotNull(cancelResult.Response.EndedAtUtc);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Cancelled, session.Status);
+        Assert.NotNull(session.EndedAtUtc);
+
+        var audit = await dbContext.AuditLogs.SingleAsync(x => x.ActionType == "SESSION_CANCELLED");
+        Assert.Equal(created.SessionId, audit.SessionId);
+    }
+
+    [Fact]
+    public async Task CancelSessionAsync_TerminalState_ReturnsSessionStateChanged()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+
+        var firstCancel = await sessionService.CancelSessionAsync(created.SessionId, created.OrganizerToken, null, confirmCancellation: true, CancellationToken.None);
+        Assert.True(firstCancel.IsSuccess);
+
+        var secondCancel = await sessionService.CancelSessionAsync(created.SessionId, created.OrganizerToken, null, confirmCancellation: true, CancellationToken.None);
+
+        Assert.False(secondCancel.IsSuccess);
+        Assert.NotNull(secondCancel.Error);
+        Assert.Equal(ApiErrorCode.SessionStateChanged, secondCancel.Error!.Code);
+    }
+
     private static QuizManagementService CreateQuizService(QuizAppDbContext dbContext)
     {
         return new QuizManagementService(dbContext, new QuizCsvParser());
@@ -183,7 +289,7 @@ public class SessionParticipationServiceTests
         return (createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode);
     }
 
-    private static async Task<(Guid QuizId, Guid SessionId, string JoinCode, string DeletePassword)> CreateWaitingSessionWithQuizAuthAsync(QuizManagementService quizService, CancellationToken cancellationToken)
+    private static async Task<(Guid QuizId, Guid SessionId, string JoinCode, string DeletePassword, string OrganizerToken)> CreateWaitingSessionWithQuizAuthAsync(QuizManagementService quizService, CancellationToken cancellationToken)
     {
         const string deletePassword = "heslo";
         var createQuizResult = await quizService.CreateQuizAsync(new CreateQuizRequest("Session kvíz", deletePassword), cancellationToken);
@@ -200,6 +306,6 @@ public class SessionParticipationServiceTests
         var createSessionResult = await quizService.CreateSessionAsync(quizId, organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
-        return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword);
+        return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
     }
 }

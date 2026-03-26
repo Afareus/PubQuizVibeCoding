@@ -124,3 +124,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` byly přidány testy pro organizátorský snapshot (úspěch přes heslo, chyba bez autentizace).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (36 passed).
 - Omezení: ruční smoke-check S13 UI/API flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.
+
+## S14 — Start/cancel session backend
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byly doplněny operace `StartSessionAsync` a `CancelSessionAsync` s validací přechodů stavů session, podmínkou alespoň 1 připojeného týmu pro start, autorizací přes `X-Organizer-Token` nebo `X-Quiz-Password`, ošetřením optimistic concurrency a zápisem audit akcí `SESSION_STARTED` / `SESSION_CANCELLED`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` byly přidány endpointy `POST /api/sessions/{sessionId}/start` a `POST /api/sessions/{sessionId}/cancel`.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` byl přidán kontrakt `CancelSessionRequest` pro explicitní potvrzení zrušení session.
+- V `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` byla přidána tlačítka pro spuštění a zrušení session, napojení na nové endpointy a potvrzovací dialog před zrušením.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pokrývající S14 pravidla (start bez týmu, start s týmem, cancel bez potvrzení, cancel běžící session, zákaz mutace terminálního stavu).
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (41 passed).
+- Omezení: ruční smoke-check S14 UI/API flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.

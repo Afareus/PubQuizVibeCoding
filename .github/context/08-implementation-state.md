@@ -25,7 +25,7 @@ Po každém kroku jej aktualizuj.
 - [x] S11 — Session create backend a join code
 - [x] S12 — Team join backend a reconnect identita
 - [x] S13 — Organizátorský waiting room a session create UI
-- [ ] S14 — Start/cancel session backend
+- [x] S14 — Start/cancel session backend
 - [ ] S15 — Otázkový engine a timeout progression
 - [ ] S16 — SignalR session groups a eventy
 - [ ] S17 — Team UI: join, waiting room, question screen
@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S13 — Organizátorský waiting room a session create UI (ověřeno 2026-03-26 UTC).
+- S14 — Start/cancel session backend (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -57,12 +57,17 @@ Po každém kroku jej aktualizuj.
 - `QuizApp.Client/Pages/OrganizerQuizDetail.razor` nově umožňuje vytvořit session (`POST /api/quizzes/{quizId}/sessions`), zobrazit `SessionId + JoinCode` a přejít do čekárny.
 - `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` je nahrazeno funkční obrazovkou čekárny: načtení snapshotu přes `GET /api/sessions/{sessionId}`, podpora lokálního tokenu podle `quizId`, zobrazení stavu session a připojených týmů.
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy organizátorského snapshotu (validní heslo, chybějící autentizace).
-- Další krok je `S14`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyly operace `StartSessionAsync` a `CancelSessionAsync` s autorizací (`X-Organizer-Token` nebo `X-Quiz-Password`), validací přechodů (`WAITING -> RUNNING`, zákaz mutace terminálních stavů), podmínkou min. 1 týmu pro start, concurrency ošetřením a audit logy `SESSION_STARTED` / `SESSION_CANCELLED`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyly endpointy `POST /api/sessions/{sessionId}/start` a `POST /api/sessions/{sessionId}/cancel`; cancel vyžaduje payload `CancelSessionRequest` s explicitním potvrzením.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyl kontrakt `CancelSessionRequest` pro potvrzení zrušení session.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově umožňuje session spustit/zrušit, volá nové endpointy a před rušením vyžaduje potvrzení přes dialog.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S14 (start bez týmu, start s týmem, cancel bez potvrzení, cancel RUNNING session, zákaz mutace terminálního stavu).
+- Další krok je `S15`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 36/36 passed)
-- Ruční smoke check: neproběhl (nové UI/endpointy S13 vyžadují ruční ověření v běžícím serveru/klientovi)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 41/41 passed)
+- Ruční smoke check: neproběhl (nové UI/endpointy S14 vyžadují ruční ověření v běžícím serveru/klientovi)
