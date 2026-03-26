@@ -87,3 +87,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** CSV importní kontrakt je fixován na přesnou hlavičku `question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec` (`CsvQuizContract`) a parser `QuizCsvParser` vrací strukturovaný validační report přes `CsvValidationIssueDto` s `row + column + reason`.
 - **Důvod:** Roadmapa pro S07 vyžaduje nepovolit volnější hlavičku a dodat parser/validátor odděleně od UI, včetně přesných chyb a ignorování prázdných řádků.
 - **Dopad:** Navazující krok S08 může přímo použít připravený parse výstup (`CsvQuizImportParseResult`) pro vytvoření kvízu/import otázek bez změny validačních pravidel.
+
+### D-012 — S08 import je jednorázový pouze pro prázdný kvíz
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S08
+- **Rozhodnutí:** Služba `ImportQuizCsvAsync` odmítá import, pokud už kvíz obsahuje otázky, a vrací aplikační chybu místo přepsání dat.
+- **Důvod:** Zdroj pravdy explicitně říká, že nový kvíz je prázdný a CSV se nahrává jednorázově.
+- **Dopad:** Následné API/UI kroky mohou stavět na deterministickém `empty quiz -> single import` flow bez potřeby řešit merge nebo reimport.

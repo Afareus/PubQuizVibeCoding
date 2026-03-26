@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using QuizApp.Server.Application.QuizImport;
+using QuizApp.Server.Application.Quizzes;
 using QuizApp.Server.Configuration;
 using QuizApp.Server.Persistence;
 
@@ -15,6 +17,9 @@ builder.Services.AddDbContext<QuizAppDbContext>((serviceProvider, options) =>
     var postgreSqlOptions = serviceProvider.GetRequiredService<IOptions<PostgreSqlOptions>>().Value;
     options.UseNpgsql(postgreSqlOptions.ConnectionString);
 });
+
+builder.Services.AddScoped<IQuizCsvParser, QuizCsvParser>();
+builder.Services.AddScoped<IQuizManagementService, QuizManagementService>();
 
 builder.Services.AddSignalR(options =>
 {

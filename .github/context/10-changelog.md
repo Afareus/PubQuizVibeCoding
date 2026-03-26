@@ -67,3 +67,11 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/UnitTest1.cs` nahrazen placeholder test sadou `QuizCsvParserTests` pokrývající validní CSV, chybnou hlavičku, chybné hodnoty i ignorování prázdných řádků.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (4 passed).
 - Omezení: ruční smoke-check importu přes UI/API zatím neproběhl, protože endpointy/import služba budou až v navazujících krocích (`S08`, `S09`, `S10`).
+
+## S08 — Služba pro založení kvízu a import otázek
+- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` byla přidána aplikační služba `IQuizManagementService` + `QuizManagementService` s operacemi `CreateQuizAsync` a `ImportQuizCsvAsync`.
+- `CreateQuizAsync` generuje `QuizOrganizerToken` s 256bit entropií, ukládá jen hash tokenu (`SHA-256`), hashuje `DeletePassword` (`PBKDF2-SHA256`) a zapisuje audit `QUIZ_CREATED`.
+- `ImportQuizCsvAsync` ověřuje organizer token constant-time porovnáním hashů, povolí import jen pro prázdný kvíz, mapuje parse výstup na `Question`/`QuestionOption` a zapisuje audit `QUIZ_IMPORTED`.
+- V `QuizApp.Server/Program.cs` doplněna DI registrace `IQuizCsvParser` a `IQuizManagementService`.
+- V `QuizApp.Tests/QuizManagementServiceTests.cs` přidány testy create/import/token auth; v `QuizApp.Tests.csproj` přidán `Microsoft.EntityFrameworkCore.InMemory`.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (21 passed).
