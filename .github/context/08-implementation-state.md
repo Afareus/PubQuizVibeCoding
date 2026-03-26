@@ -18,7 +18,7 @@ Po každém kroku jej aktualizuj.
 - [x] S04 — Entitní model domény
 - [x] S05 — EF Core mapování a DbContext
 - [x] S06 — První migrace a databázový bootstrap
-- [ ] S07 — CSV kontrakt, parser a validační report
+- [x] S07 — CSV kontrakt, parser a validační report
 - [ ] S08 — Služba pro založení kvízu a import otázek
 - [ ] S09 — REST endpointy pro správu kvízů
 - [ ] S10 — Organizátorské UI pro kvízy
@@ -35,21 +35,19 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S06 — První migrace a databázový bootstrap (ověřeno 2026-03-25 UTC).
+- S07 — CSV kontrakt, parser a validační report (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Server/Persistence/Migrations` byla vytvořena první EF Core migrace `InitialCreate` včetně snapshotu modelu.
-- V `Program.cs` je doplněn databázový bootstrap přes `Database.MigrateAsync()` při startu aplikace.
-- Do `QuizApp.Server.csproj` byl přidán `Microsoft.EntityFrameworkCore.Design` pro design-time migrace.
-- Do kořene repozitáře byl přidán `dotnet-tools.json` s lokálním nástrojem `dotnet-ef` (`8.0.12`) pro konzistentní spouštění migrací.
-- Další krok je `S07`.
+- Do `QuizApp.Shared/Contracts` byl přidán `CsvQuizContract` se striktní hlavičkou CSV (`question_text, option_a, option_b, option_c, option_d, correct_option, time_limit_sec`).
+- V `QuizApp.Server/Application/QuizImport` vznikl parser `QuizCsvParser` s validačním reportem po řádcích/sloupcích (`CsvValidationIssueDto`) a ignorováním prázdných řádků.
+- Parser validuje povinné sloupce, `correct_option` (`A-D`) a `time_limit_sec` (10-300), a vrací strukturovaný výstup `CsvQuizImportParseResult`.
+- V `QuizApp.Tests` byly přidány unit testy parseru pro validní CSV, chybnou hlavičku, validační chyby dat a ignorování prázdných řádků.
+- Další krok je `S08`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`)
-- EF migrace: vytvoření úspěšné (`dotnet dotnet-ef migrations add InitialCreate`)
-- EF database update: neúspěšné v tomto prostředí (`Failed to connect to 127.0.0.1:5432`)
-- Ruční smoke check: neproběhl (vyžaduje ruční kontrolu v IDE)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 4/4 passed včetně parser testů)
+- Ruční smoke check: neproběhl (CSV import UI/API bude ověřen až v navazujících krocích)

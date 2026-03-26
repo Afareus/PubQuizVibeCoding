@@ -59,3 +59,11 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Do kořene repozitáře přidán `dotnet-tools.json` s lokálním nástrojem `dotnet-ef` (`8.0.12`) pro konzistentní generování/aplikaci migrací.
 - Ověřeno buildem solution, test runem `QuizApp.Tests` a úspěšným vytvořením migrace (`dotnet dotnet-ef migrations add InitialCreate ...`).
 - Omezení: aplikace migrace do databáze (`dotnet dotnet-ef database update ...`) v tomto prostředí selhala kvůli nedostupnému PostgreSQL na `localhost:5432`.
+
+## S07 — CSV kontrakt, parser a validační report
+- Do `QuizApp.Shared/Contracts/CsvQuizContract.cs` byl přidán explicitní CSV kontrakt se striktní hlavičkou `question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec`.
+- V `QuizApp.Server/Application/QuizImport/QuizCsvParser.cs` vznikl parser/validátor s výstupem `CsvQuizImportParseResult` a strukturovanými chybami `CsvValidationIssueDto` (`row`, `column`, `message`).
+- Implementováno ignorování prázdných řádků a validace povinných textových polí, `correct_option` (`A-D`) a `time_limit_sec` (`10-300`).
+- V `QuizApp.Tests/UnitTest1.cs` nahrazen placeholder test sadou `QuizCsvParserTests` pokrývající validní CSV, chybnou hlavičku, chybné hodnoty i ignorování prázdných řádků.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (4 passed).
+- Omezení: ruční smoke-check importu přes UI/API zatím neproběhl, protože endpointy/import služba budou až v navazujících krocích (`S08`, `S09`, `S10`).

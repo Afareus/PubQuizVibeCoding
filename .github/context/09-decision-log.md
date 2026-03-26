@@ -80,3 +80,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Databázový bootstrap je řešen voláním `Database.MigrateAsync()` při startu serveru a migrace se spravují přes lokální `dotnet-ef` tool manifest.
 - **Důvod:** Krok S06 vyžaduje první migraci a inicializační flow; tento přístup je jednoduchý, čitelný a drží se stávajícího EF Core stacku bez přidání nové aplikační vrstvy.
 - **Dopad:** Po dostupnosti PostgreSQL se schema vytvoří/aplikuje konzistentně při startu i přes CLI (`dotnet dotnet-ef ...`), bez ruční SQL správy.
+
+### D-011 — S07 striktní CSV kontrakt a validační parser v serverové aplikační vrstvě
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S07
+- **Rozhodnutí:** CSV importní kontrakt je fixován na přesnou hlavičku `question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec` (`CsvQuizContract`) a parser `QuizCsvParser` vrací strukturovaný validační report přes `CsvValidationIssueDto` s `row + column + reason`.
+- **Důvod:** Roadmapa pro S07 vyžaduje nepovolit volnější hlavičku a dodat parser/validátor odděleně od UI, včetně přesných chyb a ignorování prázdných řádků.
+- **Dopad:** Navazující krok S08 může přímo použít připravený parse výstup (`CsvQuizImportParseResult`) pro vytvoření kvízu/import otázek bez změny validačních pravidel.
