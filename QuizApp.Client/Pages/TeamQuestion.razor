@@ -41,10 +41,15 @@ else if (snapshot.Status == SessionStatus.Waiting)
     <div class="alert alert-warning" role="alert">Session ještě neběží. Počkejte v čekárně týmu.</div>
     <a class="btn btn-outline-primary" href="@($"/tym/cekarna/{snapshot.SessionId}")">Zpět do čekárny</a>
 }
-else if (snapshot.Status is SessionStatus.Cancelled or SessionStatus.Finished)
+else if (snapshot.Status is SessionStatus.Cancelled)
 {
-    <div class="alert alert-secondary" role="alert">Session již neběží.</div>
-    <a class="btn btn-outline-primary" href="/session/vysledky">Přejít na výsledky</a>
+    <div class="alert alert-secondary" role="alert">Session byla zrušena.</div>
+    <a class="btn btn-outline-primary" href="/">Zpět na úvod</a>
+}
+else if (snapshot.Status is SessionStatus.Finished)
+{
+    <div class="alert alert-success" role="alert">Session skončila! Přejděte na výsledky.</div>
+    <a class="btn btn-primary" href="@($"/session/vysledky/{snapshot.SessionId}")">Zobrazit výsledky</a>
 }
 else if (snapshot.CurrentQuestion is null)
 {
@@ -145,14 +150,40 @@ else
 
     private async Task SubmitAnswerAsync(OptionKey option)
     {
-        if (!SessionId.HasValue || snapshot?.CurrentQuestion is null || submittedOption.HasValue)
+        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null || submittedOption.HasValue)
         {
             return;
         }
 
         await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, snapshot.CurrentQuestion.QuestionId, option);
         submittedOption = option;
-        infoMessage = "Odpověď byla odeslána a uzamčena pro tuto otázku.";
+        apiError = null;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{SessionId.Value}/answers")
+        {
+            Content = JsonContent.Create(new SubmitAnswerRequest(identity.TeamId, snapshot.CurrentQuestion.QuestionId, option))
+        };
+
+        request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            infoMessage = "Odpověď byla odeslána a uzamčena pro tuto otázku.";
+        }
+        else
+        {
+            var error = await ReadApiErrorAsync(response);
+            if (error.Code == ApiErrorCode.AlreadyAnswered)
+            {
+                infoMessage = "Odpověď již byla dříve odeslána.";
+            }
+            else
+            {
+                apiError = error;
+                infoMessage = null;
+            }
+        }
     }
 
     private async Task ReloadSubmittedAnswerAsync()

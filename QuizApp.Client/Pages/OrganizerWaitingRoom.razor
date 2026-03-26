@@ -75,6 +75,13 @@
                         @(isLoading ? "Provádím..." : "Zrušit session")
                     </button>
                 }
+
+                @if (snapshot.Status == SessionStatus.Finished)
+                {
+                    <a class="btn btn-primary" href="@($"/organizator/session/vysledky/{snapshot.SessionId}?quizId={snapshot.QuizId}")">
+                        Zobrazit výsledky a správné odpovědi
+                    </a>
+                }
             </div>
 
             <h3 class="h6">Připojené týmy (@snapshot.Teams.Count)</h3>

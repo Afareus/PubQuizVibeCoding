@@ -171,3 +171,16 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S18: valid submit, duplicate submit, late submit a invalid reconnect token.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (49 passed).
 - Omezení: ruční smoke-check submit flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.
+
+## S19 — Výsledky, ranking a correct answers
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyly kontrakty `SessionResultsResponse`, `SessionResultDto`, `CorrectAnswersResponse`, `CorrectAnswerDto` pro přenos výsledků a správných odpovědí.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyly operace `GetSessionResultsAsync` (dual-auth: tým nebo organizátor), `GetCorrectAnswersAsync` (pouze organizátor) a privátní `ComputeSessionResultsAsync` (ranking: skóre DESC, celkový čas správných odpovědí ASC, sdílený rank při shodě).
+- `ProgressDueSessionsAsync` nyní při finalizaci session automaticky počítá a ukládá `SessionResult` entity; query rozšířeno o `.Include(x => x.Teams)`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyly endpointy `GET /api/sessions/{sessionId}/results` a `GET /api/sessions/{sessionId}/correct-answers`.
+- `QuizApp.Client/Pages/TeamQuestion.razor` opraven tak, aby volal backend submit (`POST /api/sessions/{sessionId}/answers` s `X-Team-Reconnect-Token`) místo pouze lokálního uzamčení ze S17; rozlišuje FINISHED (přechod na výsledky) a CANCELLED (přechod na hlavní stránku).
+- Placeholder `QuizApp.Client/Pages/SessionResults.razor` nahrazen funkční stránkou výsledků pro tým s ranked tabulkou a zvýrazněním vlastního týmu.
+- `QuizApp.Client/Pages/OrganizerSessionResults.razor` vytvořena stránka výsledků pro organizátora s tabulkou rankingu a přehledem správných odpovědí (správná varianta zvýrazněna zeleně).
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` doplněn o odkaz „Zobrazit výsledky a správné odpovědi" při stavu FINISHED.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 9 nových testů S19 (výpočet a uložení výsledků, ranked výsledky pro tým/organizátora, chybějící auth, pre-FINISHED odmítnutí, správné odpovědi, tie-break).
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (58/58 passed).
+- Omezení: ruční smoke-check results/ranking flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.

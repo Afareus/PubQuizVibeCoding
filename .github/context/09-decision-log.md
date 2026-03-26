@@ -171,3 +171,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Kontrakt `POST /api/sessions/{sessionId}/answers` používá `SubmitAnswerRequest(TeamId, QuestionId, SelectedOption)` a úspěšná odpověď vrací pouze potvrzení uložení bez pole `IsCorrect`.
 - **Důvod:** `QuestionId` umožňuje serveru bezpečně validovat, že submit patří právě aktivní otázce (ochrana proti race při přepnutí otázky), a nevracení `IsCorrect` drží pravidlo MVP „během hry nezobrazovat správné odpovědi“. 
 - **Dopad:** Backend first-write-wins je deterministický i při pozdních/opožděných requestech a API neprozrazuje správnost odpovědi před krokem výsledků (`S19`).
+
+### D-024 — S19 dual-auth výsledky, výpočet rankingu v ProgressDueSessionsAsync a oprava TeamQuestion submitu
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S19
+- **Rozhodnutí:** (1) Endpoint `GET /api/sessions/{sessionId}/results` přijímá buď `X-Team-Reconnect-Token` (tým), nebo `X-Organizer-Token`/`X-Quiz-Password` (organizátor); (2) výpočet výsledků a `SessionResult` entit probíhá automaticky při finalizaci session v `ProgressDueSessionsAsync`; (3) `TeamQuestion.razor` byl opraven tak, aby skutečně volal backend submit endpoint z S18, místo pouze lokálního uzamčení ze S17.
+- **Důvod:** (1) Týmy i organizátor potřebují vidět výsledky — sdílený endpoint s dual-auth je nejjednodušší MVP řešení. (2) Výpočet v progression workeru zaručuje, že výsledky existují okamžitě po přechodu do `FINISHED` bez nutnosti lazy computation. (3) S17 záměrně odložil backend submit na S18 (D-022), ale klient se v S18 nenapojil — oprava v S19 zajistí end-to-end funkčnost.
+- **Dopad:** Výsledky jsou dostupné okamžitě po ukončení session, ranking je deterministický (skóre DESC, čas ASC, sdílený rank) a odpovědi se skutečně ukládají na server.

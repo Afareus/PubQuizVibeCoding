@@ -67,3 +67,27 @@ public sealed record SnapshotQuestionOptionDto(
 public sealed record SnapshotTeamDto(
     Guid TeamId,
     string TeamName);
+
+public sealed record SessionResultsResponse(
+    Guid SessionId,
+    SessionStatus Status,
+    IReadOnlyList<SessionResultDto> Results);
+
+public sealed record SessionResultDto(
+    Guid TeamId,
+    string TeamName,
+    int Score,
+    int CorrectCount,
+    long TotalCorrectResponseTimeMs,
+    int Rank);
+
+public sealed record CorrectAnswersResponse(
+    Guid SessionId,
+    IReadOnlyList<CorrectAnswerDto> CorrectAnswers);
+
+public sealed record CorrectAnswerDto(
+    Guid QuestionId,
+    int OrderIndex,
+    string QuestionText,
+    OptionKey CorrectOption,
+    IReadOnlyList<SnapshotQuestionOptionDto> Options);

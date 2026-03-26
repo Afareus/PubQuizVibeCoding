@@ -19,6 +19,8 @@ public static class SessionParticipationEndpoints
         group.MapPost("/{sessionId:guid}/answers", SubmitAnswerAsync);
         group.MapPost("/{sessionId:guid}/start", StartSessionAsync);
         group.MapPost("/{sessionId:guid}/cancel", CancelSessionAsync);
+        group.MapGet("/{sessionId:guid}/results", GetSessionResultsAsync);
+        group.MapGet("/{sessionId:guid}/correct-answers", GetCorrectAnswersAsync);
 
         return endpoints;
     }
@@ -118,6 +120,44 @@ public static class SessionParticipationEndpoints
     {
         var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
         var result = await sessionParticipationService.GetSessionStateAsync(sessionId, teamId, teamReconnectToken, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> GetSessionResultsAsync(
+        Guid sessionId,
+        Guid? teamId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.GetSessionResultsAsync(sessionId, teamId, teamReconnectToken, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> GetCorrectAnswersAsync(
+        Guid sessionId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.GetCorrectAnswersAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));

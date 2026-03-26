@@ -30,12 +30,12 @@ Po každém kroku jej aktualizuj.
 - [x] S16 — SignalR session groups a eventy
 - [x] S17 — Team UI: join, waiting room, question screen
 - [x] S18 — Answer submit backend
-- [ ] S19 — Výsledky, ranking a correct answers
+- [x] S19 — Výsledky, ranking a correct answers
 - [ ] S20 — Hardening a bezpečnostní minimum
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S18 — Answer submit backend (ověřeno 2026-03-26 UTC).
+- S19 — Výsledky, ranking a correct answers (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -82,12 +82,21 @@ Po každém kroku jej aktualizuj.
 - V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyla operace `SubmitAnswerAsync` s validací `X-Team-Reconnect-Token`, pravidel `RUNNING + aktivní otázka + deadline`, first-write-wins (`SessionId + TeamId + QuestionId`) a výpočtem `IsCorrect` + `ResponseTimeMs` při uložení `TeamAnswer`.
 - V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` byl přidán endpoint `POST /api/sessions/{sessionId}/answers`.
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy S18 (valid submit, duplicate submit, late submit, invalid reconnect token).
-- Další krok je `S19`.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyly kontrakty `SessionResultsResponse`, `SessionResultDto`, `CorrectAnswersResponse`, `CorrectAnswerDto` pro výsledky a správné odpovědi.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyly operace `GetSessionResultsAsync` (dual-auth: tým nebo organizátor), `GetCorrectAnswersAsync` (pouze organizátor) a privátní `ComputeSessionResultsAsync` (ranking: skóre DESC, celkový čas správných odpovědí ASC, sdílený rank při shodě).
+- `ProgressDueSessionsAsync` nyní při finalizaci session (po timeoutu poslední otázky) automaticky počítá a ukládá `SessionResult` entity.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyly endpointy `GET /api/sessions/{sessionId}/results` a `GET /api/sessions/{sessionId}/correct-answers`.
+- `QuizApp.Client/Pages/TeamQuestion.razor` nyní volá backend submit (`POST /api/sessions/{sessionId}/answers` s `X-Team-Reconnect-Token`) místo pouze lokálního uzamčení z S17; rozlišuje FINISHED (přechod na výsledky) a CANCELLED (přechod na hlavní stránku).
+- `QuizApp.Client/Pages/SessionResults.razor` bylo nahrazeno funkční stránkou výsledků pro tým: načtení identity z `TeamSessionLocalStore`, volání `GET /api/sessions/{sessionId}/results?teamId={teamId}` s `X-Team-Reconnect-Token`, ranked tabulka se zvýrazněním vlastního týmu.
+- `QuizApp.Client/Pages/OrganizerSessionResults.razor` vznikla stránka výsledků pro organizátora: načtení tokenu, volání endpointů pro výsledky a správné odpovědi, tabulka rankingu a přehled správných odpovědí s označením správné varianty.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově obsahuje odkaz „Zobrazit výsledky a správné odpovědi" při stavu FINISHED.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 9 nových testů S19 (výpočet výsledků, ranked výsledky pro tým/organizátora, chybějící auth, pre-FINISHED odmítnutí, správné odpovědi, tie-break).
+- Další krok je `S20`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 49/49 passed)
-- Ruční smoke check: neproběhl (S18 submit flow vyžaduje běžící server/klienta a interakci týmu během RUNNING session)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 58/58 passed)
+- Ruční smoke check: neproběhl (S19 results/ranking flow vyžaduje běžící server/klienta a dokončenou FINISHED session)

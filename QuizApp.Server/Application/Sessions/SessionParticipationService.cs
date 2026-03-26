@@ -23,6 +23,10 @@ public interface ISessionParticipationService
 
     Task<SubmitAnswerOperationResult> SubmitAnswerAsync(Guid sessionId, SubmitAnswerRequest request, string? teamReconnectToken, CancellationToken cancellationToken);
 
+    Task<SessionResultsOperationResult> GetSessionResultsAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task ProgressDueSessionsAsync(CancellationToken cancellationToken);
 }
 
@@ -368,6 +372,101 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
     }
 
+    public async Task<SessionResultsOperationResult> GetSessionResultsAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .AsNoTracking()
+            .Include(x => x.Quiz)
+            .Include(x => x.Teams)
+            .Include(x => x.Results)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        var authorized = false;
+
+        if (!string.IsNullOrWhiteSpace(teamReconnectToken) && teamId.HasValue)
+        {
+            var team = session.Teams.SingleOrDefault(x => x.TeamId == teamId.Value);
+            if (team is not null && VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
+            {
+                authorized = true;
+            }
+        }
+
+        if (!authorized && TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out _))
+        {
+            authorized = true;
+        }
+
+        if (!authorized)
+        {
+            return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí platná autentizace (tým nebo organizátor)."));
+        }
+
+        if (session.Status != SessionStatus.Finished)
+        {
+            return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Výsledky jsou dostupné pouze po ukončení session."));
+        }
+
+        var results = session.Results
+            .OrderBy(r => r.Rank)
+            .ThenBy(r => r.TotalCorrectResponseTimeMs)
+            .Select(r => new SessionResultDto(
+                r.TeamId,
+                session.Teams.First(t => t.TeamId == r.TeamId).Name,
+                r.Score,
+                r.CorrectCount,
+                r.TotalCorrectResponseTimeMs,
+                r.Rank))
+            .ToList();
+
+        return SessionResultsOperationResult.Success(new SessionResultsResponse(session.SessionId, session.Status, results));
+    }
+
+    public async Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .AsNoTracking()
+            .Include(x => x.Quiz!)
+                .ThenInclude(x => x.Questions)
+                .ThenInclude(x => x.Options)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return CorrectAnswersOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return CorrectAnswersOperationResult.Fail(authError!);
+        }
+
+        if (session.Status != SessionStatus.Finished)
+        {
+            return CorrectAnswersOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Správné odpovědi jsou dostupné pouze po ukončení session."));
+        }
+
+        var correctAnswers = session.Quiz!.Questions
+            .OrderBy(q => q.OrderIndex)
+            .Select(q => new CorrectAnswerDto(
+                q.QuestionId,
+                q.OrderIndex,
+                q.Text,
+                q.CorrectOption,
+                q.Options
+                    .OrderBy(o => o.OptionKey)
+                    .Select(o => new SnapshotQuestionOptionDto(o.OptionKey, o.Text))
+                    .ToList()))
+            .ToList();
+
+        return CorrectAnswersOperationResult.Success(new CorrectAnswersResponse(session.SessionId, correctAnswers));
+    }
+
     public async Task ProgressDueSessionsAsync(CancellationToken cancellationToken)
     {
         var nowUtc = DateTime.UtcNow;
@@ -375,6 +474,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         var candidateSessions = await _dbContext.Sessions
             .Include(x => x.Quiz!)
                 .ThenInclude(x => x.Questions)
+            .Include(x => x.Teams)
             .Where(x => x.Status == SessionStatus.Running)
             .ToListAsync(cancellationToken);
 
@@ -417,6 +517,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             if (nextQuestion is null)
             {
                 session.Finish(nowUtc);
+                await ComputeSessionResultsAsync(session.SessionId, session.Teams, cancellationToken);
                 emittedEvents.Add((session.SessionId, RealtimeEventName.SessionFinished));
                 emittedEvents.Add((session.SessionId, RealtimeEventName.ResultsReady));
                 continue;
@@ -494,6 +595,48 @@ public sealed class SessionParticipationService : ISessionParticipationService
         await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.SessionCancelled, cancellationToken);
 
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    private async Task ComputeSessionResultsAsync(Guid sessionId, IReadOnlyCollection<Team> teams, CancellationToken cancellationToken)
+    {
+        var answers = await _dbContext.TeamAnswers
+            .Where(x => x.SessionId == sessionId)
+            .ToListAsync(cancellationToken);
+
+        var teamStats = teams
+            .Select(team =>
+            {
+                var teamAnswers = answers.Where(a => a.TeamId == team.TeamId).ToList();
+                var correctAnswers = teamAnswers.Where(a => a.IsCorrect).ToList();
+                return new
+                {
+                    team.TeamId,
+                    Score = correctAnswers.Count,
+                    CorrectCount = correctAnswers.Count,
+                    TotalCorrectResponseTimeMs = correctAnswers.Sum(a => a.ResponseTimeMs)
+                };
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.TotalCorrectResponseTimeMs)
+            .ToList();
+
+        var currentRank = 1;
+        for (var i = 0; i < teamStats.Count; i++)
+        {
+            if (i > 0 && (teamStats[i].Score != teamStats[i - 1].Score || teamStats[i].TotalCorrectResponseTimeMs != teamStats[i - 1].TotalCorrectResponseTimeMs))
+            {
+                currentRank = i + 1;
+            }
+
+            _dbContext.SessionResults.Add(SessionResult.Create(
+                Guid.NewGuid(),
+                sessionId,
+                teamStats[i].TeamId,
+                teamStats[i].Score,
+                teamStats[i].CorrectCount,
+                teamStats[i].TotalCorrectResponseTimeMs,
+                currentRank));
+        }
     }
 
     private static OrganizerSessionSnapshotResponse ToOrganizerSnapshot(QuizSession session)
@@ -722,4 +865,26 @@ public sealed record SubmitAnswerOperationResult(
     public static SubmitAnswerOperationResult Success(SubmitAnswerResponse response) => new(response, null);
 
     public static SubmitAnswerOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record SessionResultsOperationResult(
+    SessionResultsResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static SessionResultsOperationResult Success(SessionResultsResponse response) => new(response, null);
+
+    public static SessionResultsOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record CorrectAnswersOperationResult(
+    CorrectAnswersResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static CorrectAnswersOperationResult Success(CorrectAnswersResponse response) => new(response, null);
+
+    public static CorrectAnswersOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }
