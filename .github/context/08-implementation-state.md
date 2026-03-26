@@ -26,7 +26,7 @@ Po každém kroku jej aktualizuj.
 - [x] S12 — Team join backend a reconnect identita
 - [x] S13 — Organizátorský waiting room a session create UI
 - [x] S14 — Start/cancel session backend
-- [ ] S15 — Otázkový engine a timeout progression
+- [x] S15 — Otázkový engine a timeout progression
 - [ ] S16 — SignalR session groups a eventy
 - [ ] S17 — Team UI: join, waiting room, question screen
 - [ ] S18 — Answer submit backend
@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S14 — Start/cancel session backend (ověřeno 2026-03-26 UTC).
+- S15 — Otázkový engine a timeout progression (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -62,12 +62,16 @@ Po každém kroku jej aktualizuj.
 - V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyl kontrakt `CancelSessionRequest` pro potvrzení zrušení session.
 - `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově umožňuje session spustit/zrušit, volá nové endpointy a před rušením vyžaduje potvrzení přes dialog.
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S14 (start bez týmu, start s týmem, cancel bez potvrzení, cancel RUNNING session, zákaz mutace terminálního stavu).
-- Další krok je `S15`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` nyní `StartSessionAsync` nastavuje první otázku (`CurrentQuestionIndex`, `CurrentQuestionStartedAtUtc`, `QuestionDeadlineUtc`) a přibyla operace `ProgressDueSessionsAsync` pro serverový přechod na další otázku po timeoutu i finalizaci session po poslední otázce.
+- V `QuizApp.Server/Application/Sessions/SessionProgressionBackgroundService.cs` vznikla hostovaná služba s periodickým zpracováním běžících session bez sekundových event ticků do klienta.
+- V `QuizApp.Server/Program.cs` je registrována background služba pro timeout progression.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy S15 pro posun na další otázku po timeoutu a přechod do `FINISHED` po timeoutu poslední otázky.
+- Další krok je `S16`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 41/41 passed)
-- Ruční smoke check: neproběhl (nové UI/endpointy S14 vyžadují ruční ověření v běžícím serveru/klientovi)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 43/43 passed)
+- Ruční smoke check: neproběhl (S15 timeout progression vyžaduje běžící server/klienta a časový průběh session)

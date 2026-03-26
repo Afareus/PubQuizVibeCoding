@@ -22,6 +22,7 @@ builder.Services.AddDbContext<QuizAppDbContext>((serviceProvider, options) =>
 builder.Services.AddScoped<IQuizCsvParser, QuizCsvParser>();
 builder.Services.AddScoped<IQuizManagementService, QuizManagementService>();
 builder.Services.AddScoped<ISessionParticipationService, SessionParticipationService>();
+builder.Services.AddHostedService<SessionProgressionBackgroundService>();
 
 builder.Services.AddSignalR(options =>
 {

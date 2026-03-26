@@ -182,9 +182,65 @@ public class SessionParticipationServiceTests
         var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
         Assert.Equal(SessionStatus.Running, session.Status);
         Assert.NotNull(session.StartedAtUtc);
+        Assert.Equal(0, session.CurrentQuestionIndex);
+        Assert.NotNull(session.CurrentQuestionStartedAtUtc);
+        Assert.NotNull(session.QuestionDeadlineUtc);
 
         var audit = await dbContext.AuditLogs.SingleAsync(x => x.ActionType == "SESSION_STARTED");
         Assert.Equal(created.SessionId, audit.SessionId);
+    }
+
+    [Fact]
+    public async Task ProgressDueSessionsAsync_ExpiredQuestion_AdvancesToNextQuestion()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithTwoQuestionsAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Progress"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
+
+        var progressedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Running, progressedSession.Status);
+        Assert.Equal(1, progressedSession.CurrentQuestionIndex);
+        Assert.NotNull(progressedSession.QuestionDeadlineUtc);
+        Assert.True(progressedSession.QuestionDeadlineUtc > DateTime.UtcNow.AddSeconds(5));
+    }
+
+    [Fact]
+    public async Task ProgressDueSessionsAsync_LastQuestionExpired_FinishesSession()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithTwoQuestionsAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Finish"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(1, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
+
+        var finishedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Finished, finishedSession.Status);
+        Assert.NotNull(finishedSession.FinishedAtUtc);
+        Assert.NotNull(finishedSession.EndedAtUtc);
     }
 
     [Fact]
@@ -299,6 +355,27 @@ public class SessionParticipationServiceTests
         var csv =
             "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
             "Kolik je 2+2?,3,4,5,6,B,30\n";
+
+        var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
+        Assert.True(importResult.IsSuccess);
+
+        var createSessionResult = await quizService.CreateSessionAsync(quizId, organizerToken, null, cancellationToken);
+        Assert.True(createSessionResult.IsSuccess);
+
+        return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
+    }
+
+    private static async Task<(Guid QuizId, Guid SessionId, string JoinCode, string DeletePassword, string OrganizerToken)> CreateWaitingSessionWithTwoQuestionsAsync(QuizManagementService quizService, CancellationToken cancellationToken)
+    {
+        const string deletePassword = "heslo";
+        var createQuizResult = await quizService.CreateQuizAsync(new CreateQuizRequest("Session kvíz", deletePassword), cancellationToken);
+        var quizId = createQuizResult.Response!.QuizId;
+        var organizerToken = createQuizResult.Response.QuizOrganizerToken;
+
+        var csv =
+            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
+            "Kolik je 2+2?,3,4,5,6,B,10\n" +
+            "Kolik je 3+3?,5,6,7,8,B,10\n";
 
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);

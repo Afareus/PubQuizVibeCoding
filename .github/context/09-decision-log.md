@@ -143,3 +143,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Endpoint `POST /api/sessions/{sessionId}/cancel` přijímá payload `CancelSessionRequest` a backend vyžaduje `ConfirmCancellation=true`; bez něj vrací validační chybu.
 - **Důvod:** Roadmapa S14 požaduje potvrzovací krok pro zrušení session v UI; explicitní potvrzení v API kontraktu zajišťuje, že tento požadavek nepůjde obejít omylem klientskou chybou.
 - **Dopad:** Cancel flow je bezpečnější a konzistentní mezi klienty, přitom scope zůstává v rámci MVP (jen start/cancel přechody a potvrzení zrušení).
+
+### D-020 — S15 timeout progression je řešena serverovým background workerem
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S15
+- **Rozhodnutí:** Otázkový engine běží plně na serveru: při `StartSession` se okamžitě nastaví první otázka a periodický hostovaný worker (`SessionProgressionBackgroundService`) posouvá běžící session po vypršení `QuestionDeadlineUtc`; po poslední otázce session přepne do `FINISHED`.
+- **Důvod:** Roadmapa S15 vyžaduje deterministický server-authoritative průběh a automatický přechod po timeoutu i bez zásahu klienta.
+- **Dopad:** Klienti dostávají konzistentní snapshoty bez serverového sekundového tick streamu a timeout progression funguje i bez aktivního pollingu konkrétního klienta.

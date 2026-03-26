@@ -133,3 +133,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pokrývající S14 pravidla (start bez týmu, start s týmem, cancel bez potvrzení, cancel běžící session, zákaz mutace terminálního stavu).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (41 passed).
 - Omezení: ruční smoke-check S14 UI/API flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.
+
+## S15 — Otázkový engine a timeout progression
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byl rozšířen `StartSessionAsync` tak, aby při přechodu do `RUNNING` okamžitě nastavil první otázku (`CurrentQuestionIndex`, `CurrentQuestionStartedAtUtc`, `QuestionDeadlineUtc`).
+- Do stejné služby přibyla operace `ProgressDueSessionsAsync`, která serverově posouvá otázky po timeoutu a po poslední otázce přepíná session do `FINISHED`.
+- V `QuizApp.Server/Application/Sessions/SessionProgressionBackgroundService.cs` vznikla hostovaná background služba, která periodicky volá timeout progression nad běžícími session.
+- V `QuizApp.Server/Program.cs` byla doplněna registrace `SessionProgressionBackgroundService`.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S15 (nastavení první otázky po startu, posun na další otázku po timeoutu, přechod do `FINISHED` po timeoutu poslední otázky).
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (43 passed).
+- Omezení: ruční smoke-check časového průběhu S15 v běžícím serveru/klientovi zatím neproběhl v tomto prostředí.

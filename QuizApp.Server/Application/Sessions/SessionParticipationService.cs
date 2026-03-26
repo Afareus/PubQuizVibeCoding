@@ -20,6 +20,8 @@ public interface ISessionParticipationService
     Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task<OrganizerSessionStateOperationResult> CancelSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, bool confirmCancellation, CancellationToken cancellationToken);
+
+    Task ProgressDueSessionsAsync(CancellationToken cancellationToken);
 }
 
 public sealed class SessionParticipationService : ISessionParticipationService
@@ -227,6 +229,18 @@ public sealed class SessionParticipationService : ISessionParticipationService
         var nowUtc = DateTime.UtcNow;
         session.Start(nowUtc);
 
+        var firstQuestion = session.Quiz!.Questions
+            .OrderBy(x => x.OrderIndex)
+            .FirstOrDefault();
+
+        if (firstQuestion is not null)
+        {
+            session.SetCurrentQuestion(
+                firstQuestion.OrderIndex,
+                nowUtc,
+                nowUtc.AddSeconds(firstQuestion.TimeLimitSec));
+        }
+
         _dbContext.AuditLogs.Add(AuditLog.Create(
             Guid.NewGuid(),
             nowUtc,
@@ -245,6 +259,71 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    public async Task ProgressDueSessionsAsync(CancellationToken cancellationToken)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var candidateSessions = await _dbContext.Sessions
+            .Include(x => x.Quiz!)
+                .ThenInclude(x => x.Questions)
+            .Where(x => x.Status == SessionStatus.Running)
+            .ToListAsync(cancellationToken);
+
+        foreach (var session in candidateSessions)
+        {
+            if (session.Quiz is null)
+            {
+                continue;
+            }
+
+            if (!session.CurrentQuestionIndex.HasValue)
+            {
+                var firstQuestion = session.Quiz.Questions
+                    .OrderBy(x => x.OrderIndex)
+                    .FirstOrDefault();
+
+                if (firstQuestion is null)
+                {
+                    session.Finish(nowUtc);
+                    continue;
+                }
+
+                session.SetCurrentQuestion(
+                    firstQuestion.OrderIndex,
+                    nowUtc,
+                    nowUtc.AddSeconds(firstQuestion.TimeLimitSec));
+                continue;
+            }
+
+            if (!session.QuestionDeadlineUtc.HasValue || session.QuestionDeadlineUtc.Value > nowUtc)
+            {
+                continue;
+            }
+
+            var nextQuestion = session.Quiz.Questions
+                .OrderBy(x => x.OrderIndex)
+                .FirstOrDefault(x => x.OrderIndex > session.CurrentQuestionIndex.Value);
+
+            if (nextQuestion is null)
+            {
+                session.Finish(nowUtc);
+                continue;
+            }
+
+            session.SetCurrentQuestion(
+                nextQuestion.OrderIndex,
+                nowUtc,
+                nowUtc.AddSeconds(nextQuestion.TimeLimitSec));
+        }
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+        }
     }
 
     public async Task<OrganizerSessionStateOperationResult> CancelSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, bool confirmCancellation, CancellationToken cancellationToken)
