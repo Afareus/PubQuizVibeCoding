@@ -44,7 +44,7 @@ public class QuizManagementServiceTests
             "Kolik je 2+2?,3,4,5,6,B,30\n" +
             "Barva oblohy?,Červená,Žlutá,Modrá,Zelená,C,25\n";
 
-        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, csv, CancellationToken.None);
+        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
 
         Assert.True(importResult.IsSuccess);
         Assert.NotNull(importResult.Response);
@@ -78,13 +78,103 @@ public class QuizManagementServiceTests
             "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
             "Kolik je 2+2?,3,4,5,6,B,30\n";
 
-        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, "spatny-token", csv, CancellationToken.None);
+        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, "spatny-token", null, csv, CancellationToken.None);
 
         Assert.False(importResult.IsSuccess);
         Assert.NotNull(importResult.Error);
         Assert.Equal(ApiErrorCode.InvalidAuthToken, importResult.Error!.Code);
         Assert.Null(importResult.Response);
         Assert.Empty(await dbContext.Questions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ImportQuizCsvAsync_ValidPasswordWithoutToken_ImportsQuestions()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Kvíz", "heslo123"), CancellationToken.None);
+
+        var csv =
+            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
+            "Kolik je 2+2?,3,4,5,6,B,30\n";
+
+        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, null, "heslo123", csv, CancellationToken.None);
+
+        Assert.True(importResult.IsSuccess);
+        Assert.NotNull(importResult.Response);
+        Assert.Equal(1, importResult.Response!.ImportedQuestionsCount);
+    }
+
+    [Fact]
+    public async Task GetQuizDetailAsync_ValidPassword_ReturnsQuizDetail()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Detail test", "heslo"), CancellationToken.None);
+
+        var csv =
+            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
+            "Kolik je 2+2?,3,4,5,6,B,30\n";
+
+        await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+
+        var detailResult = await service.GetQuizDetailAsync(createResult.Response.QuizId, null, "heslo", CancellationToken.None);
+
+        Assert.True(detailResult.IsSuccess);
+        Assert.NotNull(detailResult.Response);
+        Assert.Equal("Detail test", detailResult.Response!.Name);
+        Assert.Equal(1, detailResult.Response.QuestionCount);
+        Assert.Single(detailResult.Response.Questions);
+    }
+
+    [Fact]
+    public async Task DeleteQuizAsync_WithActiveSession_ReturnsConflict()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Mazání", "heslo"), CancellationToken.None);
+
+        dbContext.Sessions.Add(QuizApp.Server.Domain.Entities.QuizSession.Create(Guid.NewGuid(), createResult.Response!.QuizId, "JOIN01", DateTime.UtcNow));
+        await dbContext.SaveChangesAsync();
+
+        var deleteResult = await service.DeleteQuizAsync(createResult.Response.QuizId, createResult.Response.QuizOrganizerToken, "heslo", CancellationToken.None);
+
+        Assert.False(deleteResult.IsSuccess);
+        Assert.NotNull(deleteResult.Error);
+        Assert.Equal(ApiErrorCode.QuizHasActiveSessions, deleteResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task DeleteQuizAsync_WrongPassword_ReturnsInvalidAuthToken()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Mazání", "spravne"), CancellationToken.None);
+
+        var deleteResult = await service.DeleteQuizAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, "spatne", CancellationToken.None);
+
+        Assert.False(deleteResult.IsSuccess);
+        Assert.NotNull(deleteResult.Error);
+        Assert.Equal(ApiErrorCode.InvalidAuthToken, deleteResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task DeleteQuizAsync_ValidPassword_DeletesQuizAndWritesAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Mazání", "heslo"), CancellationToken.None);
+
+        var deleteResult = await service.DeleteQuizAsync(createResult.Response!.QuizId, null, "heslo", CancellationToken.None);
+
+        Assert.True(deleteResult.IsSuccess);
+
+        var quizzesIncludingDeleted = await dbContext.Quizzes.IgnoreQueryFilters().ToListAsync();
+        var quiz = Assert.Single(quizzesIncludingDeleted);
+        Assert.True(quiz.IsDeleted);
+
+        var deletedAudit = await dbContext.AuditLogs.SingleAsync(x => x.ActionType == "QUIZ_DELETED");
+        Assert.Equal(quiz.QuizId, deletedAudit.QuizId);
     }
 
     private static QuizManagementService CreateService(QuizAppDbContext dbContext)

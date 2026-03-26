@@ -75,3 +75,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Server/Program.cs` doplněna DI registrace `IQuizCsvParser` a `IQuizManagementService`.
 - V `QuizApp.Tests/QuizManagementServiceTests.cs` přidány testy create/import/token auth; v `QuizApp.Tests.csproj` přidán `Microsoft.EntityFrameworkCore.InMemory`.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (21 passed).
+
+## S09 — REST endpointy pro správu kvízů
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byly přidány endpointy `POST /api/quizzes`, `POST /api/quizzes/{quizId}/import-csv`, `GET /api/quizzes/{quizId}` a `DELETE /api/quizzes/{quizId}`.
+- V `QuizApp.Server/Program.cs` je nyní namapováno `app.MapQuizManagementEndpoints()`.
+- `QuizManagementService` byl rozšířen o operace `GetQuizDetailAsync` a `DeleteQuizAsync` včetně auditu `QUIZ_DELETED`, kontroly aktivních session (`WAITING`/`RUNNING`) a verifikace mazacího hesla.
+- Organizátorská autorizace byla sjednocena tak, že `import`, `detail` a `delete` přijímají `X-Organizer-Token` nebo `X-Quiz-Password`; smazání stále vyžaduje správné mazací heslo.
+- V `QuizApp.Shared/Contracts/QuizContracts.cs` vznikly DTO kontrakty pro detail kvízu (`QuizDetailResponse`, `QuizDetailQuestionDto`, `QuizDetailQuestionOptionDto`).
+- V `QuizApp.Tests/QuizManagementServiceTests.cs` byly přidány testy pro autentizaci přes heslo, detail kvízu a mazání (včetně blokace při aktivní session).
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (26 passed).

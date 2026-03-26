@@ -49,5 +49,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health");
+app.MapQuizManagementEndpoints();
 
 app.Run();

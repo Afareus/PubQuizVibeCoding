@@ -14,7 +14,11 @@ public interface IQuizManagementService
 {
     Task<CreateQuizOperationResult> CreateQuizAsync(CreateQuizRequest request, CancellationToken cancellationToken);
 
-    Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string organizerToken, string csvContent, CancellationToken cancellationToken);
+    Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken);
+
+    Task<QuizDetailOperationResult> GetQuizDetailAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<DeleteQuizOperationResult> DeleteQuizAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 }
 
 public sealed class QuizManagementService : IQuizManagementService
@@ -68,7 +72,7 @@ public sealed class QuizManagementService : IQuizManagementService
         return CreateQuizOperationResult.Success(new CreateQuizResponse(quiz.QuizId, organizerToken));
     }
 
-    public async Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string organizerToken, string csvContent, CancellationToken cancellationToken)
+    public async Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken)
     {
         var quiz = await _dbContext.Quizzes
             .Include(x => x.Questions)
@@ -79,9 +83,9 @@ public sealed class QuizManagementService : IQuizManagementService
             return ImportQuizCsvOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
         }
 
-        if (!VerifyOrganizerToken(organizerToken, quiz.QuizOrganizerTokenHash))
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
         {
-            return ImportQuizCsvOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token."));
+            return ImportQuizCsvOperationResult.Fail(authError!);
         }
 
         if (quiz.Questions.Count > 0)
@@ -143,6 +147,93 @@ public sealed class QuizManagementService : IQuizManagementService
         return ImportQuizCsvOperationResult.Success(new ImportQuizCsvResponse(questions.Count, []));
     }
 
+    public async Task<QuizDetailOperationResult> GetQuizDetailAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var quiz = await _dbContext.Quizzes
+            .AsNoTracking()
+            .Include(x => x.Questions)
+            .ThenInclude(x => x.Options)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return QuizDetailOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return QuizDetailOperationResult.Fail(authError!);
+        }
+
+        var questions = quiz.Questions
+            .OrderBy(x => x.OrderIndex)
+            .Select(question => new QuizDetailQuestionDto(
+                question.QuestionId,
+                question.OrderIndex,
+                question.Text,
+                question.TimeLimitSec,
+                question.CorrectOption,
+                question.Options
+                    .OrderBy(option => option.OptionKey)
+                    .Select(option => new QuizDetailQuestionOptionDto(option.OptionKey, option.Text))
+                    .ToList()))
+            .ToList();
+
+        return QuizDetailOperationResult.Success(new QuizDetailResponse(
+            quiz.QuizId,
+            quiz.Name,
+            new DateTimeOffset(quiz.CreatedAtUtc, TimeSpan.Zero),
+            questions.Count,
+            questions));
+    }
+
+    public async Task<DeleteQuizOperationResult> DeleteQuizAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var quiz = await _dbContext.Quizzes
+            .Include(x => x.Sessions)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (string.IsNullOrWhiteSpace(organizerPassword))
+        {
+            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí mazací heslo v hlavičce X-Quiz-Password."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return DeleteQuizOperationResult.Fail(authError!);
+        }
+
+        if (!VerifyPassword(organizerPassword, quiz.DeletePasswordHash))
+        {
+            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatné mazací heslo."));
+        }
+
+        if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
+        {
+            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Kvíz nelze smazat, protože má aktivní session."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        quiz.MarkAsDeleted(nowUtc);
+
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "QUIZ_DELETED",
+            quiz.QuizId,
+            null,
+            JsonSerializer.Serialize(new QuizDeletedAuditPayload(quiz.QuizId))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return DeleteQuizOperationResult.Success();
+    }
+
     private static IReadOnlyDictionary<string, string[]>? ValidateCreateQuizRequest(CreateQuizRequest request)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
@@ -195,6 +286,27 @@ public sealed class QuizManagementService : IQuizManagementService
         return expectedHash.Length == actualHash.Length && CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
     }
 
+    private static bool TryAuthorizeOrganizer(Quiz quiz, string? organizerToken, string? organizerPassword, out ApiErrorResponse? error)
+    {
+        if (string.IsNullOrWhiteSpace(organizerToken) && string.IsNullOrWhiteSpace(organizerPassword))
+        {
+            error = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí organizátorská autentizace (X-Organizer-Token nebo X-Quiz-Password).");
+            return false;
+        }
+
+        var tokenMatches = VerifyOrganizerToken(organizerToken ?? string.Empty, quiz.QuizOrganizerTokenHash);
+        var passwordMatches = VerifyPassword(organizerPassword, quiz.DeletePasswordHash);
+
+        if (tokenMatches || passwordMatches)
+        {
+            error = null;
+            return true;
+        }
+
+        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo mazací heslo.");
+        return false;
+    }
+
     private static string HashPassword(string password)
     {
         Span<byte> saltBytes = stackalloc byte[PasswordSaltBytes];
@@ -221,9 +333,51 @@ public sealed class QuizManagementService : IQuizManagementService
             Convert.ToHexString(hashBytes));
     }
 
+    private static bool VerifyPassword(string? password, string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
+        {
+            return false;
+        }
+
+        var parts = passwordHash.Split('$', StringSplitOptions.TrimEntries);
+        if (parts.Length != 4 || !string.Equals(parts[0], "pbkdf2-sha256", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(parts[1], out var iterations) || iterations <= 0)
+        {
+            return false;
+        }
+
+        byte[] salt;
+        byte[] expectedHash;
+        try
+        {
+            salt = Convert.FromHexString(parts[2]);
+            expectedHash = Convert.FromHexString(parts[3]);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var actualHash = Rfc2898DeriveBytes.Pbkdf2(
+            password.Trim(),
+            salt,
+            iterations,
+            HashAlgorithmName.SHA256,
+            expectedHash.Length);
+
+        return expectedHash.Length == actualHash.Length && CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
+    }
+
     private sealed record QuizCreatedAuditPayload(Guid QuizId, string QuizName);
 
     private sealed record QuizImportedAuditPayload(Guid QuizId, int ImportedQuestionsCount);
+
+    private sealed record QuizDeletedAuditPayload(Guid QuizId);
 }
 
 public sealed record CreateQuizOperationResult(
@@ -246,4 +400,24 @@ public sealed record ImportQuizCsvOperationResult(
     public static ImportQuizCsvOperationResult Success(ImportQuizCsvResponse response) => new(response, null);
 
     public static ImportQuizCsvOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record QuizDetailOperationResult(
+    QuizDetailResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static QuizDetailOperationResult Success(QuizDetailResponse response) => new(response, null);
+
+    public static QuizDetailOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record DeleteQuizOperationResult(
+    bool IsSuccess,
+    ApiErrorResponse? Error)
+{
+    public static DeleteQuizOperationResult Success() => new(true, null);
+
+    public static DeleteQuizOperationResult Fail(ApiErrorResponse error) => new(false, error);
 }

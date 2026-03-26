@@ -20,7 +20,7 @@ Po každém kroku jej aktualizuj.
 - [x] S06 — První migrace a databázový bootstrap
 - [x] S07 — CSV kontrakt, parser a validační report
 - [x] S08 — Služba pro založení kvízu a import otázek
-- [ ] S09 — REST endpointy pro správu kvízů
+- [x] S09 — REST endpointy pro správu kvízů
 - [ ] S10 — Organizátorské UI pro kvízy
 - [ ] S11 — Session create backend a join code
 - [ ] S12 — Team join backend a reconnect identita
@@ -35,21 +35,21 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S08 — Služba pro založení kvízu a import otázek (ověřeno 2026-03-26 UTC).
+- S09 — REST endpointy pro správu kvízů (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Server/Application/Quizzes` byla přidána služba `QuizManagementService` (`IQuizManagementService`) pro vytvoření kvízu a jednorázový import CSV otázek.
-- `CreateQuizAsync` generuje organizer token s 256bit entropií, ukládá pouze hash tokenu, hashuje mazací heslo přes PBKDF2 a vrací token pouze v `CreateQuizResponse`.
-- `ImportQuizCsvAsync` validuje organizer token constant-time porovnáním hashů, povolí import jen do prázdného kvízu, mapuje CSV na `Question` + `QuestionOption` a vrací validační report parseru.
-- Audit log nyní pokrývá akce `QUIZ_CREATED` a `QUIZ_IMPORTED`.
-- V `Program.cs` byla doplněna DI registrace pro `IQuizCsvParser` a `IQuizManagementService`.
-- V `QuizApp.Tests` byly přidány testy `QuizManagementServiceTests` (create/import/token auth) a balíček `Microsoft.EntityFrameworkCore.InMemory`.
-- Další krok je `S09`.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` vznikly endpointy `POST /api/quizzes`, `POST /api/quizzes/{quizId}/import-csv`, `GET /api/quizzes/{quizId}` a `DELETE /api/quizzes/{quizId}` s mapováním `ApiErrorCode -> HTTP status`.
+- `Program.cs` nyní mapuje `app.MapQuizManagementEndpoints()`.
+- `QuizManagementService` byl rozšířen o `GetQuizDetailAsync` a `DeleteQuizAsync`; delete kontroluje aktivní session (`WAITING`/`RUNNING`) a zapisuje audit `QUIZ_DELETED`.
+- Organizátorské operace (`import`, `detail`, `delete`) podporují autentizaci přes `X-Organizer-Token` nebo `X-Quiz-Password`; samotné smazání stále vyžaduje správné mazací heslo.
+- V `QuizApp.Shared/Contracts/QuizContracts.cs` byly doplněny DTO pro detail kvízu (`QuizDetailResponse`, `QuizDetailQuestionDto`, `QuizDetailQuestionOptionDto`).
+- V `QuizApp.Tests/QuizManagementServiceTests.cs` byly rozšířeny testy o scénáře detailu, mazání, aktivní session a autentizace přes heslo.
+- Další krok je `S10`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 21/21 passed včetně `QuizManagementServiceTests`)
-- Ruční smoke check: neproběhl (CSV import UI/API bude ověřen až v navazujících krocích)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 26/26 passed)
+- Ruční smoke check: neproběhl (REST endpointy vyžadují ruční ověření přes Swagger/Postman na běžícím serveru)
