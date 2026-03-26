@@ -114,3 +114,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro pravidla S12: validní join, duplicitní název týmu, neplatný join code a valid/invalid reconnect token pro state snapshot.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (34 passed).
 - Omezení: ruční smoke-check nových S12 endpointů v běžícím serveru/klientovi zatím neproběhl v tomto prostředí.
+
+## S13 — Organizátorský waiting room a session create UI
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` bylo doplněno vytvoření session z UI (`POST /api/quizzes/{quizId}/sessions`), zobrazení `SessionId + JoinCode` a přímý přechod na čekárnu.
+- Placeholder `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` byl nahrazen funkční čekárnou organizátora s načtením snapshotu přes `GET /api/sessions/{sessionId}`, včetně zobrazení join code, stavu session a seznamu připojených týmů.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyl kontrakt `OrganizerSessionSnapshotResponse` pro waiting room data.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyl endpoint `GET /api/sessions/{sessionId}`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyla operace `GetOrganizerSessionStateAsync` s autentizací přes `X-Organizer-Token` nebo `X-Quiz-Password` a vracením snapshotu session.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` byly přidány testy pro organizátorský snapshot (úspěch přes heslo, chyba bez autentizace).
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (36 passed).
+- Omezení: ruční smoke-check S13 UI/API flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.

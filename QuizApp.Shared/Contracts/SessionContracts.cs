@@ -29,6 +29,16 @@ public sealed record SessionStateSnapshotResponse(
     SnapshotQuestionDto? CurrentQuestion,
     IReadOnlyList<SnapshotTeamDto> Teams);
 
+public sealed record OrganizerSessionSnapshotResponse(
+    Guid SessionId,
+    Guid QuizId,
+    string JoinCode,
+    SessionStatus Status,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? EndedAtUtc,
+    IReadOnlyList<SnapshotTeamDto> Teams);
+
 public sealed record SnapshotQuestionDto(
     Guid QuestionId,
     string Text,

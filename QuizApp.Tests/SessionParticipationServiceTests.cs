@@ -107,6 +107,44 @@ public class SessionParticipationServiceTests
         Assert.Contains(stateResult.Response.Teams, x => x.TeamId == joinResult.Response.TeamId && x.TeamName == "Tým Delta");
     }
 
+    [Fact]
+    public async Task GetOrganizerSessionStateAsync_ValidPassword_ReturnsSessionSnapshotWithTeams()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Omega"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var snapshotResult = await sessionService.GetOrganizerSessionStateAsync(created.SessionId, null, created.DeletePassword, CancellationToken.None);
+
+        Assert.True(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Response);
+        Assert.Equal(created.SessionId, snapshotResult.Response!.SessionId);
+        Assert.Equal(created.QuizId, snapshotResult.Response.QuizId);
+        Assert.Equal(created.JoinCode, snapshotResult.Response.JoinCode);
+        Assert.Equal(SessionStatus.Waiting, snapshotResult.Response.Status);
+        Assert.Contains(snapshotResult.Response.Teams, x => x.TeamName == "Tým Omega");
+    }
+
+    [Fact]
+    public async Task GetOrganizerSessionStateAsync_WithoutAuth_ReturnsMissingAuthToken()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+
+        var snapshotResult = await sessionService.GetOrganizerSessionStateAsync(created.SessionId, null, null, CancellationToken.None);
+
+        Assert.False(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Error);
+        Assert.Equal(ApiErrorCode.MissingAuthToken, snapshotResult.Error!.Code);
+    }
+
     private static QuizManagementService CreateQuizService(QuizAppDbContext dbContext)
     {
         return new QuizManagementService(dbContext, new QuizCsvParser());
@@ -143,5 +181,25 @@ public class SessionParticipationServiceTests
         Assert.True(createSessionResult.IsSuccess);
 
         return (createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode);
+    }
+
+    private static async Task<(Guid QuizId, Guid SessionId, string JoinCode, string DeletePassword)> CreateWaitingSessionWithQuizAuthAsync(QuizManagementService quizService, CancellationToken cancellationToken)
+    {
+        const string deletePassword = "heslo";
+        var createQuizResult = await quizService.CreateQuizAsync(new CreateQuizRequest("Session kvíz", deletePassword), cancellationToken);
+        var quizId = createQuizResult.Response!.QuizId;
+        var organizerToken = createQuizResult.Response.QuizOrganizerToken;
+
+        var csv =
+            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
+            "Kolik je 2+2?,3,4,5,6,B,30\n";
+
+        var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
+        Assert.True(importResult.IsSuccess);
+
+        var createSessionResult = await quizService.CreateSessionAsync(quizId, organizerToken, null, cancellationToken);
+        Assert.True(createSessionResult.IsSuccess);
+
+        return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword);
     }
 }

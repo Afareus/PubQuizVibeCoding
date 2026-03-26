@@ -6,12 +6,15 @@ namespace QuizApp.Server.Application.Sessions;
 public static class SessionParticipationEndpoints
 {
     private const string TeamReconnectTokenHeaderName = "X-Team-Reconnect-Token";
+    private const string OrganizerTokenHeaderName = "X-Organizer-Token";
+    private const string QuizPasswordHeaderName = "X-Quiz-Password";
 
     public static IEndpointRouteBuilder MapSessionParticipationEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/sessions");
 
         group.MapPost("/join", JoinSessionAsync);
+        group.MapGet("/{sessionId:guid}", GetOrganizerSessionAsync);
         group.MapGet("/{sessionId:guid}/state", GetSessionStateAsync);
 
         return endpoints;
@@ -23,6 +26,24 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var result = await sessionParticipationService.JoinSessionAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> GetOrganizerSessionAsync(
+        Guid sessionId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.GetOrganizerSessionStateAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));

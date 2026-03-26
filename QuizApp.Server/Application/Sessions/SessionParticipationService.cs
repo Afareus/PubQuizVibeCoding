@@ -13,6 +13,8 @@ public interface ISessionParticipationService
     Task<JoinSessionOperationResult> JoinSessionAsync(JoinSessionRequest request, CancellationToken cancellationToken);
 
     Task<SessionStateOperationResult> GetSessionStateAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken);
+
+    Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 }
 
 public sealed class SessionParticipationService : ISessionParticipationService
@@ -156,6 +158,40 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return SessionStateOperationResult.Success(response);
     }
 
+    public async Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .AsNoTracking()
+            .Include(x => x.Quiz)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return OrganizerSessionStateOperationResult.Fail(authError!);
+        }
+
+        var response = new OrganizerSessionSnapshotResponse(
+            session.SessionId,
+            session.QuizId,
+            session.JoinCode,
+            session.Status,
+            new DateTimeOffset(session.CreatedAtUtc, TimeSpan.Zero),
+            ToUtcOffset(session.StartedAtUtc),
+            ToUtcOffset(session.EndedAtUtc),
+            session.Teams
+                .OrderBy(x => x.JoinedAtUtc)
+                .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
+                .ToList());
+
+        return OrganizerSessionStateOperationResult.Success(response);
+    }
+
     private static DateTimeOffset? ToUtcOffset(DateTime? value)
     {
         return value is null ? null : new DateTimeOffset(value.Value, TimeSpan.Zero);
@@ -212,6 +248,95 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         return expectedHash.Length == actualHash.Length && CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
     }
+
+    private static bool TryAuthorizeOrganizer(Quiz? quiz, string? organizerToken, string? organizerPassword, out ApiErrorResponse? error)
+    {
+        if (quiz is null)
+        {
+            error = new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(organizerToken) && string.IsNullOrWhiteSpace(organizerPassword))
+        {
+            error = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí organizátorská autentizace (X-Organizer-Token nebo X-Quiz-Password).");
+            return false;
+        }
+
+        var tokenMatches = VerifyOrganizerToken(organizerToken ?? string.Empty, quiz.QuizOrganizerTokenHash);
+        var passwordMatches = VerifyPassword(organizerPassword, quiz.DeletePasswordHash);
+
+        if (tokenMatches || passwordMatches)
+        {
+            error = null;
+            return true;
+        }
+
+        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo mazací heslo.");
+        return false;
+    }
+
+    private static bool VerifyOrganizerToken(string organizerToken, string organizerTokenHash)
+    {
+        if (string.IsNullOrWhiteSpace(organizerToken) || string.IsNullOrWhiteSpace(organizerTokenHash))
+        {
+            return false;
+        }
+
+        byte[] expectedHash;
+        try
+        {
+            expectedHash = Convert.FromHexString(organizerTokenHash);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var actualHash = SHA256.HashData(Encoding.UTF8.GetBytes(organizerToken.Trim()));
+
+        return expectedHash.Length == actualHash.Length && CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
+    }
+
+    private static bool VerifyPassword(string? password, string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
+        {
+            return false;
+        }
+
+        var parts = passwordHash.Split('$', StringSplitOptions.TrimEntries);
+        if (parts.Length != 4 || !string.Equals(parts[0], "pbkdf2-sha256", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(parts[1], out var iterations) || iterations <= 0)
+        {
+            return false;
+        }
+
+        byte[] salt;
+        byte[] expectedHash;
+        try
+        {
+            salt = Convert.FromHexString(parts[2]);
+            expectedHash = Convert.FromHexString(parts[3]);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        var actualHash = Rfc2898DeriveBytes.Pbkdf2(
+            password.Trim(),
+            salt,
+            iterations,
+            HashAlgorithmName.SHA256,
+            expectedHash.Length);
+
+        return expectedHash.Length == actualHash.Length && CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
+    }
 }
 
 public sealed record JoinSessionOperationResult(
@@ -234,4 +359,15 @@ public sealed record SessionStateOperationResult(
     public static SessionStateOperationResult Success(SessionStateSnapshotResponse response) => new(response, null);
 
     public static SessionStateOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record OrganizerSessionStateOperationResult(
+    OrganizerSessionSnapshotResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static OrganizerSessionStateOperationResult Success(OrganizerSessionSnapshotResponse response) => new(response, null);
+
+    public static OrganizerSessionStateOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }

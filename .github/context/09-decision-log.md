@@ -129,3 +129,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Endpoint `GET /api/sessions/{sessionId}/state` vyžaduje hlavičku `X-Team-Reconnect-Token`; join endpoint navíc vynucuje unikátní název týmu (case-insensitive) a limit 20 týmů na session.
 - **Důvod:** `00-source-of-truth.md` požaduje, aby týmové requesty po joinu neprocházely bez reconnect tokenu, a zároveň definuje max. 20 týmů v jedné session.
 - **Dopad:** Reconnect identita je od S12 skutečně vynutitelná na backendu a join flow respektuje produktový limit bez rozšiřování scope mimo MVP.
+
+### D-018 — S13 waiting room používá organizátorský snapshot endpoint
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S13
+- **Rozhodnutí:** Pro organizátorskou čekárnu byl doplněn endpoint `GET /api/sessions/{sessionId}` vracející snapshot session (join code, stav, týmy) a autentizace je platná přes `X-Organizer-Token` **nebo** `X-Quiz-Password`.
+- **Důvod:** S13 vyžaduje waiting room se seznamem připojených týmů; týmový snapshot endpoint ze S12 vyžaduje `X-Team-Reconnect-Token`, takže pro organizátora nebyl použitelný.
+- **Dopad:** UI čekárny může bezpečně načítat aktuální stav WAITING session bez zavádění SignalR v tomto kroku a bez scope creep do game engine.

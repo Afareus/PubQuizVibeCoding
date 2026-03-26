@@ -24,7 +24,7 @@ Po každém kroku jej aktualizuj.
 - [x] S10 — Organizátorské UI pro kvízy
 - [x] S11 — Session create backend a join code
 - [x] S12 — Team join backend a reconnect identita
-- [ ] S13 — Organizátorský waiting room a session create UI
+- [x] S13 — Organizátorský waiting room a session create UI
 - [ ] S14 — Start/cancel session backend
 - [ ] S15 — Otázkový engine a timeout progression
 - [ ] S16 — SignalR session groups a eventy
@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S12 — Team join backend a reconnect identita (ověřeno 2026-03-26 UTC).
+- S13 — Organizátorský waiting room a session create UI (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -52,12 +52,17 @@ Po každém kroku jej aktualizuj.
 - V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byla doplněna join logika: validace join code, stav `WAITING`, unikátní název týmu v session, limit 20 týmů, generování jednorázového `TeamReconnectToken` a ukládání pouze jeho hashe.
 - Session state snapshot ověřuje `TeamReconnectToken` constant-time porovnáním hashů, aktualizuje `LastSeenAtUtc` a vrací stav session + seznam týmů + aktuální otázku (pokud existuje).
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro pravidla S12 (valid join, duplicate team name, invalid join code, valid/invalid reconnect token).
-- Další krok je `S13`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyl organizátorský endpoint `GET /api/sessions/{sessionId}` a v `SessionParticipationService` nová operace `GetOrganizerSessionStateAsync` s autentizací přes `X-Organizer-Token` nebo `X-Quiz-Password`.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` vznikl kontrakt `OrganizerSessionSnapshotResponse` pro waiting room snapshot (join code, stav session, seznam týmů).
+- `QuizApp.Client/Pages/OrganizerQuizDetail.razor` nově umožňuje vytvořit session (`POST /api/quizzes/{quizId}/sessions`), zobrazit `SessionId + JoinCode` a přejít do čekárny.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` je nahrazeno funkční obrazovkou čekárny: načtení snapshotu přes `GET /api/sessions/{sessionId}`, podpora lokálního tokenu podle `quizId`, zobrazení stavu session a připojených týmů.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy organizátorského snapshotu (validní heslo, chybějící autentizace).
+- Další krok je `S14`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 34/34 passed)
-- Ruční smoke check: neproběhl (nové endpointy S12 vyžadují ruční ověření v běžícím serveru/klientovi)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 36/36 passed)
+- Ruční smoke check: neproběhl (nové UI/endpointy S13 vyžadují ruční ověření v běžícím serveru/klientovi)
