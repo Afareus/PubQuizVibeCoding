@@ -101,3 +101,17 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Pro endpointy správy kvízu (`import`, `detail`, `delete`) je autentizace platná při znalosti `X-Organizer-Token` **nebo** `X-Quiz-Password`; operace smazání navíc vyžaduje správné mazací heslo.
 - **Důvod:** Repo instrukce obsahují uživatelskou preferenci průběžně měnit pravidlo tak, aby znalost hesla opravňovala k organizátorským úkonům.
 - **Dopad:** Organizátorské API je použitelné i bez uloženého tokenu, přitom zůstává zachovaná ochrana mazání kvízu heslem a kontrola aktivních session.
+
+### D-014 — S10 lokální dashboard staví na párech `quizId + organizer token`
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S10
+- **Rozhodnutí:** Organizátorské UI ukládá a čte seznam kvízů výhradně z `localStorage` pod jedním klíčem jako seznam dvojic `quizId + QuizOrganizerToken`; detail/import zároveň umožňují ruční autentizaci přes heslo.
+- **Důvod:** Produktová specifikace požaduje klientský seznam bez serverového list endpointu a repo preference vyžaduje průběžně podporovat heslo jako alternativní organizátorskou autentizaci.
+- **Dopad:** Refresh prohlížeče zachová lokální seznam kvízů pro daný browser a UI zůstává použitelné i při chybějícím tokenu.
+
+### D-015 — S10 hotfix: WASM klient používá explicitní API base URL + server povoluje localhost CORS
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S10
+- **Rozhodnutí:** Klientský `HttpClient` čte `ApiBaseUrl` z `QuizApp.Client/wwwroot/appsettings.json` a server povoluje CORS pro localhost originy.
+- **Důvod:** Při běhu klienta (`https://localhost:7184`) a serveru (`https://localhost:7174`) na různých portech neprocházelo vytvoření kvízu z UI, i když Swagger na serveru fungoval.
+- **Dopad:** Organizátorské UI může volat API i v odděleném debug běhu a není závislé na stejném originu klienta a serveru.

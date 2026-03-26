@@ -21,7 +21,7 @@ Po každém kroku jej aktualizuj.
 - [x] S07 — CSV kontrakt, parser a validační report
 - [x] S08 — Služba pro založení kvízu a import otázek
 - [x] S09 — REST endpointy pro správu kvízů
-- [ ] S10 — Organizátorské UI pro kvízy
+- [x] S10 — Organizátorské UI pro kvízy
 - [ ] S11 — Session create backend a join code
 - [ ] S12 — Team join backend a reconnect identita
 - [ ] S13 — Organizátorský waiting room a session create UI
@@ -35,16 +35,17 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S09 — REST endpointy pro správu kvízů (ověřeno 2026-03-26 UTC).
+- S10 — Organizátorské UI pro kvízy (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
-- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` vznikly endpointy `POST /api/quizzes`, `POST /api/quizzes/{quizId}/import-csv`, `GET /api/quizzes/{quizId}` a `DELETE /api/quizzes/{quizId}` s mapováním `ApiErrorCode -> HTTP status`.
-- `Program.cs` nyní mapuje `app.MapQuizManagementEndpoints()`.
-- `QuizManagementService` byl rozšířen o `GetQuizDetailAsync` a `DeleteQuizAsync`; delete kontroluje aktivní session (`WAITING`/`RUNNING`) a zapisuje audit `QUIZ_DELETED`.
-- Organizátorské operace (`import`, `detail`, `delete`) podporují autentizaci přes `X-Organizer-Token` nebo `X-Quiz-Password`; samotné smazání stále vyžaduje správné mazací heslo.
-- V `QuizApp.Shared/Contracts/QuizContracts.cs` byly doplněny DTO pro detail kvízu (`QuizDetailResponse`, `QuizDetailQuestionDto`, `QuizDetailQuestionOptionDto`).
-- V `QuizApp.Tests/QuizManagementServiceTests.cs` byly rozšířeny testy o scénáře detailu, mazání, aktivní session a autentizace přes heslo.
-- Další krok je `S10`.
+- V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
+- `QuizApp.Client/Pages/OrganizerDashboard.razor` nyní obsahuje funkční formulář „Nový kvíz“, volání `POST /api/quizzes`, zobrazení jednorázového tokenu a lokální dashboard uložených kvízů.
+- `QuizApp.Client/Pages/OrganizerQuizDetail.razor` bylo rozšířeno na funkční UI pro načtení detailu (`GET`), CSV import (`POST /import-csv`) včetně validačního reportu a smazání (`DELETE`) s heslem.
+- Organizátorské UI podporuje autentizaci přes uložený `X-Organizer-Token` i manuálně zadané `X-Quiz-Password`.
+- `QuizApp.Client/Program.cs` registruje `OrganizerQuizLocalStore` do DI; `_Imports.razor` byl rozšířen o `QuizApp.Shared.Contracts` a `QuizApp.Shared.Enums`.
+- Pro opravu volání API z WASM klienta mimo server origin byl doplněn `QuizApp.Client/wwwroot/appsettings.json` s `ApiBaseUrl` a klientský `HttpClient` používá tuto konfiguraci.
+- V `QuizApp.Server/Program.cs` je doplněna CORS policy `ClientOrigins` pro localhost originy, aby UI volání (`POST /api/quizzes` a další) fungovala i při běhu klienta a serveru na různých portech.
+- Další krok je `S11`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
@@ -52,4 +53,4 @@ Po každém kroku jej aktualizuj.
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
 - Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 26/26 passed)
-- Ruční smoke check: neproběhl (REST endpointy vyžadují ruční ověření přes Swagger/Postman na běžícím serveru)
+- Ruční smoke check: neproběhl (nové UI toky S10 vyžadují ruční ověření v běžícím klientovi/serveru)

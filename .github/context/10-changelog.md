@@ -84,3 +84,14 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Shared/Contracts/QuizContracts.cs` vznikly DTO kontrakty pro detail kvízu (`QuizDetailResponse`, `QuizDetailQuestionDto`, `QuizDetailQuestionOptionDto`).
 - V `QuizApp.Tests/QuizManagementServiceTests.cs` byly přidány testy pro autentizaci přes heslo, detail kvízu a mazání (včetně blokace při aktivní session).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (26 passed).
+
+## S10 — Organizátorské UI pro kvízy
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` byl nahrazen placeholder za funkční organizátorský dashboard s formulářem pro vytvoření kvízu (`POST /api/quizzes`), jednorázovým zobrazením tokenu a lokálním seznamem uložených kvízů.
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` vzniklo minimum UI pro načtení detailu (`GET /api/quizzes/{quizId}`), upload/import CSV (`POST /api/quizzes/{quizId}/import-csv`) a zobrazení validačního reportu.
+- Na stejné detail stránce bylo doplněno smazání kvízu (`DELETE /api/quizzes/{quizId}`) se zadáním mazacího hesla.
+- Přidána klientská služba `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` pro ukládání dvojic `quizId + QuizOrganizerToken` do `localStorage`.
+- `QuizApp.Client/Program.cs` registruje `OrganizerQuizLocalStore` do DI a `_Imports.razor` byl rozšířen o sdílené kontrakty/enumy.
+- Hotfix: klientský `HttpClient` nyní čte `ApiBaseUrl` z `QuizApp.Client/wwwroot/appsettings.json`, aby WASM UI volalo server API i při běhu na jiném portu/originu.
+- Hotfix: v `QuizApp.Server/Program.cs` přidána CORS policy `ClientOrigins` pro localhost originy, aby UI volání API nebyla blokována browserem.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (26 passed).
+- Omezení: ruční smoke-check S10 UI flow v běžícím klientovi/serveru zatím neproběhl v tomto prostředí.

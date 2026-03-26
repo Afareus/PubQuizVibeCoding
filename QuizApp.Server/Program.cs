@@ -27,6 +27,25 @@ builder.Services.AddSignalR(options =>
     options.MaximumReceiveMessageSize = 64 * 1024;
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ClientOrigins", policy =>
+    {
+        policy
+            .SetIsOriginAllowed(static origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddHealthChecks();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -47,6 +66,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("ClientOrigins");
 
 app.MapHealthChecks("/health");
 app.MapQuizManagementEndpoints();

@@ -1,7 +1,340 @@
 @page "/organizator/kviz"
+@page "/organizator/kviz/{QuizId:guid}"
+@inject HttpClient HttpClient
+@inject OrganizerQuizLocalStore OrganizerQuizLocalStore
+@inject NavigationManager NavigationManager
 
 <PageTitle>Detail kvízu</PageTitle>
 
 <h1>Detail kvízu</h1>
 
-<p>Tato obrazovka je placeholder pro detail kvízu a import otázek.</p>
+<p class="text-muted">Načtení detailu, import otázek přes CSV a smazání kvízu.</p>
+
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+}
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Výběr kvízu a autentizace</h2>
+
+        <div class="mb-3">
+            <label class="form-label" for="quizId">Quiz ID</label>
+            <InputText id="quizId" class="form-control" @bind-Value="quizIdInput" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="authPassword">Mazací heslo (volitelné pro detail/import)</label>
+            <InputText id="authPassword" class="form-control" type="password" @bind-Value="organizerPasswordForAuth" />
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            <p class="mb-0">Lokální organizer token: <code>@storedOrganizerToken</code></p>
+        }
+
+        <button class="btn btn-primary mt-3" type="button" disabled="@isLoadingDetail" @onclick="LoadDetailAsync">@(isLoadingDetail ? "Načítám..." : "Načíst detail")</button>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Import CSV</h2>
+
+        <InputFile OnChange="ReadCsvFileAsync" accept=".csv,text/csv" />
+
+        @if (!string.IsNullOrWhiteSpace(selectedFileName))
+        {
+            <p class="mt-2 mb-2">Vybraný soubor: <strong>@selectedFileName</strong></p>
+        }
+
+        <button class="btn btn-outline-primary" type="button" disabled="@isImporting" @onclick="ImportCsvAsync">@(isImporting ? "Importuji..." : "Nahrát CSV")</button>
+
+        @if (importResult is not null)
+        {
+            <div class="mt-3">
+                <p class="mb-2">Importováno otázek: <strong>@importResult.ImportedQuestionsCount</strong></p>
+
+                @if (importResult.ValidationIssues.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Řádek</th>
+                                    <th>Sloupec</th>
+                                    <th>Chyba</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var issue in importResult.ValidationIssues)
+                                {
+                                    <tr>
+                                        <td>@issue.Row</td>
+                                        <td>@issue.Column</td>
+                                        <td>@issue.Message</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@if (quizDetail is not null)
+{
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-3">@quizDetail.Name</h2>
+            <p class="mb-1"><strong>ID:</strong> <code>@quizDetail.QuizId</code></p>
+            <p class="mb-1"><strong>Vytvořeno (UTC):</strong> @quizDetail.CreatedAtUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss")</p>
+            <p class="mb-3"><strong>Počet otázek:</strong> @quizDetail.QuestionCount</p>
+
+            @if (quizDetail.Questions.Count == 0)
+            {
+                <p class="mb-0">Kvíz zatím neobsahuje žádné otázky.</p>
+            }
+            else
+            {
+                <ol class="mb-0">
+                    @foreach (var question in quizDetail.Questions.OrderBy(q => q.OrderIndex))
+                    {
+                        <li class="mb-3">
+                            <div><strong>@question.Text</strong> (@question.TimeLimitSec s)</div>
+                            <ul class="mb-1">
+                                @foreach (var option in question.Options.OrderBy(o => o.OptionKey))
+                                {
+                                    <li>@option.OptionKey: @option.Text</li>
+                                }
+                            </ul>
+                            <div>Správná odpověď: <strong>@question.CorrectOption</strong></div>
+                        </li>
+                    }
+                </ol>
+            }
+        </div>
+    </section>
+}
+
+<section class="card border-danger mb-4">
+    <div class="card-body">
+        <h2 class="h5 text-danger">Smazání kvízu</h2>
+        <p>Zadání správného mazacího hesla je povinné.</p>
+
+        <div class="mb-3">
+            <label class="form-label" for="deletePassword">Mazací heslo</label>
+            <InputText id="deletePassword" class="form-control" type="password" @bind-Value="deletePassword" />
+        </div>
+
+        <button class="btn btn-danger" type="button" disabled="@isDeleting" @onclick="DeleteQuizAsync">@(isDeleting ? "Mažu..." : "Smazat kvíz")</button>
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public Guid? QuizId { get; set; }
+
+    private string quizIdInput = string.Empty;
+    private string organizerPasswordForAuth = string.Empty;
+    private string deletePassword = string.Empty;
+    private string? storedOrganizerToken;
+    private string? selectedFileName;
+    private string? csvContent;
+    private string? infoMessage;
+    private bool isLoadingDetail;
+    private bool isImporting;
+    private bool isDeleting;
+
+    private ApiErrorResponse? apiError;
+    private QuizDetailResponse? quizDetail;
+    private ImportQuizCsvResponse? importResult;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (QuizId.HasValue)
+        {
+            quizIdInput = QuizId.Value.ToString();
+            await LoadStoredTokenAsync(QuizId.Value);
+        }
+    }
+
+    private async Task LoadDetailAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isLoadingDetail = true;
+
+        var quizId = ParseQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isLoadingDetail = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId.Value}");
+        ApplyOrganizerAuth(request, organizerPasswordForAuth);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            quizDetail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            infoMessage = "Detail kvízu byl načten.";
+        }
+        else
+        {
+            quizDetail = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoadingDetail = false;
+    }
+
+    private async Task ReadCsvFileAsync(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(1024 * 1024);
+        using var reader = new StreamReader(stream);
+
+        csvContent = await reader.ReadToEndAsync();
+        selectedFileName = file.Name;
+        infoMessage = "CSV soubor je načtený a připravený k importu.";
+    }
+
+    private async Task ImportCsvAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isImporting = true;
+
+        var quizId = ParseQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isImporting = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(csvContent))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nejprve vyberte CSV soubor.");
+            isImporting = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/import-csv");
+        request.Content = JsonContent.Create(new ImportQuizCsvRequest(quizId.Value, csvContent));
+        ApplyOrganizerAuth(request, organizerPasswordForAuth);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            importResult = await response.Content.ReadFromJsonAsync<ImportQuizCsvResponse>();
+            infoMessage = "Import CSV byl dokončen.";
+            await LoadDetailAsync();
+        }
+        else
+        {
+            importResult = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isImporting = false;
+    }
+
+    private async Task DeleteQuizAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isDeleting = true;
+
+        var quizId = ParseQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isDeleting = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(deletePassword))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání je nutné zadat mazací heslo.");
+            isDeleting = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/quizzes/{quizId.Value}");
+        request.Headers.Add("X-Quiz-Password", deletePassword.Trim());
+
+        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+        }
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            await OrganizerQuizLocalStore.RemoveAsync(quizId.Value);
+            NavigationManager.NavigateTo("/organizator");
+            return;
+        }
+
+        apiError = await ReadApiErrorAsync(response);
+        isDeleting = false;
+    }
+
+    private async Task LoadStoredTokenAsync(Guid quizId)
+    {
+        var storedQuiz = await OrganizerQuizLocalStore.FindByQuizIdAsync(quizId);
+        storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
+    }
+
+    private Guid? ParseQuizId()
+    {
+        return Guid.TryParse(quizIdInput, out var parsedQuizId) ? parsedQuizId : null;
+    }
+
+    private void ApplyOrganizerAuth(HttpRequestMessage request, string? password)
+    {
+        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            request.Headers.Add("X-Quiz-Password", password.Trim());
+        }
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        if (apiError is not null)
+        {
+            return apiError;
+        }
+
+        return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Operace selhala.");
+    }
+}
