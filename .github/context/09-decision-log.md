@@ -150,3 +150,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Otázkový engine běží plně na serveru: při `StartSession` se okamžitě nastaví první otázka a periodický hostovaný worker (`SessionProgressionBackgroundService`) posouvá běžící session po vypršení `QuestionDeadlineUtc`; po poslední otázce session přepne do `FINISHED`.
 - **Důvod:** Roadmapa S15 vyžaduje deterministický server-authoritative průběh a automatický přechod po timeoutu i bez zásahu klienta.
 - **Dopad:** Klienti dostávají konzistentní snapshoty bez serverového sekundového tick streamu a timeout progression funguje i bez aktivního pollingu konkrétního klienta.
+
+### D-021 — S16 realtime eventy nesou minimální payload, klient refreshuje snapshot přes REST
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S16
+- **Rozhodnutí:** SignalR vrstva publikuje do session-specific groups pouze názvy eventů (`team.joined`, `session.started`, `question.changed`, `session.cancelled`, `session.finished`, `results.ready`) bez přenosu plného stavu; klient po eventu načítá autoritativní snapshot přes existující REST endpoint.
+- **Důvod:** Roadmapa S16 vyžaduje realtime synchronizaci bez sekundových ticků; minimální event payload drží protokol jednoduchý a zároveň zachovává server jako jediný zdroj pravdy pro stav session.
+- **Dopad:** Waiting room se synchronizuje téměř okamžitě, reconnect flow je jednoduchý (SignalR resubscribe + REST refresh) a není nutné duplikovat snapshot kontrakty mezi REST a realtime vrstvou.

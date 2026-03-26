@@ -1,5 +1,7 @@
 @page "/organizator/session/cekarna"
 @page "/organizator/session/cekarna/{SessionId:guid}"
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
 @inject HttpClient HttpClient
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
 @inject IJSRuntime JSRuntime
@@ -9,6 +11,7 @@
 <h1>Čekárna session</h1>
 
 <p class="text-muted">Načtení stavu WAITING session a seznamu připojených týmů.</p>
+<p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -106,9 +109,12 @@
     private string? storedOrganizerToken;
     private string? infoMessage;
     private bool isLoading;
+    private bool isRealtimeConnected;
 
     private ApiErrorResponse? apiError;
     private OrganizerSessionSnapshotResponse? snapshot;
+    private HubConnection? hubConnection;
+    private Guid? realtimeSessionId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -152,6 +158,7 @@
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             infoMessage = "Snapshot session byl načten.";
+            await EnsureRealtimeConnectionAsync(sessionId.Value);
         }
         else
         {
@@ -160,6 +167,107 @@
         }
 
         isLoading = false;
+    }
+
+    private async Task EnsureRealtimeConnectionAsync(Guid sessionId)
+    {
+        if (hubConnection is null)
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(new Uri(HttpClient.BaseAddress!, "/hubs/sessions"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Připojil se nový tým."));
+            hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla spuštěna."));
+            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Došlo ke změně otázky."));
+            hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));
+            hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla ukončena."));
+            hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));
+
+            hubConnection.Reconnecting += _ =>
+            {
+                isRealtimeConnected = false;
+                return InvokeAsync(StateHasChanged);
+            };
+
+            hubConnection.Reconnected += async _ =>
+            {
+                isRealtimeConnected = true;
+                var reconnectSessionId = realtimeSessionId ?? sessionId;
+                await SubscribeRealtimeSessionAsync(reconnectSessionId);
+                await ReloadSnapshotFromRealtimeAsync("Realtime připojení bylo obnoveno.");
+            };
+
+            hubConnection.Closed += _ =>
+            {
+                isRealtimeConnected = false;
+                return InvokeAsync(StateHasChanged);
+            };
+        }
+
+        if (hubConnection.State == HubConnectionState.Disconnected)
+        {
+            await hubConnection.StartAsync();
+            isRealtimeConnected = true;
+        }
+
+        await SubscribeRealtimeSessionAsync(sessionId);
+    }
+
+    private async Task SubscribeRealtimeSessionAsync(Guid sessionId)
+    {
+        if (hubConnection is null)
+        {
+            return;
+        }
+
+        if (realtimeSessionId.HasValue && realtimeSessionId.Value != sessionId)
+        {
+            await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
+        }
+
+        await hubConnection.InvokeAsync("SubscribeToSessionAsync", sessionId);
+        realtimeSessionId = sessionId;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadSnapshotFromRealtimeAsync(string message)
+    {
+        await InvokeAsync(async () =>
+        {
+            var sessionId = ParseSessionId();
+            if (!sessionId.HasValue)
+            {
+                return;
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{sessionId.Value}");
+            ApplyOrganizerAuth(request);
+
+            using var response = await HttpClient.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+                infoMessage = message;
+                apiError = null;
+            }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is null)
+        {
+            return;
+        }
+
+        if (realtimeSessionId.HasValue && hubConnection.State == HubConnectionState.Connected)
+        {
+            await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
+        }
+
+        await hubConnection.DisposeAsync();
     }
 
     private async Task StartSessionAsync()

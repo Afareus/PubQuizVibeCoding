@@ -142,3 +142,14 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S15 (nastavení první otázky po startu, posun na další otázku po timeoutu, přechod do `FINISHED` po timeoutu poslední otázky).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (43 passed).
 - Omezení: ruční smoke-check časového průběhu S15 v běžícím serveru/klientovi zatím neproběhl v tomto prostředí.
+
+## S16 — SignalR session groups a eventy
+- V `QuizApp.Server/Application/Sessions/SessionHub.cs` vznikl SignalR hub se session-specific groups a metodami `SubscribeToSessionAsync` / `UnsubscribeFromSessionAsync`.
+- V `QuizApp.Server/Application/Sessions/SessionRealtimePublisher.cs` byla přidána vrstva pro publikaci realtime eventů dle `RealtimeEventName` do konkrétní session group.
+- `SessionParticipationService` nyní publikuje eventy `team.joined`, `session.started`, `question.changed`, `session.cancelled`, `session.finished`, `results.ready` po odpovídajících stavových změnách (join/start/cancel/progression).
+- V `QuizApp.Server/Program.cs` je nově namapován hub endpoint `app.MapHub<SessionHub>("/hubs/sessions")` a registrován `ISessionRealtimePublisher`.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` bylo rozšířeno o SignalR připojení s automatic reconnect, session resubscribe a refresh snapshotu přes REST při realtime eventech.
+- V `QuizApp.Client/QuizApp.Client.csproj` byl přidán balíček `Microsoft.AspNetCore.SignalR.Client`.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy ověřující publikaci realtime eventů (`team.joined`, `session.finished`, `results.ready`).
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (45 passed).
+- Omezení: ruční smoke-check realtime synchronizace ve dvou otevřených klientech zatím neproběhl v tomto prostředí.

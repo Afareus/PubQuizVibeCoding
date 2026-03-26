@@ -27,7 +27,7 @@ Po každém kroku jej aktualizuj.
 - [x] S13 — Organizátorský waiting room a session create UI
 - [x] S14 — Start/cancel session backend
 - [x] S15 — Otázkový engine a timeout progression
-- [ ] S16 — SignalR session groups a eventy
+- [x] S16 — SignalR session groups a eventy
 - [ ] S17 — Team UI: join, waiting room, question screen
 - [ ] S18 — Answer submit backend
 - [ ] S19 — Výsledky, ranking a correct answers
@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S15 — Otázkový engine a timeout progression (ověřeno 2026-03-26 UTC).
+- S16 — SignalR session groups a eventy (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -66,12 +66,19 @@ Po každém kroku jej aktualizuj.
 - V `QuizApp.Server/Application/Sessions/SessionProgressionBackgroundService.cs` vznikla hostovaná služba s periodickým zpracováním běžících session bez sekundových event ticků do klienta.
 - V `QuizApp.Server/Program.cs` je registrována background služba pro timeout progression.
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy S15 pro posun na další otázku po timeoutu a přechod do `FINISHED` po timeoutu poslední otázky.
-- Další krok je `S16`.
+- V `QuizApp.Server/Application/Sessions/SessionHub.cs` vznikl SignalR hub s metodami pro subscribe/unsubscribe do session-specific groups (`session:{sessionId}`).
+- V `QuizApp.Server/Application/Sessions/SessionRealtimePublisher.cs` vznikla realtime publikační služba, která emituje eventy podle `RealtimeEventName` do konkrétní session group.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` jsou nyní emitovány eventy `team.joined`, `session.started`, `question.changed`, `session.cancelled`, `session.finished`, `results.ready` při join/start/cancel/progression operacích.
+- V `QuizApp.Server/Program.cs` je namapován endpoint hubu `MapHub<SessionHub>("/hubs/sessions")` a registrován `ISessionRealtimePublisher`.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově navazuje SignalR připojení s automatic reconnect, subscribuje session group a při realtime eventech obnovuje snapshot přes REST.
+- V `QuizApp.Client/QuizApp.Client.csproj` byl přidán balíček `Microsoft.AspNetCore.SignalR.Client` pro WASM klienta.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy na publikaci realtime eventů (`team.joined`, `session.finished`, `results.ready`).
+- Další krok je `S17`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 43/43 passed)
-- Ruční smoke check: neproběhl (S15 timeout progression vyžaduje běžící server/klienta a časový průběh session)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 45/45 passed)
+- Ruční smoke check: neproběhl (S16 realtime synchronizace vyžaduje běžící server/klienta ve dvou oknech)

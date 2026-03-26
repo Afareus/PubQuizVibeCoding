@@ -30,10 +30,12 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private const int MaxTeamsPerSession = 20;
 
     private readonly QuizAppDbContext _dbContext;
+    private readonly ISessionRealtimePublisher _sessionRealtimePublisher;
 
-    public SessionParticipationService(QuizAppDbContext dbContext)
+    public SessionParticipationService(QuizAppDbContext dbContext, ISessionRealtimePublisher sessionRealtimePublisher)
     {
         _dbContext = dbContext;
+        _sessionRealtimePublisher = sessionRealtimePublisher;
     }
 
     public async Task<JoinSessionOperationResult> JoinSessionAsync(JoinSessionRequest request, CancellationToken cancellationToken)
@@ -90,6 +92,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
         {
             return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.TeamNameAlreadyUsed, "Název týmu už je v této session použit."));
         }
+
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.TeamJoined, cancellationToken);
 
         return JoinSessionOperationResult.Success(new JoinSessionResponse(
             session.SessionId,
@@ -258,12 +262,16 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
         }
 
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.SessionStarted, cancellationToken);
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.QuestionChanged, cancellationToken);
+
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
     }
 
     public async Task ProgressDueSessionsAsync(CancellationToken cancellationToken)
     {
         var nowUtc = DateTime.UtcNow;
+        var emittedEvents = new List<(Guid SessionId, RealtimeEventName EventName)>();
         var candidateSessions = await _dbContext.Sessions
             .Include(x => x.Quiz!)
                 .ThenInclude(x => x.Questions)
@@ -293,6 +301,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
                     firstQuestion.OrderIndex,
                     nowUtc,
                     nowUtc.AddSeconds(firstQuestion.TimeLimitSec));
+                emittedEvents.Add((session.SessionId, RealtimeEventName.QuestionChanged));
                 continue;
             }
 
@@ -308,6 +317,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
             if (nextQuestion is null)
             {
                 session.Finish(nowUtc);
+                emittedEvents.Add((session.SessionId, RealtimeEventName.SessionFinished));
+                emittedEvents.Add((session.SessionId, RealtimeEventName.ResultsReady));
                 continue;
             }
 
@@ -315,6 +326,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 nextQuestion.OrderIndex,
                 nowUtc,
                 nowUtc.AddSeconds(nextQuestion.TimeLimitSec));
+            emittedEvents.Add((session.SessionId, RealtimeEventName.QuestionChanged));
         }
 
         try
@@ -323,6 +335,12 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
         catch (DbUpdateConcurrencyException)
         {
+            emittedEvents.Clear();
+        }
+
+        foreach (var emittedEvent in emittedEvents)
+        {
+            await _sessionRealtimePublisher.PublishSessionEventAsync(emittedEvent.SessionId, emittedEvent.EventName, cancellationToken);
         }
     }
 
@@ -372,6 +390,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
         {
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
         }
+
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.SessionCancelled, cancellationToken);
 
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
     }

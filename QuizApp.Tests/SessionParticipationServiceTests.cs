@@ -11,6 +11,48 @@ namespace QuizApp.Tests;
 public class SessionParticipationServiceTests
 {
     [Fact]
+    public async Task JoinSessionAsync_ValidRequest_PublishesTeamJoinedEvent()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var realtimePublisher = new FakeSessionRealtimePublisher();
+        var sessionService = CreateSessionService(dbContext, realtimePublisher);
+
+        var session = await CreateWaitingSessionAsync(quizService, CancellationToken.None);
+
+        var result = await sessionService.JoinSessionAsync(new JoinSessionRequest(session.JoinCode, "Tým Echo"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(realtimePublisher.Events, x => x.SessionId == session.SessionId && x.EventName == RealtimeEventName.TeamJoined);
+    }
+
+    [Fact]
+    public async Task ProgressDueSessionsAsync_LastQuestionExpired_PublishesRealtimeFinishedEvents()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var realtimePublisher = new FakeSessionRealtimePublisher();
+        var sessionService = CreateSessionService(dbContext, realtimePublisher);
+
+        var created = await CreateWaitingSessionWithTwoQuestionsAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Sigma"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(1, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        realtimePublisher.Events.Clear();
+        await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
+
+        Assert.Contains(realtimePublisher.Events, x => x.SessionId == created.SessionId && x.EventName == RealtimeEventName.SessionFinished);
+        Assert.Contains(realtimePublisher.Events, x => x.SessionId == created.SessionId && x.EventName == RealtimeEventName.ResultsReady);
+    }
+
+    [Fact]
     public async Task JoinSessionAsync_ValidRequest_ReturnsTeamIdentityAndReconnectToken()
     {
         await using var dbContext = CreateDbContext();
@@ -312,9 +354,9 @@ public class SessionParticipationServiceTests
         return new QuizManagementService(dbContext, new QuizCsvParser());
     }
 
-    private static SessionParticipationService CreateSessionService(QuizAppDbContext dbContext)
+    private static SessionParticipationService CreateSessionService(QuizAppDbContext dbContext, ISessionRealtimePublisher? realtimePublisher = null)
     {
-        return new SessionParticipationService(dbContext);
+        return new SessionParticipationService(dbContext, realtimePublisher ?? new FakeSessionRealtimePublisher());
     }
 
     private static QuizAppDbContext CreateDbContext()
@@ -384,5 +426,16 @@ public class SessionParticipationServiceTests
         Assert.True(createSessionResult.IsSuccess);
 
         return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
+    }
+
+    private sealed class FakeSessionRealtimePublisher : ISessionRealtimePublisher
+    {
+        public List<(Guid SessionId, RealtimeEventName EventName)> Events { get; } = [];
+
+        public Task PublishSessionEventAsync(Guid sessionId, RealtimeEventName eventName, CancellationToken cancellationToken)
+        {
+            Events.Add((sessionId, eventName));
+            return Task.CompletedTask;
+        }
     }
 }
