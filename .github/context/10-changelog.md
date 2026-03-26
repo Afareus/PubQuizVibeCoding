@@ -194,3 +194,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Nahrazeno zobrazení surového UTC deadline textem „⏱ Zbývá: Xs" / „⏱ Čas vypršel".
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (58/58 passed).
 - Omezení: ruční smoke-check vyžaduje běžící server + klienta s aktivní RUNNING session.
+
+## S20 — Hardening a bezpečnostní minimum
+- V `QuizApp.Server/Program.cs` byl doplněn built-in ASP.NET Core rate limiting (`AddRateLimiter` + `UseRateLimiter`) s politikami: `JoinPerIp` (10 req/min), `SubmitPerTeam` (20 req/min) a `OrganizerMutations` (10 req/min).
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` a `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` byly mutační endpointy navázány na odpovídající limiter policy přes `RequireRateLimiting(...)`.
+- Pro HTTPS/TLS-ready běh mimo localhost byl v server pipeline doplněn `UseForwardedHeaders()` a `UseHsts()` (mimo development).
+- V `QuizApp.Server/Application/Common/TextInputSanitizer.cs` vznikla centralizovaná sanitizace single-line textových vstupů; `QuizManagementService` a `SessionParticipationService` ji používají pro názvy kvízu/týmu včetně délkových validací (`Quiz.Name <= 200`, `Team.Name <= 120`).
+- V `QuizApp.Client/Realtime/ReconnectWithinSixtySecondsPolicy.cs` byla přidána reconnect policy s max. reconnect oknem 60 sekund a byla použita ve stránkách `OrganizerWaitingRoom`, `TeamWaitingRoom`, `TeamQuestion`.
+- V testech (`QuizManagementServiceTests`, `SessionParticipationServiceTests`) přibyly scénáře ověřující sanitizaci a délkové validace textových vstupů.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (62/62 passed).
+- Omezení: ruční smoke-check rate limitingu a reconnect chování vyžaduje běžící server/klienta v interaktivním prostředí.

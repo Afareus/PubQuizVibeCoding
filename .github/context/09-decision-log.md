@@ -192,3 +192,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Zbývající čas na otázku se zobrazuje jako živý countdown (sekundy), implementovaný přes `System.Threading.Timer` s 1s intervalem.
 - **Důvod:** Surový UTC deadline byl pro hráče nečitelný a nebylo zřejmé, kolik zbývá času.
 - **Dopad:** Hráč vidí odpočet v reálném čase; timer se automaticky restartuje při přechodu na novou otázku a uvolňuje v `DisposeAsync`.
+
+### D-027 — S20 hardening: limiter policy + text sanitizace + reconnect okno 60s
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** S20
+- **Rozhodnutí:** Hardening minimum je implementováno kombinací server-side rate limiting politik (`JoinPerIp`, `SubmitPerTeam`, `OrganizerMutations`), centralizované sanitizace textových vstupů (`TextInputSanitizer`) s délkovými limity dle persistence, TLS-ready middleware (`UseForwardedHeaders`, `UseHsts`) a klientské SignalR reconnect policy omezené na 60 sekund (`ReconnectWithinSixtySecondsPolicy`).
+- **Důvod:** Roadmapa S20 explicitně požaduje rate limiting, sanitizaci vstupů, HTTPS/TLS připravenost a ošetřený reconnect do 60s bez rozšiřování scope mimo MVP.
+- **Dopad:** Aplikace má základní provozně-bezpečnostní odolnost v API vrstvě i klientském realtime flow, při zachování jednoduché architektury modulárního monolitu.

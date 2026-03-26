@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using QuizApp.Server.Application.Common;
 using QuizApp.Server.Application.QuizImport;
 using QuizApp.Server.Domain.Entities;
 using QuizApp.Server.Persistence;
@@ -32,6 +33,7 @@ public sealed class QuizManagementService : IQuizManagementService
     private const int PasswordSaltBytes = 16;
     private const int PasswordHashBytes = 32;
     private const int PasswordHashIterations = 100_000;
+    private const int MaxQuizNameLength = 200;
 
     private readonly QuizAppDbContext _dbContext;
     private readonly IQuizCsvParser _quizCsvParser;
@@ -53,10 +55,11 @@ public sealed class QuizManagementService : IQuizManagementService
         var nowUtc = DateTime.UtcNow;
         var quizId = Guid.NewGuid();
         var organizerToken = GenerateOrganizerToken();
+        var sanitizedQuizName = TextInputSanitizer.SanitizeSingleLine(request.Name);
 
         var quiz = Quiz.Create(
             quizId,
-            request.Name.Trim(),
+            sanitizedQuizName,
             HashPassword(request.DeletePassword),
             HashOrganizerToken(organizerToken),
             nowUtc);
@@ -281,10 +284,15 @@ public sealed class QuizManagementService : IQuizManagementService
     private static IReadOnlyDictionary<string, string[]>? ValidateCreateQuizRequest(CreateQuizRequest request)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var sanitizedName = TextInputSanitizer.SanitizeSingleLine(request.Name);
 
-        if (string.IsNullOrWhiteSpace(request.Name))
+        if (string.IsNullOrWhiteSpace(sanitizedName))
         {
             errors[nameof(CreateQuizRequest.Name)] = ["Název kvízu je povinný."];
+        }
+        else if (sanitizedName.Length > MaxQuizNameLength)
+        {
+            errors[nameof(CreateQuizRequest.Name)] = [$"Název kvízu může mít maximálně {MaxQuizNameLength} znaků."];
         }
 
         if (string.IsNullOrWhiteSpace(request.DeletePassword))

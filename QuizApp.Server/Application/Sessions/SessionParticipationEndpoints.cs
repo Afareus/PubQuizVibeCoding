@@ -13,12 +13,16 @@ public static class SessionParticipationEndpoints
     {
         var group = endpoints.MapGroup("/api/sessions");
 
-        group.MapPost("/join", JoinSessionAsync);
+        group.MapPost("/join", JoinSessionAsync)
+            .RequireRateLimiting("JoinPerIp");
         group.MapGet("/{sessionId:guid}", GetOrganizerSessionAsync);
         group.MapGet("/{sessionId:guid}/state", GetSessionStateAsync);
-        group.MapPost("/{sessionId:guid}/answers", SubmitAnswerAsync);
-        group.MapPost("/{sessionId:guid}/start", StartSessionAsync);
-        group.MapPost("/{sessionId:guid}/cancel", CancelSessionAsync);
+        group.MapPost("/{sessionId:guid}/answers", SubmitAnswerAsync)
+            .RequireRateLimiting("SubmitPerTeam");
+        group.MapPost("/{sessionId:guid}/start", StartSessionAsync)
+            .RequireRateLimiting("OrganizerMutations");
+        group.MapPost("/{sessionId:guid}/cancel", CancelSessionAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapGet("/{sessionId:guid}/results", GetSessionResultsAsync);
         group.MapGet("/{sessionId:guid}/correct-answers", GetCorrectAnswersAsync);
 

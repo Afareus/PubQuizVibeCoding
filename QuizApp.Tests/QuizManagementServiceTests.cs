@@ -33,6 +33,34 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
+    public async Task CreateQuizAsync_NameIsSanitizedBeforePersist()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.CreateQuizAsync(new CreateQuizRequest("  Hospodský\t\n\r  kvíz  ", "tajneheslo"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var storedQuiz = await dbContext.Quizzes.SingleAsync(x => x.QuizId == result.Response!.QuizId);
+        Assert.Equal("Hospodský kvíz", storedQuiz.Name);
+    }
+
+    [Fact]
+    public async Task CreateQuizAsync_TooLongName_ReturnsValidationFailed()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var tooLongName = new string('A', 201);
+        var result = await service.CreateQuizAsync(new CreateQuizRequest(tooLongName, "tajneheslo"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ApiErrorCode.ValidationFailed, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task ImportQuizCsvAsync_ValidCsv_ImportsQuestionsAndCreatesAuditLog()
     {
         await using var dbContext = CreateDbContext();

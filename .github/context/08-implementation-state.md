@@ -31,13 +31,18 @@ Po každém kroku jej aktualizuj.
 - [x] S17 — Team UI: join, waiting room, question screen
 - [x] S18 — Answer submit backend
 - [x] S19 — Výsledky, ranking a correct answers
-- [ ] S20 — Hardening a bezpečnostní minimum
+- [x] S20 — Hardening a bezpečnostní minimum
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Bugfix — Realtime rendering a countdown timer (ověřeno build + testy).
+- S20 — Hardening a bezpečnostní minimum (ověřeno build + testy).
 
 ## Aktuální poznámky
+- V `QuizApp.Server/Program.cs` je doplněn rate limiting middleware s politikami `JoinPerIp` (10/min), `SubmitPerTeam` (20/min) a `OrganizerMutations` (10/min), plus `UseForwardedHeaders` a `UseHsts` mimo development pro TLS-ready provoz.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` a `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou mutační endpointy napojeny na odpovídající rate limit policy.
+- V `QuizApp.Server/Application/Common/TextInputSanitizer.cs` vznikla centralizovaná sanitizace textových vstupů; je použita v `QuizManagementService` (název kvízu) a `SessionParticipationService` (název týmu) včetně délkových validací dle EF limitů.
+- Klientské SignalR obrazovky (`OrganizerWaitingRoom`, `TeamWaitingRoom`, `TeamQuestion`) používají `ReconnectWithinSixtySecondsPolicy` pro reconnect okno do 60 sekund.
+- V testech přibyly scénáře pro sanitizaci a délkové validace (`QuizManagementServiceTests`, `SessionParticipationServiceTests`).
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
 - `QuizApp.Client/Pages/OrganizerDashboard.razor` nyní obsahuje funkční formulář „Nový kvíz“, volání `POST /api/quizzes`, zobrazení jednorázového tokenu a lokální dashboard uložených kvízů.
 - `QuizApp.Client/Pages/OrganizerQuizDetail.razor` bylo rozšířeno na funkční UI pro načtení detailu (`GET`), CSV import (`POST /import-csv`) včetně validačního reportu a smazání (`DELETE`) s heslem.
@@ -98,5 +103,5 @@ Po každém kroku jej aktualizuj.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 58/58 passed)
-- Ruční smoke check: neproběhl (S19 results/ranking flow vyžaduje běžící server/klienta a dokončenou FINISHED session)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 62/62 passed)
+- Ruční smoke check: neproběhl (S20 rate limit/reconnect ověření vyžaduje běžící server/klienta a interaktivní síťové podmínky)

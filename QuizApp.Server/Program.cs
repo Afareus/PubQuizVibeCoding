@@ -1,3 +1,5 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using QuizApp.Server.Application.QuizImport;
@@ -52,6 +54,51 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHealthChecks();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("JoinPerIp", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ResolveRemoteIp(httpContext),
+            factory: static _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    options.AddPolicy("SubmitPerTeam", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ResolveTeamKey(httpContext),
+            factory: static _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    options.AddPolicy("OrganizerMutations", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ResolveOrganizerKey(httpContext),
+            factory: static _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -69,8 +116,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("ClientOrigins");
+app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
 app.MapQuizManagementEndpoints();
@@ -78,3 +132,33 @@ app.MapSessionParticipationEndpoints();
 app.MapHub<SessionHub>("/hubs/sessions");
 
 app.Run();
+
+static string ResolveRemoteIp(HttpContext httpContext)
+{
+    return httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown-ip";
+}
+
+static string ResolveTeamKey(HttpContext httpContext)
+{
+    if (httpContext.Request.Headers.TryGetValue("X-Team-Reconnect-Token", out var tokenValue) && !string.IsNullOrWhiteSpace(tokenValue))
+    {
+        return $"team:{tokenValue.ToString().Trim()}";
+    }
+
+    return $"ip:{ResolveRemoteIp(httpContext)}";
+}
+
+static string ResolveOrganizerKey(HttpContext httpContext)
+{
+    if (httpContext.Request.Headers.TryGetValue("X-Organizer-Token", out var organizerToken) && !string.IsNullOrWhiteSpace(organizerToken))
+    {
+        return $"organizer-token:{organizerToken.ToString().Trim()}";
+    }
+
+    if (httpContext.Request.Headers.TryGetValue("X-Quiz-Password", out var organizerPassword) && !string.IsNullOrWhiteSpace(organizerPassword))
+    {
+        return $"organizer-password:{organizerPassword.ToString().Trim()}";
+    }
+
+    return $"ip:{ResolveRemoteIp(httpContext)}";
+}

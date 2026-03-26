@@ -12,11 +12,15 @@ public static class QuizManagementEndpoints
     {
         var group = endpoints.MapGroup("/api/quizzes");
 
-        group.MapPost("/", CreateQuizAsync);
-        group.MapPost("/{quizId:guid}/sessions", CreateSessionAsync);
-        group.MapPost("/{quizId:guid}/import-csv", ImportQuizCsvAsync);
+        group.MapPost("/", CreateQuizAsync)
+            .RequireRateLimiting("OrganizerMutations");
+        group.MapPost("/{quizId:guid}/sessions", CreateSessionAsync)
+            .RequireRateLimiting("OrganizerMutations");
+        group.MapPost("/{quizId:guid}/import-csv", ImportQuizCsvAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapGet("/{quizId:guid}", GetQuizDetailAsync);
-        group.MapDelete("/{quizId:guid}", DeleteQuizAsync);
+        group.MapDelete("/{quizId:guid}", DeleteQuizAsync)
+            .RequireRateLimiting("OrganizerMutations");
 
         return endpoints;
     }

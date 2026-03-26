@@ -94,6 +94,40 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task JoinSessionAsync_TeamNameIsSanitizedBeforePersist()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var session = await CreateWaitingSessionAsync(quizService, CancellationToken.None);
+        var result = await sessionService.JoinSessionAsync(new JoinSessionRequest(session.JoinCode, "  Tým\t\n\r  Delta  "), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var team = await dbContext.Teams.SingleAsync(x => x.TeamId == result.Response!.TeamId);
+        Assert.Equal("Tým Delta", team.Name);
+        Assert.Equal("TÝM DELTA", team.NormalizedTeamName);
+    }
+
+    [Fact]
+    public async Task JoinSessionAsync_TooLongTeamName_ReturnsValidationFailed()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var session = await CreateWaitingSessionAsync(quizService, CancellationToken.None);
+        var tooLongTeamName = new string('X', 121);
+
+        var result = await sessionService.JoinSessionAsync(new JoinSessionRequest(session.JoinCode, tooLongTeamName), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ApiErrorCode.ValidationFailed, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task JoinSessionAsync_InvalidJoinCode_ReturnsNotFound()
     {
         await using var dbContext = CreateDbContext();

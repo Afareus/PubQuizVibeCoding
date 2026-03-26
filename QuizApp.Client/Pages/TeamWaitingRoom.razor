@@ -150,7 +150,7 @@ else
         {
             hubConnection = new HubConnectionBuilder()
                 .WithUrl(new Uri(HttpClient.BaseAddress!, "/hubs/sessions"))
-                .WithAutomaticReconnect()
+                .WithAutomaticReconnect(new ReconnectWithinSixtySecondsPolicy())
                 .Build();
 
             hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Připojil se nový tým."));

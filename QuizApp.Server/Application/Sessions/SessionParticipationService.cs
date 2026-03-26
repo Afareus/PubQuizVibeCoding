@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using QuizApp.Server.Application.Common;
 using QuizApp.Server.Domain.Entities;
 using QuizApp.Server.Persistence;
 using QuizApp.Shared.Contracts;
@@ -34,6 +35,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
 {
     private const int TeamReconnectTokenEntropyBytes = 32;
     private const int MaxTeamsPerSession = 20;
+    private const int MaxTeamNameLength = 120;
 
     private readonly QuizAppDbContext _dbContext;
     private readonly ISessionRealtimePublisher _sessionRealtimePublisher;
@@ -53,6 +55,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         var normalizedJoinCode = request.JoinCode.Trim().ToUpperInvariant();
+        var sanitizedTeamName = TextInputSanitizer.SanitizeSingleLine(request.TeamName);
         var session = await _dbContext.Sessions
             .Include(x => x.Teams)
             .SingleOrDefaultAsync(x => x.JoinCode == normalizedJoinCode, cancellationToken);
@@ -72,7 +75,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session již obsahuje maximální počet týmů (20)."));
         }
 
-        var normalizedTeamName = request.TeamName.Trim().ToUpperInvariant();
+        var normalizedTeamName = sanitizedTeamName.ToUpperInvariant();
         if (session.Teams.Any(team => string.Equals(team.NormalizedTeamName, normalizedTeamName, StringComparison.Ordinal)))
         {
             return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.TeamNameAlreadyUsed, "Název týmu už je v této session použit."));
@@ -84,7 +87,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         var team = Team.Create(
             Guid.NewGuid(),
             session.SessionId,
-            request.TeamName.Trim(),
+            sanitizedTeamName,
             HashTeamReconnectToken(reconnectToken),
             nowUtc);
 
@@ -672,6 +675,18 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (string.IsNullOrWhiteSpace(request.TeamName))
         {
             errors[nameof(JoinSessionRequest.TeamName)] = ["Název týmu je povinný."];
+        }
+        else
+        {
+            var sanitizedTeamName = TextInputSanitizer.SanitizeSingleLine(request.TeamName);
+            if (string.IsNullOrWhiteSpace(sanitizedTeamName))
+            {
+                errors[nameof(JoinSessionRequest.TeamName)] = ["Název týmu je povinný."];
+            }
+            else if (sanitizedTeamName.Length > MaxTeamNameLength)
+            {
+                errors[nameof(JoinSessionRequest.TeamName)] = [$"Název týmu může mít maximálně {MaxTeamNameLength} znaků."];
+            }
         }
 
         return errors.Count == 0 ? null : errors;
