@@ -23,7 +23,7 @@ Po každém kroku jej aktualizuj.
 - [x] S09 — REST endpointy pro správu kvízů
 - [x] S10 — Organizátorské UI pro kvízy
 - [x] S11 — Session create backend a join code
-- [ ] S12 — Team join backend a reconnect identita
+- [x] S12 — Team join backend a reconnect identita
 - [ ] S13 — Organizátorský waiting room a session create UI
 - [ ] S14 — Start/cancel session backend
 - [ ] S15 — Otázkový engine a timeout progression
@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [ ] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S11 — Session create backend a join code (ověřeno 2026-03-26 UTC).
+- S12 — Team join backend a reconnect identita (ověřeno 2026-03-26 UTC).
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
@@ -48,12 +48,16 @@ Po každém kroku jej aktualizuj.
 - V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `CreateSessionAsync`, která při autorizaci (`X-Organizer-Token` nebo `X-Quiz-Password`) založí session jen nad kvízem s otázkami, vygeneruje unikátní join code, nastaví stav `WAITING` a zapisuje audit `SESSION_CREATED`.
 - V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `POST /api/quizzes/{quizId}/sessions`.
 - V `QuizApp.Tests/QuizManagementServiceTests.cs` přibyly testy pro `CreateSessionAsync` (bez otázek => konflikt, autorizace heslem, opakované vytvoření session).
-- Další krok je `S12`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` vznikly týmové endpointy `POST /api/sessions/join` a `GET /api/sessions/{sessionId}/state?teamId={teamId}` s autorizací přes `X-Team-Reconnect-Token` pro state snapshot.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byla doplněna join logika: validace join code, stav `WAITING`, unikátní název týmu v session, limit 20 týmů, generování jednorázového `TeamReconnectToken` a ukládání pouze jeho hashe.
+- Session state snapshot ověřuje `TeamReconnectToken` constant-time porovnáním hashů, aktualizuje `LastSeenAtUtc` a vrací stav session + seznam týmů + aktuální otázku (pokud existuje).
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro pravidla S12 (valid join, duplicate team name, invalid join code, valid/invalid reconnect token).
+- Další krok je `S13`.
 
 ## Rizika / dluh
 - Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 29/29 passed)
-- Ruční smoke check: neproběhl (nový endpoint S11 vyžaduje ruční ověření v běžícím serveru/klientovi)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 34/34 passed)
+- Ruční smoke check: neproběhl (nové endpointy S12 vyžadují ruční ověření v běžícím serveru/klientovi)

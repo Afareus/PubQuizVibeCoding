@@ -122,3 +122,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Vytvoření session (`POST /api/quizzes/{quizId}/sessions`) je autorizované stejně jako ostatní organizátorské operace (`X-Organizer-Token` **nebo** `X-Quiz-Password`) a join code je generován jako 8 znaků z abecedy `A-Z` bez ambiguit + `2-9`.
 - **Důvod:** Uživatelská preference vyžaduje průběžně rozšiřovat pravidlo „znalost hesla opravňuje k organizátorským úkonům“ i na nové endpointy; zároveň roadmapa S11 požaduje neuhodnutelný join code bez zbytečné komplexity.
 - **Dopad:** Session create backend je konzistentní s předchozí autentizací v S09/S10 a poskytuje prakticky bezpečný, čitelný join code s kontrolou unikátnosti.
+
+### D-017 — S12 state snapshot vyžaduje reconnect token a join respektuje max. 20 týmů
+- **Datum/čas (UTC):** 2026-03-26T00:00:00Z
+- **Krok:** S12
+- **Rozhodnutí:** Endpoint `GET /api/sessions/{sessionId}/state` vyžaduje hlavičku `X-Team-Reconnect-Token`; join endpoint navíc vynucuje unikátní název týmu (case-insensitive) a limit 20 týmů na session.
+- **Důvod:** `00-source-of-truth.md` požaduje, aby týmové requesty po joinu neprocházely bez reconnect tokenu, a zároveň definuje max. 20 týmů v jedné session.
+- **Dopad:** Reconnect identita je od S12 skutečně vynutitelná na backendu a join flow respektuje produktový limit bez rozšiřování scope mimo MVP.

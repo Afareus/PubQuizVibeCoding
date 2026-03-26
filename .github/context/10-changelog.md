@@ -104,3 +104,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Tests/QuizManagementServiceTests.cs` přibyly testy pro pravidla S11: konflikt pro kvíz bez otázek, vytvoření session přes heslo bez tokenu a opakované create session nad stejným kvízem.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (29 passed).
 - Omezení: ruční smoke-check endpointu S11 v běžícím serveru/UI zatím neproběhl v tomto prostředí.
+
+## S12 — Team join backend a reconnect identita
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byla přidána služba `ISessionParticipationService` s operacemi `JoinSessionAsync` a `GetSessionStateAsync`.
+- `JoinSessionAsync` implementuje `POST /api/sessions/join`: validuje join code, stav `WAITING`, unikátní název týmu v session (case-insensitive), limit 20 týmů a vrací `teamId + TeamReconnectToken` pouze jednorázově při joinu.
+- Reconnect token je generován kryptograficky bezpečně (256 bitů), na serveru se ukládá pouze jeho hash (`SHA-256`).
+- `GetSessionStateAsync` implementuje `GET /api/sessions/{sessionId}/state?teamId={teamId}` s povinnou hlavičkou `X-Team-Reconnect-Token`, constant-time porovnáním hashů, aktualizací `LastSeenAtUtc` a vracením snapshotu session/teams/current question.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` vzniklo mapování týmových endpointů a v `QuizApp.Server/Program.cs` byla doplněna DI registrace + mapování těchto endpointů.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro pravidla S12: validní join, duplicitní název týmu, neplatný join code a valid/invalid reconnect token pro state snapshot.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (34 passed).
+- Omezení: ruční smoke-check nových S12 endpointů v běžícím serveru/klientovi zatím neproběhl v tomto prostředí.

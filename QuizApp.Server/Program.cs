@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using QuizApp.Server.Application.QuizImport;
 using QuizApp.Server.Application.Quizzes;
+using QuizApp.Server.Application.Sessions;
 using QuizApp.Server.Configuration;
 using QuizApp.Server.Persistence;
 
@@ -20,6 +21,7 @@ builder.Services.AddDbContext<QuizAppDbContext>((serviceProvider, options) =>
 
 builder.Services.AddScoped<IQuizCsvParser, QuizCsvParser>();
 builder.Services.AddScoped<IQuizManagementService, QuizManagementService>();
+builder.Services.AddScoped<ISessionParticipationService, SessionParticipationService>();
 
 builder.Services.AddSignalR(options =>
 {
@@ -70,5 +72,6 @@ app.UseCors("ClientOrigins");
 
 app.MapHealthChecks("/health");
 app.MapQuizManagementEndpoints();
+app.MapSessionParticipationEndpoints();
 
 app.Run();
