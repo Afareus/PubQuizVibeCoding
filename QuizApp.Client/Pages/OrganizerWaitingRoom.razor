@@ -10,7 +10,6 @@
 
 <h1>Čekárna</h1>
 
-<p class="text-muted">Načtení stavu WAITING session a seznamu připojených týmů.</p>
 <p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
@@ -27,9 +26,8 @@
 {
     <section class="card mb-4">
         <div class="card-body">
-            <h2 class="h5 mb-3">Session detail</h2>
-            <p class="mb-1"><strong>Session ID:</strong> <code>@snapshot.SessionId</code></p>
-            <p class="mb-1"><strong>Quiz ID:</strong> <code>@snapshot.QuizId</code></p>
+            <h2 class="h5 mb-3">Detail hry</h2>
+            <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName)</p>
             <p class="mb-1"><strong>Join code:</strong> <code>@snapshot.JoinCode</code></p>
             <p class="mb-3"><strong>Stav:</strong> @snapshot.Status</p>
 
@@ -37,14 +35,14 @@
                 @if (snapshot.Status == SessionStatus.Waiting)
                 {
                     <button class="btn btn-success" type="button" disabled="@isLoading" @onclick="StartSessionAsync">
-                        @(isLoading ? "Provádím..." : "Spustit session")
+                        @(isLoading ? "Provádím..." : "Spustit hru")
                     </button>
                 }
 
                 @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running)
                 {
                     <button class="btn btn-outline-danger" type="button" disabled="@isLoading" @onclick="CancelSessionAsync">
-                        @(isLoading ? "Provádím..." : "Zrušit session")
+                        @(isLoading ? "Provádím..." : "Zrušit hru")
                     </button>
                 }
 
@@ -84,6 +82,7 @@
 
     private string sessionIdInput = string.Empty;
     private string? storedOrganizerToken;
+    private string? storedQuizName;
     private string? infoMessage;
     private bool isLoading;
     private bool isRealtimeConnected;
@@ -330,6 +329,7 @@
     {
         var storedQuiz = await OrganizerQuizLocalStore.FindByQuizIdAsync(quizId);
         storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
+        storedQuizName = storedQuiz?.QuizName;
     }
 
     private Guid? ParseSessionId()
