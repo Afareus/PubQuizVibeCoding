@@ -20,7 +20,45 @@
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5">Nový kvíz</h2>
+        <h2 class="h5">Dostupné kvízy</h2>
+
+        @if (storedQuizzes.Count == 0)
+        {
+            <p class="mb-0">Zatím tu není uložen žádný kvíz.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Název kvízu</th>
+                            <th>Datum založení</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var quiz in storedQuizzes.OrderByDescending(x => x.CreatedAtUtc ?? DateTimeOffset.MinValue))
+                        {
+                            <tr>
+                                <td>@GetQuizName(quiz)</td>
+                                <td>
+                                    <div class="d-flex justify-content-between align-items-center gap-2">
+                                        <span>@GetQuizCreatedAt(quiz)</span>
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Založit nový kvíz</h2>
         <EditForm Model="createQuizForm" OnValidSubmit="CreateQuizAsync">
             <DataAnnotationsValidator />
 
@@ -40,48 +78,6 @@
         </EditForm>
     </div>
 </section>
-
-<section class="card mb-4">
-    <div class="card-body">
-        <h2 class="h5">Lokální seznam kvízů</h2>
-
-        @if (storedQuizzes.Count == 0)
-        {
-            <p class="mb-0">Zatím tu není uložen žádný kvíz.</p>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle">
-                    <thead>
-                        <tr>
-                            <th>ID kvízu</th>
-                            <th>Organizer token</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var quiz in storedQuizzes.OrderByDescending(x => x.QuizId))
-                        {
-                            <tr>
-                                <td><code>@quiz.QuizId</code></td>
-                                <td><code>@quiz.QuizOrganizerToken</code></td>
-                                <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-</section>
-
-<ul>
-    <li><a href="organizator/kviz">Detail kvízu</a></li>
-    <li><a href="organizator/session/cekarna">Čekárna session</a></li>
-</ul>
 
 @code {
     private readonly CreateQuizFormModel createQuizForm = new();
@@ -111,7 +107,12 @@
             var payload = await response.Content.ReadFromJsonAsync<CreateQuizResponse>();
             if (payload is not null)
             {
-                await OrganizerQuizLocalStore.UpsertAsync(payload.QuizId, payload.QuizOrganizerToken);
+                var detail = await TryGetQuizDetailAsync(payload.QuizId, payload.QuizOrganizerToken);
+                await OrganizerQuizLocalStore.UpsertAsync(
+                    payload.QuizId,
+                    payload.QuizOrganizerToken,
+                    detail?.Name ?? createQuizForm.Name.Trim(),
+                    detail?.CreatedAtUtc ?? DateTimeOffset.UtcNow);
                 await LoadStoredQuizzesAsync();
 
                 createSuccessMessage = $"Kvíz byl vytvořen. Organizer token (zobrazí se jen teď): {payload.QuizOrganizerToken}";
@@ -128,7 +129,48 @@
 
     private async Task LoadStoredQuizzesAsync()
     {
-        storedQuizzes = (await OrganizerQuizLocalStore.GetAllAsync()).ToList();
+        var storedItems = (await OrganizerQuizLocalStore.GetAllAsync()).ToList();
+        var needsRefresh = false;
+
+        foreach (var quiz in storedItems.Where(x => string.IsNullOrWhiteSpace(x.QuizName) || x.CreatedAtUtc is null))
+        {
+            var detail = await TryGetQuizDetailAsync(quiz.QuizId, quiz.QuizOrganizerToken);
+            if (detail is null)
+            {
+                continue;
+            }
+
+            await OrganizerQuizLocalStore.UpsertAsync(quiz.QuizId, quiz.QuizOrganizerToken, detail.Name, detail.CreatedAtUtc);
+            needsRefresh = true;
+        }
+
+        storedQuizzes = needsRefresh
+            ? (await OrganizerQuizLocalStore.GetAllAsync()).ToList()
+            : storedItems;
+    }
+
+    private async Task<QuizDetailResponse?> TryGetQuizDetailAsync(Guid quizId, string organizerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId}");
+        request.Headers.Add("X-Organizer-Token", organizerToken);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+    }
+
+    private static string GetQuizName(StoredOrganizerQuiz quiz)
+    {
+        return string.IsNullOrWhiteSpace(quiz.QuizName) ? "(neznámý název)" : quiz.QuizName;
+    }
+
+    private static string GetQuizCreatedAt(StoredOrganizerQuiz quiz)
+    {
+        return quiz.CreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)

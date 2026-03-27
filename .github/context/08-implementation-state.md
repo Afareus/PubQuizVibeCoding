@@ -105,6 +105,11 @@ Po každém kroku jej aktualizuj.
 - Post-S21 bugfix: `QuizApp.Client/Pages/TeamQuestion.razor` ukládá lokální lock odpovědi až po serverově úspěšném submitu (nebo při odpovědi `AlreadyAnswered`), aby se tým nezamkl po neúspěšném requestu.
 - Post-S21 bugfix: `QuizApp.Client/Team/TeamSessionLocalStore.cs` ukládá odpovědi per `sessionId + teamId + questionId`, takže se lokální lock nepropisuje mezi týmy v jedné session.
 - Post-S21 bugfix: týmový flow nyní přenáší `teamId` v URL query (`/tym/cekarna` -> `/tym/otazka` -> `/session/vysledky`) a identita se načítá přes `sessionId + teamId`, takže při více týmech ve stejném browseru nedochází k přepisování identity.
+- Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerDashboard.razor` zobrazuje nejdříve lokální seznam kvízů a formulář „Nový kvíz“ je přesunut pod seznam.
+- Post-S21 UI úprava: grid organizátorských kvízů nyní obsahuje jen `Název kvízu` a `Datum založení`; sloupce `QuizId` a `Organizer token` už se nezobrazují.
+- Post-S21 UI úprava: `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` ukládá kromě tokenu i metadata (`QuizName`, `CreatedAtUtc`) a dashboard je u starších záznamů doplňuje přes `GET /api/quizzes/{quizId}` s `X-Organizer-Token`.
+- Post-S21 UI úprava: v `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo do řádku názvu vráceno tlačítko `Detail` (bez přidání sloupce s ID/tokenem).
+- Post-S21 UI úprava: tlačítko `Detail` je v řádku dashboard tabulky zarovnáno úplně doprava (pravý okraj druhého sloupce).
 
 ## Rizika / dluh
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.

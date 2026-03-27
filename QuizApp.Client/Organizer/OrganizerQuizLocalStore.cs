@@ -41,11 +41,11 @@ public sealed class OrganizerQuizLocalStore
         return items.FirstOrDefault(item => item.QuizId == quizId);
     }
 
-    public async Task UpsertAsync(Guid quizId, string organizerToken)
+    public async Task UpsertAsync(Guid quizId, string organizerToken, string? quizName, DateTimeOffset? createdAtUtc)
     {
         var items = (await GetAllAsync()).ToList();
         items.RemoveAll(item => item.QuizId == quizId);
-        items.Add(new StoredOrganizerQuiz(quizId, organizerToken));
+        items.Add(new StoredOrganizerQuiz(quizId, organizerToken, quizName, createdAtUtc));
 
         var json = JsonSerializer.Serialize(items, SerializerOptions);
         await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
@@ -59,4 +59,8 @@ public sealed class OrganizerQuizLocalStore
     }
 }
 
-public sealed record StoredOrganizerQuiz(Guid QuizId, string QuizOrganizerToken);
+public sealed record StoredOrganizerQuiz(
+    Guid QuizId,
+    string QuizOrganizerToken,
+    string? QuizName = null,
+    DateTimeOffset? CreatedAtUtc = null);

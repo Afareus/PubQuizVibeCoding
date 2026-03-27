@@ -227,3 +227,24 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Team flow (`čekárna -> otázka -> výsledky`) přenáší `teamId` v query parametru a `TeamSessionLocalStore` umožňuje více identit pro stejnou session; lookup identity preferuje přesný pár `sessionId + teamId`.
 - **Důvod:** Při testování více týmů ve stejném browseru se původní model „jedna identita na session“ přepisoval a odpovědi se připisovaly špatnému týmu.
 - **Dopad:** I při více týmech v jedné session a jednom browseru zůstává identita stabilní a submity se zapisují správnému týmu.
+
+### D-032 — Organizátorský dashboard skrývá interní identifikátory a zobrazuje jen business metadata
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 UI úprava
+- **Rozhodnutí:** Grid na `OrganizerDashboard` zobrazuje pouze sloupce `Název kvízu` a `Datum založení`; `QuizId` a `OrganizerToken` zůstávají interně uložené, ale nejsou přímo viditelné v tabulce.
+- **Důvod:** Požadavek UX je zobrazovat organizátorovi přehled business dat bez exponování technických identifikátorů/tokenu.
+- **Dopad:** Lepší čitelnost dashboardu a menší riziko nechtěného sdílení citlivých údajů; pro existující záznamy se metadata dočítají přes detail endpoint s uloženým tokenem.
+
+### D-033 — Tlačítko `Detail` zachováno bez rozšíření datových sloupců
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 UI úprava
+- **Rozhodnutí:** Akce `Detail` je vrácena jako tlačítko přímo v buňce `Název kvízu`, aby tabulka stále obsahovala jen dva datové sloupce (`Název kvízu`, `Datum založení`).
+- **Důvod:** Uživatelsky je tlačítko výraznější než textový odkaz, ale současně má zůstat zachovaný požadavek na minimální datový grid bez `QuizId` a tokenu.
+- **Dopad:** Lepší použitelnost seznamu bez porušení předchozí UX podmínky na obsah gridu.
+
+### D-034 — `Detail` tlačítko je zarovnané na pravý okraj řádku
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 UI úprava
+- **Rozhodnutí:** Tlačítko `Detail` je vykresleno v pravé části druhého sloupce (`Datum založení`) s flex layoutem `justify-content-between`, aby bylo vizuálně úplně napravo.
+- **Důvod:** Uživatel explicitně požádal o umístění akčního tlačítka na pravý okraj řádku.
+- **Dopad:** Akce je konzistentně na stejném místě a tabulka stále zůstává dvousloupcová bez technických identifikátorů.

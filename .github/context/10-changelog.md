@@ -232,3 +232,20 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - `QuizApp.Client/Pages/TeamWaitingRoom.razor`, `QuizApp.Client/Pages/TeamQuestion.razor` a `QuizApp.Client/Pages/SessionResults.razor` přijímají `teamId` z query a načítají správnou identitu přes `FindIdentityAsync(sessionId, teamId)`.
 - Navigace `čekárna -> otázka -> výsledky` přenáší `teamId`, aby se odpovědi i výsledky mapovaly na správný tým.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (64/64 passed).
+
+## UI úprava — Organizátorský dashboard: seznam nahoře, nový kvíz dole a bez ID/tokenu v gridu
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` je nově pořadí sekcí: nejdřív seznam uložených kvízů, až pod ním formulář „Nový kvíz".
+- Tabulka uložených kvízů zobrazuje pouze sloupce `Název kvízu` a `Datum založení`; interní `QuizId` i `Organizer token` už se v gridu nezobrazují.
+- Název kvízu v tabulce zůstává proklik na detail (`/organizator/kviz/{quizId}`), takže funkčnost detailu je zachovaná bez extra sloupce.
+- `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` byl rozšířen o metadata `QuizName` a `CreatedAtUtc`; dashboard je pro starší položky bez metadat doplní přes `GET /api/quizzes/{quizId}` s `X-Organizer-Token`.
+- Ověřeno buildem solution (`run_build`).
+
+## UI úprava — Organizátorský dashboard: návrat tlačítka Detail
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo do buňky `Název kvízu` vráceno tlačítko `Detail` (`btn btn-sm btn-outline-primary`) vedle názvu.
+- Grid stále obsahuje jen dva datové sloupce (`Název kvízu`, `Datum založení`), bez `QuizId` a tokenu.
+- Ověřeno buildem solution (`run_build`).
+
+## UI úprava — Organizátorský dashboard: `Detail` úplně napravo
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo tlačítko `Detail` přesunuto do pravé části druhého sloupce (`Datum založení`) a zarovnáno na pravý okraj řádku.
+- Struktura tabulky zůstává dvousloupcová (`Název kvízu`, `Datum založení`) bez zobrazení `QuizId` a tokenu.
+- Ověřeno buildem solution (`run_build`).
