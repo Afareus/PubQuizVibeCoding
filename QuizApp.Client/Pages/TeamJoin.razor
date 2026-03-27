@@ -66,7 +66,7 @@
                 await TeamSessionLocalStore.UpsertIdentityAsync(storedIdentity);
 
                 infoMessage = "Tým byl připojen. Přesměrovávám do čekárny...";
-                NavigationManager.NavigateTo($"/tym/cekarna/{result.SessionId}");
+                NavigationManager.NavigateTo($"/tym/cekarna/{result.SessionId}?teamId={result.TeamId}");
             }
         }
         else

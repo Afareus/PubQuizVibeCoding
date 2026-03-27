@@ -85,6 +85,9 @@ else
     [Parameter]
     public Guid? SessionId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public Guid? TeamId { get; set; }
+
     private StoredTeamIdentity? identity;
     private SessionStateSnapshotResponse? snapshot;
     private ApiErrorResponse? apiError;
@@ -105,7 +108,7 @@ else
             return;
         }
 
-        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value);
+        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value, TeamId);
         if (identity is null)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí uložená týmová identita pro tuto session.");
@@ -225,7 +228,8 @@ else
     {
         if (SessionId.HasValue)
         {
-            NavigationManager.NavigateTo($"/tym/otazka/{SessionId.Value}");
+            var teamIdQuery = identity is null ? string.Empty : $"?teamId={identity.TeamId}";
+            NavigationManager.NavigateTo($"/tym/otazka/{SessionId.Value}{teamIdQuery}");
         }
     }
 

@@ -93,6 +93,9 @@ else
     [Parameter]
     public Guid? SessionId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public Guid? TeamId { get; set; }
+
     private StoredTeamIdentity? identity;
     private SessionStateSnapshotResponse? snapshot;
     private OptionKey? submittedOption;
@@ -116,7 +119,7 @@ else
             return;
         }
 
-        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value);
+        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value, TeamId);
         if (identity is null)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí uložená týmová identita pro tuto session.");
@@ -165,8 +168,6 @@ else
             return;
         }
 
-        await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, snapshot.CurrentQuestion.QuestionId, option);
-        submittedOption = option;
         apiError = null;
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{SessionId.Value}/answers")
@@ -179,6 +180,8 @@ else
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
+            await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, option);
+            submittedOption = option;
             infoMessage = "Odpověď byla odeslána a uzamčena pro tuto otázku.";
         }
         else
@@ -186,6 +189,8 @@ else
             var error = await ReadApiErrorAsync(response);
             if (error.Code == ApiErrorCode.AlreadyAnswered)
             {
+                await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, option);
+                submittedOption = option;
                 infoMessage = "Odpověď již byla dříve odeslána.";
             }
             else
@@ -198,13 +203,13 @@ else
 
     private async Task ReloadSubmittedAnswerAsync()
     {
-        if (!SessionId.HasValue || snapshot?.CurrentQuestion is null)
+        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null)
         {
             submittedOption = null;
             return;
         }
 
-        submittedOption = await TeamSessionLocalStore.FindSubmittedAnswerAsync(SessionId.Value, snapshot.CurrentQuestion.QuestionId);
+        submittedOption = await TeamSessionLocalStore.FindSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId);
     }
 
     private void RestartCountdownTimer()

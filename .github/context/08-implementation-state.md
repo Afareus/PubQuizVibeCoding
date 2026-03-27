@@ -102,6 +102,9 @@ Po každém kroku jej aktualizuj.
 - Vznikl finální checklist release připravenosti `.github/context/11-release-checklist.md`.
 - Ruční ověření `dotnet dotnet-ef database update` proti lokálnímu PostgreSQL bylo úspěšně provedeno (Development prostředí).
 - Roadmapa MVP (`S00`–`S21`) je implementačně uzavřená.
+- Post-S21 bugfix: `QuizApp.Client/Pages/TeamQuestion.razor` ukládá lokální lock odpovědi až po serverově úspěšném submitu (nebo při odpovědi `AlreadyAnswered`), aby se tým nezamkl po neúspěšném requestu.
+- Post-S21 bugfix: `QuizApp.Client/Team/TeamSessionLocalStore.cs` ukládá odpovědi per `sessionId + teamId + questionId`, takže se lokální lock nepropisuje mezi týmy v jedné session.
+- Post-S21 bugfix: týmový flow nyní přenáší `teamId` v URL query (`/tym/cekarna` -> `/tym/otazka` -> `/session/vysledky`) a identita se načítá přes `sessionId + teamId`, takže při více týmech ve stejném browseru nedochází k přepisování identity.
 
 ## Rizika / dluh
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.

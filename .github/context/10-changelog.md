@@ -219,3 +219,16 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Byl ručně spuštěn a úspěšně dokončen `dotnet dotnet-ef database update` pro `QuizApp.Server` v prostředí `Development`.
 - V `08-implementation-state.md` byl odpovídající dluh odstraněn ze sekce `Rizika / dluh` a přesunut do sekce ověření.
 - V `11-release-checklist.md` je položka ověření DB migrace označena jako splněná.
+
+## Bugfix — Team answer lock pouze po serverovém potvrzení a per tým
+- V `QuizApp.Client/Pages/TeamQuestion.razor` byl upraven submit flow: lokální lock odpovědi se ukládá až po úspěšném `POST /api/sessions/{sessionId}/answers` (a také při `AlreadyAnswered`), nikoliv před odesláním requestu.
+- V `QuizApp.Client/Team/TeamSessionLocalStore.cs` bylo u lokálně uložených odpovědí doplněno `TeamId`; lookup i zápis odpovědi je nově vázán na `sessionId + teamId + questionId`.
+- Tím se odstranila situace, kdy neúspěšný submit lokálně uzamkl otázku a tým následně končil s nulovým skóre bez reálného uložení odpovědi na server.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (64/64 passed).
+
+## Bugfix — Stabilní team identity v rámci jedné session i ve stejném browseru
+- `QuizApp.Client/Team/TeamSessionLocalStore.cs` nově neomezuje identity na jednu položku per session; identity jsou ukládány per `TeamId` a vyhledání identity podporuje parametr `teamId`.
+- `QuizApp.Client/Pages/TeamJoin.razor` po úspěšném joinu přesměrovává na čekárnu s query `?teamId={teamId}`.
+- `QuizApp.Client/Pages/TeamWaitingRoom.razor`, `QuizApp.Client/Pages/TeamQuestion.razor` a `QuizApp.Client/Pages/SessionResults.razor` přijímají `teamId` z query a načítají správnou identitu přes `FindIdentityAsync(sessionId, teamId)`.
+- Navigace `čekárna -> otázka -> výsledky` přenáší `teamId`, aby se odpovědi i výsledky mapovaly na správný tým.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (64/64 passed).

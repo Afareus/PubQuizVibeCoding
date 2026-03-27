@@ -83,6 +83,9 @@ else
     [Parameter]
     public Guid? SessionId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public Guid? TeamId { get; set; }
+
     private StoredTeamIdentity? identity;
     private SessionResultsResponse? results;
     private ApiErrorResponse? apiError;
@@ -99,7 +102,7 @@ else
             return;
         }
 
-        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value);
+        identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId.Value, TeamId);
         if (identity is null)
         {
             return;

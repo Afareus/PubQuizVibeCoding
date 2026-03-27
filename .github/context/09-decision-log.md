@@ -213,3 +213,17 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Po potvrzeném běhu `dotnet dotnet-ef database update` v prostředí `Development` je původní riziko „nedostupný localhost:5432“ odstraněno ze sekce `Rizika / dluh`.
 - **Důvod:** Otevřený dluh měl být evidován jen do okamžiku praktického ověření migrace proti lokálnímu PostgreSQL.
 - **Dopad:** Stavové soubory nyní přesně odráží aktuální stav projektu; z provozních omezení zůstává jen ruční smoke-check browser/SignalR flow.
+
+### D-030 — Bugfix: lokální uzamčení odpovědi je per tým a až po potvrzení serveru
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 bugfix
+- **Rozhodnutí:** `TeamSessionLocalStore` ukládá odpovědi pod klíčem `sessionId + teamId + questionId` a `TeamQuestion` ukládá lokální lock až po úspěšném submitu (resp. `AlreadyAnswered`), ne před HTTP voláním.
+- **Důvod:** Původní lokální lock `sessionId + questionId` a předčasné ukládání mohly zablokovat další pokusy i po neúspěšném submitu a vést k nulovým výsledkům u týmů bez serverově potvrzené odpovědi.
+- **Dopad:** UI lock nyní lépe odpovídá serverové realitě; tým se nezamkne při validační/network chybě a odpovědi se nepropisují mezi týmy v téže session na jednom klientovi.
+
+### D-031 — Bugfix: týmová identita v klientovi je jednoznačná přes `teamId` v URL
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 bugfix
+- **Rozhodnutí:** Team flow (`čekárna -> otázka -> výsledky`) přenáší `teamId` v query parametru a `TeamSessionLocalStore` umožňuje více identit pro stejnou session; lookup identity preferuje přesný pár `sessionId + teamId`.
+- **Důvod:** Při testování více týmů ve stejném browseru se původní model „jedna identita na session“ přepisoval a odpovědi se připisovaly špatnému týmu.
+- **Dopad:** I při více týmech v jedné session a jednom browseru zůstává identita stabilní a submity se zapisují správnému týmu.
