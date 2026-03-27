@@ -365,6 +365,35 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task CancelledSession_ReleasesJoinCode_ForNextSessionCreation()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var originalJoinCode = created.JoinCode;
+
+        var cancelResult = await sessionService.CancelSessionAsync(created.SessionId, created.OrganizerToken, null, confirmCancellation: true, CancellationToken.None);
+        Assert.True(cancelResult.IsSuccess);
+
+        var cancelledSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Cancelled, cancelledSession.Status);
+        Assert.NotEqual(originalJoinCode, cancelledSession.JoinCode);
+
+        var reusedJoinCodeSession = await quizService.CreateSessionAsync(
+            created.QuizId,
+            new CreateSessionRequest(originalJoinCode),
+            created.OrganizerToken,
+            null,
+            CancellationToken.None);
+
+        Assert.True(reusedJoinCodeSession.IsSuccess);
+        Assert.NotNull(reusedJoinCodeSession.Response);
+        Assert.Equal(originalJoinCode, reusedJoinCodeSession.Response!.JoinCode);
+    }
+
+    [Fact]
     public async Task CancelSessionAsync_TerminalState_ReturnsSessionStateChanged()
     {
         await using var dbContext = CreateDbContext();
@@ -381,6 +410,36 @@ public class SessionParticipationServiceTests
         Assert.False(secondCancel.IsSuccess);
         Assert.NotNull(secondCancel.Error);
         Assert.Equal(ApiErrorCode.SessionStateChanged, secondCancel.Error!.Code);
+    }
+
+    [Fact]
+    public async Task TerminateNonTerminalSessionsAsync_CancelsWaitingAndRunningSessions()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var waiting = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var running = await CreateWaitingSessionWithTwoQuestionsAsync(quizService, CancellationToken.None);
+
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(running.JoinCode, "Tým Startup"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(running.SessionId, running.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var terminatedCount = await sessionService.TerminateNonTerminalSessionsAsync(CancellationToken.None);
+        Assert.Equal(2, terminatedCount);
+
+        var waitingAfter = await dbContext.Sessions.SingleAsync(x => x.SessionId == waiting.SessionId);
+        Assert.Equal(SessionStatus.Cancelled, waitingAfter.Status);
+        Assert.NotNull(waitingAfter.EndedAtUtc);
+        Assert.NotEqual(waiting.JoinCode, waitingAfter.JoinCode);
+
+        var runningAfter = await dbContext.Sessions.SingleAsync(x => x.SessionId == running.SessionId);
+        Assert.Equal(SessionStatus.Cancelled, runningAfter.Status);
+        Assert.NotNull(runningAfter.EndedAtUtc);
+        Assert.NotEqual(running.JoinCode, runningAfter.JoinCode);
     }
 
     [Fact]

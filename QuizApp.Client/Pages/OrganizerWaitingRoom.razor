@@ -6,9 +6,9 @@
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Čekárna session</PageTitle>
+<PageTitle>Čekárna</PageTitle>
 
-<h1>Čekárna session</h1>
+<h1>Čekárna</h1>
 
 <p class="text-muted">Načtení stavu WAITING session a seznamu připojených týmů.</p>
 <p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
@@ -22,34 +22,6 @@
 {
     <div class="alert alert-danger" role="alert">@apiError.Message</div>
 }
-
-<section class="card mb-4">
-    <div class="card-body">
-        <h2 class="h5">Výběr session a autentizace</h2>
-
-        <div class="mb-3">
-            <label class="form-label" for="sessionId">Session ID</label>
-            <InputText id="sessionId" class="form-control" @bind-Value="sessionIdInput" />
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="quizId">Quiz ID (pro načtení uloženého tokenu)</label>
-            <InputText id="quizId" class="form-control" @bind-Value="quizIdInput" />
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="authPassword">Administrátorké heslo kvízu (volitelné)</label>
-            <InputText id="authPassword" class="form-control" type="password" @bind-Value="organizerPasswordForAuth" />
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
-        {
-            <p class="mb-3">Lokální organizer token: <code>@storedOrganizerToken</code></p>
-        }
-
-        <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="LoadSnapshotAsync">@(isLoading ? "Načítám..." : "Načíst snapshot")</button>
-    </div>
-</section>
 
 @if (snapshot is not null)
 {
@@ -111,8 +83,6 @@
     public Guid? QuizId { get; set; }
 
     private string sessionIdInput = string.Empty;
-    private string quizIdInput = string.Empty;
-    private string organizerPasswordForAuth = string.Empty;
     private string? storedOrganizerToken;
     private string? infoMessage;
     private bool isLoading;
@@ -133,7 +103,6 @@
 
         if (QuizId.HasValue)
         {
-            quizIdInput = QuizId.Value.ToString();
             await LoadStoredTokenAsync(QuizId.Value);
         }
 
@@ -160,12 +129,6 @@
             apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
             isLoading = false;
             return;
-        }
-
-        var quizId = ParseQuizId();
-        if (quizId.HasValue)
-        {
-            await LoadStoredTokenAsync(quizId.Value);
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{sessionId.Value}");
@@ -374,21 +337,11 @@
         return Guid.TryParse(sessionIdInput, out var parsedSessionId) ? parsedSessionId : null;
     }
 
-    private Guid? ParseQuizId()
-    {
-        return Guid.TryParse(quizIdInput, out var parsedQuizId) ? parsedQuizId : null;
-    }
-
     private void ApplyOrganizerAuth(HttpRequestMessage request)
     {
         if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
             request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
-        }
-
-        if (!string.IsNullOrWhiteSpace(organizerPasswordForAuth))
-        {
-            request.Headers.Add("X-Quiz-Password", organizerPasswordForAuth.Trim());
         }
     }
 

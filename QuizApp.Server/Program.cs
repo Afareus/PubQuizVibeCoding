@@ -104,11 +104,16 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-if (!app.Environment.IsEnvironment("Testing"))
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<QuizAppDbContext>();
-    await dbContext.Database.MigrateAsync();
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        await dbContext.Database.MigrateAsync();
+    }
+
+    var sessionParticipationService = scope.ServiceProvider.GetRequiredService<ISessionParticipationService>();
+    await sessionParticipationService.TerminateNonTerminalSessionsAsync(CancellationToken.None);
 }
 
 if (app.Environment.IsDevelopment())

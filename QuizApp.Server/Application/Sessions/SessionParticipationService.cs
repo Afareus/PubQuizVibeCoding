@@ -12,6 +12,8 @@ namespace QuizApp.Server.Application.Sessions;
 
 public interface ISessionParticipationService
 {
+    Task<int> TerminateNonTerminalSessionsAsync(CancellationToken cancellationToken);
+
     Task<JoinSessionOperationResult> JoinSessionAsync(JoinSessionRequest request, CancellationToken cancellationToken);
 
     Task<SessionStateOperationResult> GetSessionStateAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken);
@@ -44,6 +46,35 @@ public sealed class SessionParticipationService : ISessionParticipationService
     {
         _dbContext = dbContext;
         _sessionRealtimePublisher = sessionRealtimePublisher;
+    }
+
+    public async Task<int> TerminateNonTerminalSessionsAsync(CancellationToken cancellationToken)
+    {
+        var sessionsToTerminate = await _dbContext.Sessions
+            .Where(x => x.Status == SessionStatus.Waiting || x.Status == SessionStatus.Running)
+            .ToListAsync(cancellationToken);
+
+        if (sessionsToTerminate.Count == 0)
+        {
+            return 0;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        foreach (var session in sessionsToTerminate)
+        {
+            session.Cancel(nowUtc);
+
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                "SESSION_CANCELLED_ON_STARTUP",
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new SessionCancelledOnStartupAuditPayload(session.SessionId, session.QuizId))));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return sessionsToTerminate.Count;
     }
 
     public async Task<JoinSessionOperationResult> JoinSessionAsync(JoinSessionRequest request, CancellationToken cancellationToken)
@@ -836,6 +867,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private sealed record SessionStartedAuditPayload(Guid SessionId, Guid QuizId);
 
     private sealed record SessionCancelledAuditPayload(Guid SessionId, Guid QuizId);
+
+    private sealed record SessionCancelledOnStartupAuditPayload(Guid SessionId, Guid QuizId);
 }
 
 public sealed record JoinSessionOperationResult(

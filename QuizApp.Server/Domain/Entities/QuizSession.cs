@@ -107,6 +107,7 @@ public sealed class QuizSession
         Status = SessionStatus.Finished;
         FinishedAtUtc = EntityGuards.Utc(finishedAtUtc, nameof(finishedAtUtc));
         EndedAtUtc = FinishedAtUtc;
+        ReleaseJoinCode();
         RefreshConcurrencyToken();
     }
 
@@ -119,7 +120,13 @@ public sealed class QuizSession
 
         Status = SessionStatus.Cancelled;
         EndedAtUtc = EntityGuards.Utc(cancelledAtUtc, nameof(cancelledAtUtc));
+        ReleaseJoinCode();
         RefreshConcurrencyToken();
+    }
+
+    private void ReleaseJoinCode()
+    {
+        JoinCode = $"ENDED{SessionId:N}"[..16].ToUpperInvariant();
     }
 
     private void RefreshConcurrencyToken()
