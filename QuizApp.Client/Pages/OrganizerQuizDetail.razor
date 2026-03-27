@@ -74,6 +74,68 @@
     </div>
 </section>
 
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Otázky kvízu</h2>
+        <p class="text-muted">Otázky i správné odpovědi se zobrazí až po zadání Administrátorského hesla kvízu.</p>
+
+        @if (questionApiError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@questionApiError.Message</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(questionInfoMessage))
+        {
+            <div class="alert alert-info" role="alert">@questionInfoMessage</div>
+        }
+
+        @if (!hasLoadedQuestions)
+        {
+            <div class="mb-3">
+                <label class="form-label" for="questionsPassword">Administrátorské heslo kvízu</label>
+                <InputText id="questionsPassword" class="form-control" type="password" @bind-Value="questionsPassword" />
+            </div>
+
+            <button class="btn btn-outline-primary mb-3" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "Načítám otázky..." : "Zobrazit otázky")</button>
+        }
+
+        @if (hasLoadedQuestions)
+        {
+            @if (revealedQuestions.Count == 0)
+            {
+                <p class="mb-0">Kvíz zatím neobsahuje žádné otázky.</p>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-3">
+                    @foreach (var question in revealedQuestions.OrderBy(x => x.OrderIndex))
+                    {
+                        <article class="border rounded p-3">
+                            <h3 class="h6 mb-1">@(question.OrderIndex + 1). @question.Text</h3>
+                            <p class="mb-2 text-muted">Čas na odpověď: <strong>@question.TimeLimitSec s</strong></p>
+
+                            <ul class="list-group list-group-flush">
+                                @foreach (var option in question.Options.OrderBy(x => x.OptionKey))
+                                {
+                                    var isCorrectOption = option.OptionKey == question.CorrectOption;
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 @(isCorrectOption ? "text-success fw-semibold" : string.Empty)">
+                                        <span>@option.OptionKey) @option.Text</span>
+
+                                        @if (isCorrectOption)
+                                        {
+                                            <span class="badge text-bg-success">Správná</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </article>
+                    }
+                </div>
+            }
+        }
+    </div>
+</section>
+
 <section class="card border-danger mb-4">
     <div class="card-body">
         <h2 class="h5 text-danger">Smazání kvízu</h2>
@@ -93,23 +155,30 @@
     public Guid? QuizId { get; set; }
 
     private string deletePassword = string.Empty;
+    private string questionsPassword = string.Empty;
     private string? storedOrganizerToken;
     private string? selectedFileName;
     private string? csvContent;
     private string? infoMessage;
+    private string? questionInfoMessage;
     private bool isLoadingDetail;
     private bool isImporting;
     private bool isCreatingSession;
     private bool isDeleting;
+    private bool isLoadingQuestions;
+    private bool hasLoadedQuestions;
 
     private ApiErrorResponse? apiError;
+    private ApiErrorResponse? questionApiError;
     private QuizDetailResponse? quizDetail;
     private ImportQuizCsvResponse? importResult;
+    private IReadOnlyList<QuizDetailQuestionDto> revealedQuestions = [];
 
     protected override async Task OnParametersSetAsync()
     {
         if (QuizId.HasValue)
         {
+            ResetRevealedQuestionsState();
             await LoadStoredTokenAsync(QuizId.Value);
             await LoadDetailAsync(false);
             return;
@@ -141,7 +210,11 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            quizDetail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            var payload = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            quizDetail = payload is null
+                ? null
+                : payload with { Questions = [] };
+
             if (showSuccessMessage)
             {
                 infoMessage = "Detail kvízu byl načten.";
@@ -213,6 +286,48 @@
         }
 
         isImporting = false;
+    }
+
+    private async Task LoadQuestionsAsync()
+    {
+        questionApiError = null;
+        questionInfoMessage = null;
+        isLoadingQuestions = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isLoadingQuestions = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(questionsPassword))
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro zobrazení otázek zadejte Administrátorské heslo kvízu.");
+            isLoadingQuestions = false;
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId.Value}");
+        request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var detail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            revealedQuestions = detail?.Questions ?? [];
+            hasLoadedQuestions = true;
+            questionInfoMessage = $"Načteno otázek: {revealedQuestions.Count}.";
+        }
+        else
+        {
+            revealedQuestions = [];
+            hasLoadedQuestions = false;
+            questionApiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoadingQuestions = false;
     }
 
     private async Task StartQuizAsync()
@@ -306,6 +421,15 @@
     }
 
     private Guid? GetQuizId() => QuizId;
+
+    private void ResetRevealedQuestionsState()
+    {
+        questionsPassword = string.Empty;
+        questionInfoMessage = null;
+        questionApiError = null;
+        hasLoadedQuestions = false;
+        revealedQuestions = [];
+    }
 
     private void ApplyOrganizerAuth(HttpRequestMessage request)
     {
