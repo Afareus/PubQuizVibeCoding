@@ -39,6 +39,7 @@ public class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
 
         using var createSessionMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{createQuizResponse.QuizId}/sessions");
+        createSessionMessage.Content = JsonContent.Create(new CreateSessionRequest("ABCD2345"));
         createSessionMessage.Headers.Add("X-Quiz-Password", "tajneheslo");
 
         using var createSessionResponse = await client.SendAsync(createSessionMessage);
@@ -75,7 +76,7 @@ public class ApiIntegrationTests
         var createQuizResponse = await CreateQuizAsync(client, "Integrační token kvíz", "heslo");
         await ImportSingleQuestionAsync(client, createQuizResponse.QuizId, "heslo");
 
-        var session = await CreateSessionAsync(client, createQuizResponse.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, createQuizResponse.QuizId, "heslo", "EFGH2345");
         var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým Token"));
         var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
         Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
@@ -123,9 +124,10 @@ public class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static async Task<CreateSessionResponse> CreateSessionAsync(HttpClient client, Guid quizId, string password)
+    private static async Task<CreateSessionResponse> CreateSessionAsync(HttpClient client, Guid quizId, string password, string joinCode)
     {
         using var message = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId}/sessions");
+        message.Content = JsonContent.Create(new CreateSessionRequest(joinCode));
         message.Headers.Add("X-Quiz-Password", password);
 
         using var response = await client.SendAsync(message);

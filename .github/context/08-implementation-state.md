@@ -110,6 +110,10 @@ Po každém kroku jej aktualizuj.
 - Post-S21 UI úprava: `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` ukládá kromě tokenu i metadata (`QuizName`, `CreatedAtUtc`) a dashboard je u starších záznamů doplňuje přes `GET /api/quizzes/{quizId}` s `X-Organizer-Token`.
 - Post-S21 UI úprava: v `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo do řádku názvu vráceno tlačítko `Detail` (bez přidání sloupce s ID/tokenem).
 - Post-S21 UI úprava: tlačítko `Detail` je v řádku dashboard tabulky zarovnáno úplně doprava (pravý okraj druhého sloupce).
+- Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerQuizDetail.razor` při spuštění session vyžaduje zadání join kódu přímo ve formuláři tlačítka `Spustit kvíz` a posílá jej v requestu `CreateSessionRequest`.
+- Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` po otevření s `SessionId` automaticky načte snapshot, takže po přechodu z detailu kvízu odpadá ruční mezikrok `Načíst snapshot`.
+- Post-S21 backend úprava: `POST /api/quizzes/{quizId}/sessions` nyní přijímá `CreateSessionRequest.JoinCode`, kontroluje unikátnost a validačně vyžaduje pouze minimální délku 4 znaky.
+- Post-S21 bugfix: pro join kód při startu session byla zrušena formátová omezení (abeceda/pevná délka); v UI i backendu zůstává jen pravidlo „alespoň 4 znaky“.
 
 ## Rizika / dluh
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.

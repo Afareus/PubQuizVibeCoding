@@ -249,3 +249,17 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo tlačítko `Detail` přesunuto do pravé části druhého sloupce (`Datum založení`) a zarovnáno na pravý okraj řádku.
 - Struktura tabulky zůstává dvousloupcová (`Název kvízu`, `Datum založení`) bez zobrazení `QuizId` a tokenu.
 - Ověřeno buildem solution (`run_build`).
+
+## UI/API úprava — Join kód při startu kvízu + automatický snapshot čekárny
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` byl do sekce `Spustit kvíz` přidán textbox pro zadání join kódu, který se odesílá v body requestu při vytvoření session.
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` byl kontrakt `CreateSessionRequest` upraven na `JoinCode`.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` a `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` nyní endpoint/session create přijímá join kód od organizátora, vyžaduje minimálně 4 znaky a kontroluje unikátnost.
+- V `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` bylo doplněno automatické načtení snapshotu při příchodu na stránku se `SessionId`, takže odpadá ruční kliknutí na `Načíst snapshot` po startu kvízu.
+- Aktualizovány testy `QuizApp.Tests/QuizManagementServiceTests.cs`, `QuizApp.Tests/SessionParticipationServiceTests.cs` a `QuizApp.Tests/ApiIntegrationTests.cs` na nový create-session kontrakt.
+- Ověřeno buildem solution (`run_build`) a test runem projektu `QuizApp.Tests` (`run_tests`, 64/64 passed).
+
+## Bugfix — Join kód při startu session bez formátových omezení
+- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` byla validace join kódu upravena tak, aby jediným pravidlem byla minimální délka 4 znaky.
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` byla upravena nápověda i klientská validace join kódu na stejné pravidlo (4+ znaků).
+- Byla odstraněna dřívější omezení na pevnou délku 8 znaků a konkrétní znakovou sadu.
+- Ověřeno buildem solution (`run_build`) a test runem projektu `QuizApp.Tests` (`run_tests`, 64/64 passed).

@@ -122,6 +122,7 @@
     private OrganizerSessionSnapshotResponse? snapshot;
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
+    private Guid? autoLoadedSessionId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -134,6 +135,16 @@
         {
             quizIdInput = QuizId.Value.ToString();
             await LoadStoredTokenAsync(QuizId.Value);
+        }
+
+        if (SessionId.HasValue && autoLoadedSessionId != SessionId.Value)
+        {
+            autoLoadedSessionId = SessionId.Value;
+            await LoadSnapshotAsync();
+        }
+        else if (!SessionId.HasValue)
+        {
+            autoLoadedSessionId = null;
         }
     }
 

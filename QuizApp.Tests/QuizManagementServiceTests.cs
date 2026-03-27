@@ -162,7 +162,7 @@ public class QuizManagementServiceTests
         var service = CreateService(dbContext);
         var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Session test", "heslo"), CancellationToken.None);
 
-        var sessionResult = await service.CreateSessionAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
+        var sessionResult = await service.CreateSessionAsync(createResult.Response!.QuizId, new CreateSessionRequest("ABCD2345"), createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
 
         Assert.False(sessionResult.IsSuccess);
         Assert.NotNull(sessionResult.Error);
@@ -182,12 +182,12 @@ public class QuizManagementServiceTests
 
         await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
 
-        var sessionResult = await service.CreateSessionAsync(createResult.Response.QuizId, null, "heslo123", CancellationToken.None);
+        var sessionResult = await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("MNPR2345"), null, "heslo123", CancellationToken.None);
 
         Assert.True(sessionResult.IsSuccess);
         Assert.NotNull(sessionResult.Response);
         Assert.Equal(SessionStatus.Waiting, sessionResult.Response!.Status);
-        Assert.Equal(8, sessionResult.Response.JoinCode.Length);
+        Assert.Equal("MNPR2345", sessionResult.Response.JoinCode);
 
         var storedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == sessionResult.Response.SessionId);
         Assert.Equal(SessionStatus.Waiting, storedSession.Status);
@@ -210,8 +210,8 @@ public class QuizManagementServiceTests
 
         await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
 
-        var firstSession = await service.CreateSessionAsync(createResult.Response.QuizId, createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
-        var secondSession = await service.CreateSessionAsync(createResult.Response.QuizId, createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
+        var firstSession = await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("ABCD2345"), createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
+        var secondSession = await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("EFGH2345"), createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
 
         Assert.True(firstSession.IsSuccess);
         Assert.True(secondSession.IsSuccess);

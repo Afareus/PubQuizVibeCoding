@@ -60,6 +60,7 @@ public static class QuizManagementEndpoints
 
     private static async Task<IResult> CreateSessionAsync(
         Guid quizId,
+        CreateSessionRequest request,
         HttpContext httpContext,
         IQuizManagementService quizManagementService,
         CancellationToken cancellationToken)
@@ -67,7 +68,7 @@ public static class QuizManagementEndpoints
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
         var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
 
-        var result = await quizManagementService.CreateSessionAsync(quizId, organizerToken, organizerPassword, cancellationToken);
+        var result = await quizManagementService.CreateSessionAsync(quizId, request, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));

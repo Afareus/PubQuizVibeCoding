@@ -15,7 +15,7 @@ public interface IQuizManagementService
 {
     Task<CreateQuizOperationResult> CreateQuizAsync(CreateQuizRequest request, CancellationToken cancellationToken);
 
-    Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+    Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, CreateSessionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken);
 
@@ -27,9 +27,7 @@ public interface IQuizManagementService
 public sealed class QuizManagementService : IQuizManagementService
 {
     private const int OrganizerTokenEntropyBytes = 32;
-    private const string JoinCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private const int JoinCodeLength = 8;
-    private const int MaxJoinCodeGenerationAttempts = 10;
+    private const int MinJoinCodeLength = 4;
     private const int PasswordSaltBytes = 16;
     private const int PasswordHashBytes = 32;
     private const int PasswordHashIterations = 100_000;
@@ -80,8 +78,16 @@ public sealed class QuizManagementService : IQuizManagementService
         return CreateQuizOperationResult.Success(new CreateQuizResponse(quiz.QuizId, organizerToken));
     }
 
-    public async Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    public async Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, CreateSessionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
     {
+        var validationErrors = ValidateCreateSessionRequest(request);
+        if (validationErrors is not null)
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Vstupní data nejsou validní.", validationErrors));
+        }
+
+        var normalizedJoinCode = request.JoinCode.Trim().ToUpperInvariant();
+
         var quiz = await _dbContext.Quizzes
             .Include(x => x.Questions)
             .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
@@ -101,9 +107,14 @@ public sealed class QuizManagementService : IQuizManagementService
             return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Session lze založit jen nad kvízem, který obsahuje alespoň jednu otázku."));
         }
 
+        var joinCodeAlreadyUsed = await _dbContext.Sessions.AnyAsync(x => x.JoinCode == normalizedJoinCode, cancellationToken);
+        if (joinCodeAlreadyUsed)
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join code už je použitý v jiné session."));
+        }
+
         var nowUtc = DateTime.UtcNow;
-        var joinCode = await GenerateUniqueJoinCodeAsync(cancellationToken);
-        var session = QuizSession.Create(Guid.NewGuid(), quiz.QuizId, joinCode, nowUtc);
+        var session = QuizSession.Create(Guid.NewGuid(), quiz.QuizId, normalizedJoinCode, nowUtc);
 
         _dbContext.Sessions.Add(session);
         _dbContext.AuditLogs.Add(AuditLog.Create(
@@ -114,7 +125,14 @@ public sealed class QuizManagementService : IQuizManagementService
             session.SessionId,
             JsonSerializer.Serialize(new SessionCreatedAuditPayload(session.SessionId, quiz.QuizId, session.JoinCode))));
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join code už je použitý v jiné session."));
+        }
 
         return CreateSessionOperationResult.Success(new CreateSessionResponse(session.SessionId, session.JoinCode, session.Status));
     }
@@ -303,6 +321,26 @@ public sealed class QuizManagementService : IQuizManagementService
         return errors.Count == 0 ? null : errors;
     }
 
+    private static IReadOnlyDictionary<string, string[]>? ValidateCreateSessionRequest(CreateSessionRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var normalizedJoinCode = request.JoinCode.Trim().ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(normalizedJoinCode))
+        {
+            errors[nameof(CreateSessionRequest.JoinCode)] = ["Join code je povinný."];
+        }
+        else
+        {
+            if (normalizedJoinCode.Length < MinJoinCodeLength)
+            {
+                errors[nameof(CreateSessionRequest.JoinCode)] = [$"Join code musí mít alespoň {MinJoinCodeLength} znaky."];
+            }
+        }
+
+        return errors.Count == 0 ? null : errors;
+    }
+
     private static string GenerateOrganizerToken()
     {
         Span<byte> tokenBytes = stackalloc byte[OrganizerTokenEntropyBytes];
@@ -357,34 +395,6 @@ public sealed class QuizManagementService : IQuizManagementService
 
         error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo Administrátorké heslo kvízu.");
         return false;
-    }
-
-    private async Task<string> GenerateUniqueJoinCodeAsync(CancellationToken cancellationToken)
-    {
-        for (var attempt = 0; attempt < MaxJoinCodeGenerationAttempts; attempt++)
-        {
-            var joinCode = GenerateJoinCode();
-            var exists = await _dbContext.Sessions.AnyAsync(x => x.JoinCode == joinCode, cancellationToken);
-            if (!exists)
-            {
-                return joinCode;
-            }
-        }
-
-        throw new InvalidOperationException("Nepodařilo se vygenerovat unikátní join code.");
-    }
-
-    private static string GenerateJoinCode()
-    {
-        Span<char> chars = stackalloc char[JoinCodeLength];
-
-        for (var i = 0; i < chars.Length; i++)
-        {
-            var index = RandomNumberGenerator.GetInt32(JoinCodeAlphabet.Length);
-            chars[i] = JoinCodeAlphabet[index];
-        }
-
-        return new string(chars);
     }
 
     private static string HashPassword(string password)

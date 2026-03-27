@@ -3,7 +3,7 @@ using QuizApp.Shared.Enums;
 namespace QuizApp.Shared.Contracts;
 
 public sealed record CreateSessionRequest(
-    Guid QuizId);
+    string JoinCode);
 
 public sealed record CreateSessionResponse(
     Guid SessionId,

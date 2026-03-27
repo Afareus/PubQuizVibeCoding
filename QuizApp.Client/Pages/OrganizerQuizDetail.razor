@@ -23,6 +23,13 @@
 <section class="card mb-4">
     <div class="card-body">
         <h2 class="h5 mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
+
+        <div class="mb-3">
+            <label class="form-label" for="joinCode">Join kód pro hráče</label>
+            <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
+            <div class="form-text">Join kód musí mít alespoň 4 znaky.</div>
+        </div>
+
         <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
     </div>
 </section>
@@ -155,6 +162,7 @@
     public Guid? QuizId { get; set; }
 
     private string deletePassword = string.Empty;
+    private string joinCode = string.Empty;
     private string questionsPassword = string.Empty;
     private string? storedOrganizerToken;
     private string? selectedFileName;
@@ -336,6 +344,21 @@
         infoMessage = null;
         isCreatingSession = true;
 
+        var normalizedJoinCode = joinCode.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedJoinCode))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuštění zadejte join kód.");
+            isCreatingSession = false;
+            return;
+        }
+
+        if (normalizedJoinCode.Length < 4)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kód musí mít alespoň 4 znaky.");
+            isCreatingSession = false;
+            return;
+        }
+
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
@@ -346,7 +369,11 @@
 
         await LoadStoredTokenAsync(quizId.Value);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/sessions");
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/sessions")
+        {
+            Content = JsonContent.Create(new CreateSessionRequest(normalizedJoinCode))
+        };
+
         ApplyOrganizerAuth(request);
 
         using var response = await HttpClient.SendAsync(request);

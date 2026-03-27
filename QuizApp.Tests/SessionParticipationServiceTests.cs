@@ -730,7 +730,7 @@ public class SessionParticipationServiceTests
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
 
-        var createSessionResult = await quizService.CreateSessionAsync(quizId, organizerToken, null, cancellationToken);
+        var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("ABCD2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
         return (createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode);
@@ -750,7 +750,7 @@ public class SessionParticipationServiceTests
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
 
-        var createSessionResult = await quizService.CreateSessionAsync(quizId, organizerToken, null, cancellationToken);
+        var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("EFGH2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
         return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
@@ -800,7 +800,7 @@ public class SessionParticipationServiceTests
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
 
-        var createSessionResult = await quizService.CreateSessionAsync(quizId, organizerToken, null, cancellationToken);
+        var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("JKLM2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
         return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);

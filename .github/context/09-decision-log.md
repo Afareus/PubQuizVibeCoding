@@ -248,3 +248,17 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Tlačítko `Detail` je vykresleno v pravé části druhého sloupce (`Datum založení`) s flex layoutem `justify-content-between`, aby bylo vizuálně úplně napravo.
 - **Důvod:** Uživatel explicitně požádal o umístění akčního tlačítka na pravý okraj řádku.
 - **Dopad:** Akce je konzistentně na stejném místě a tabulka stále zůstává dvousloupcová bez technických identifikátorů.
+
+### D-035 — Join kód se zadává při startu session a čekárna se načítá automaticky
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 UI/API úprava
+- **Rozhodnutí:** Vytvoření session (`POST /api/quizzes/{quizId}/sessions`) nově vyžaduje request body s explicitním `JoinCode`; organizátorský detail kvízu proto obsahuje textbox join kódu a čekárna po přesměrování se `SessionId` automaticky načte bez ručního kliknutí na `Načíst snapshot`.
+- **Důvod:** Uživatel požadoval zadání join kódu přímo při spuštění kvízu a odstranění mezikroku v čekárně.
+- **Dopad:** Organizátor má plnou kontrolu nad kódem sdíleným hráčům a flow `Spustit kvíz -> čekárna` je jedním krokem bez zbytečné interakce navíc.
+
+### D-036 — Join kód má mít jen minimální délku, bez dalších formátových omezení
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21 bugfix
+- **Rozhodnutí:** Validace `CreateSessionRequest.JoinCode` byla uvolněna na jediné pravidlo „alespoň 4 znaky“; byly odstraněny požadavky na pevnou délku 8 znaků a omezenou znakovou sadu.
+- **Důvod:** Uživatel explicitně požadoval, aby kód `ABCD1234` procházel a aby jediným omezením byla minimální délka.
+- **Dopad:** Organizátor může použít libovolný join kód délky 4+ znaků, pokud je unikátní; UI i backend hlášky jsou konzistentní s tímto pravidlem.
