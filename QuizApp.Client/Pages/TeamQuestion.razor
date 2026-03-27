@@ -61,6 +61,10 @@ else
         <div class="card-body">
             <h2 class="h5">@snapshot.CurrentQuestion.Text</h2>
             <p class="mb-1"><strong>Otázka #:</strong> @snapshot.CurrentQuestionIndex</p>
+            @if (snapshot.Status == SessionStatus.Paused)
+            {
+                <p class="mb-1 text-warning"><strong>Hra je pozastavena organizátorem.</strong></p>
+            }
             @if (remainingSeconds > 0)
             {
                 <p class="mb-0 fs-4"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
@@ -82,7 +86,7 @@ else
     <div class="d-grid gap-2">
         @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
         {
-            <button class="btn btn-outline-primary text-start" type="button" disabled="@submittedOption.HasValue" @onclick="() => SubmitAnswerAsync(option.OptionKey)">
+            <button class="btn btn-outline-primary text-start" type="button" disabled="@(!CanSubmitAnswer)" @onclick="() => SubmitAnswerAsync(option.OptionKey)">
                 <strong>@option.OptionKey</strong> — @option.Text
             </button>
         }
@@ -108,6 +112,8 @@ else
     private Guid? realtimeSessionId;
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
+
+    private bool CanSubmitAnswer => snapshot?.Status == SessionStatus.Running && !submittedOption.HasValue;
 
     protected override async Task OnParametersSetAsync()
     {

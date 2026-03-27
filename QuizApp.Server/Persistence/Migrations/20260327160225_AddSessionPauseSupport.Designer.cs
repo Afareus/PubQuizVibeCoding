@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuizApp.Server.Persistence;
@@ -11,9 +12,11 @@ using QuizApp.Server.Persistence;
 namespace QuizApp.Server.Persistence.Migrations
 {
     [DbContext(typeof(QuizAppDbContext))]
-    partial class QuizAppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260327160225_AddSessionPauseSupport")]
+    partial class AddSessionPauseSupport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

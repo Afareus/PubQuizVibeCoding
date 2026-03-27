@@ -5,7 +5,8 @@ public enum SessionStatus
     Waiting = 0,
     Running = 1,
     Finished = 2,
-    Cancelled = 3
+    Cancelled = 3,
+    Paused = 4
 }
 
 public enum OptionKey

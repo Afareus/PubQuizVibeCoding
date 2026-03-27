@@ -57,6 +57,8 @@ public sealed class QuizSession
 
     public DateTime? CurrentQuestionStartedAtUtc { get; private set; }
 
+    public DateTime? PausedAtUtc { get; private set; }
+
     public Quiz? Quiz { get; private set; }
 
     public IReadOnlyCollection<Team> Teams => _teams;
@@ -81,6 +83,50 @@ public sealed class QuizSession
 
         Status = SessionStatus.Running;
         StartedAtUtc = EntityGuards.Utc(startedAtUtc, nameof(startedAtUtc));
+        PausedAtUtc = null;
+        RefreshConcurrencyToken();
+    }
+
+    public void Pause(DateTime pausedAtUtc)
+    {
+        if (Status != SessionStatus.Running)
+        {
+            throw new InvalidOperationException("Session can only be paused from running state.");
+        }
+
+        if (!CurrentQuestionIndex.HasValue || !CurrentQuestionStartedAtUtc.HasValue || !QuestionDeadlineUtc.HasValue)
+        {
+            throw new InvalidOperationException("Session can only be paused with an active question.");
+        }
+
+        Status = SessionStatus.Paused;
+        PausedAtUtc = EntityGuards.Utc(pausedAtUtc, nameof(pausedAtUtc));
+        RefreshConcurrencyToken();
+    }
+
+    public void Resume(DateTime resumedAtUtc)
+    {
+        if (Status != SessionStatus.Paused)
+        {
+            throw new InvalidOperationException("Session can only be resumed from paused state.");
+        }
+
+        if (!PausedAtUtc.HasValue || !CurrentQuestionStartedAtUtc.HasValue || !QuestionDeadlineUtc.HasValue)
+        {
+            throw new InvalidOperationException("Paused session is missing timing metadata.");
+        }
+
+        var resumedAt = EntityGuards.Utc(resumedAtUtc, nameof(resumedAtUtc));
+        var pauseDuration = resumedAt - PausedAtUtc.Value;
+        if (pauseDuration < TimeSpan.Zero)
+        {
+            pauseDuration = TimeSpan.Zero;
+        }
+
+        CurrentQuestionStartedAtUtc = CurrentQuestionStartedAtUtc.Value.Add(pauseDuration);
+        QuestionDeadlineUtc = QuestionDeadlineUtc.Value.Add(pauseDuration);
+        PausedAtUtc = null;
+        Status = SessionStatus.Running;
         RefreshConcurrencyToken();
     }
 
@@ -107,6 +153,7 @@ public sealed class QuizSession
         Status = SessionStatus.Finished;
         FinishedAtUtc = EntityGuards.Utc(finishedAtUtc, nameof(finishedAtUtc));
         EndedAtUtc = FinishedAtUtc;
+        PausedAtUtc = null;
         ReleaseJoinCode();
         RefreshConcurrencyToken();
     }
@@ -120,6 +167,7 @@ public sealed class QuizSession
 
         Status = SessionStatus.Cancelled;
         EndedAtUtc = EntityGuards.Utc(cancelledAtUtc, nameof(cancelledAtUtc));
+        PausedAtUtc = null;
         ReleaseJoinCode();
         RefreshConcurrencyToken();
     }

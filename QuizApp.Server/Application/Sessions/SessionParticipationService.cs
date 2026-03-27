@@ -22,6 +22,10 @@ public interface ISessionParticipationService
 
     Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
+    Task<OrganizerSessionStateOperationResult> PauseSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<OrganizerSessionStateOperationResult> ResumeSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<OrganizerSessionStateOperationResult> CancelSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, bool confirmCancellation, CancellationToken cancellationToken);
 
     Task<SubmitAnswerOperationResult> SubmitAnswerAsync(Guid sessionId, SubmitAnswerRequest request, string? teamReconnectToken, CancellationToken cancellationToken);
@@ -51,7 +55,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
     public async Task<int> TerminateNonTerminalSessionsAsync(CancellationToken cancellationToken)
     {
         var sessionsToTerminate = await _dbContext.Sessions
-            .Where(x => x.Status == SessionStatus.Waiting || x.Status == SessionStatus.Running)
+            .Where(x => x.Status == SessionStatus.Waiting || x.Status == SessionStatus.Running || x.Status == SessionStatus.Paused)
             .ToListAsync(cancellationToken);
 
         if (sessionsToTerminate.Count == 0)
@@ -409,6 +413,88 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.SessionStarted, cancellationToken);
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.QuestionChanged, cancellationToken);
+
+        return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    public async Task<OrganizerSessionStateOperationResult> PauseSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz)
+                .ThenInclude(x => x!.Questions)
+                .ThenInclude(x => x.Options)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return OrganizerSessionStateOperationResult.Fail(authError!);
+        }
+
+        if (session.Status != SessionStatus.Running)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze pozastavit pouze ve stavu RUNNING."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        session.Pause(nowUtc);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
+        }
+
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.QuestionChanged, cancellationToken);
+
+        return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    public async Task<OrganizerSessionStateOperationResult> ResumeSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz)
+                .ThenInclude(x => x!.Questions)
+                .ThenInclude(x => x.Options)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return OrganizerSessionStateOperationResult.Fail(authError!);
+        }
+
+        if (session.Status != SessionStatus.Paused)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze znovu spustit pouze ze stavu PAUSED."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        session.Resume(nowUtc);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
+        }
+
         await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.QuestionChanged, cancellationToken);
 
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));

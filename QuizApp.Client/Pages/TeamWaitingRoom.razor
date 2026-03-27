@@ -68,7 +68,7 @@ else
             </div>
         </section>
 
-        @if (snapshot.Status == SessionStatus.Running && snapshot.CurrentQuestion is not null)
+        @if (snapshot.Status is SessionStatus.Running or SessionStatus.Paused && snapshot.CurrentQuestion is not null)
         {
             <div class="alert alert-success" role="alert">
                 Session byla spuštěna. Můžete přejít na otázku.
@@ -238,7 +238,12 @@ else
 
     private void TryNavigateToQuestionScreen()
     {
-        if (hasNavigatedToQuestion || snapshot?.Status != SessionStatus.Running || snapshot.CurrentQuestion is null)
+        if (hasNavigatedToQuestion || snapshot is null || snapshot.CurrentQuestion is null)
+        {
+            return;
+        }
+
+        if (snapshot.Status is not SessionStatus.Running and not SessionStatus.Paused)
         {
             return;
         }

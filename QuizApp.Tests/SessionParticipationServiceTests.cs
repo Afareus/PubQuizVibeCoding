@@ -267,6 +267,43 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task PauseAndResumeSessionAsync_ShiftsQuestionTimingAndStatus()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Pause"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var startedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        var initialDeadlineUtc = startedSession.QuestionDeadlineUtc;
+        var initialQuestionStartedUtc = startedSession.CurrentQuestionStartedAtUtc;
+
+        await Task.Delay(1100);
+
+        var pauseResult = await sessionService.PauseSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(pauseResult.IsSuccess);
+        Assert.Equal(SessionStatus.Paused, pauseResult.Response!.Status);
+
+        await Task.Delay(1200);
+
+        var resumeResult = await sessionService.ResumeSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(resumeResult.IsSuccess);
+        Assert.Equal(SessionStatus.Running, resumeResult.Response!.Status);
+
+        var resumedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.NotNull(initialDeadlineUtc);
+        Assert.NotNull(initialQuestionStartedUtc);
+        Assert.True(resumedSession.QuestionDeadlineUtc > initialDeadlineUtc);
+        Assert.True(resumedSession.CurrentQuestionStartedAtUtc > initialQuestionStartedUtc);
+    }
+
+    [Fact]
     public async Task ProgressDueSessionsAsync_ExpiredQuestion_AdvancesToNextQuestion()
     {
         await using var dbContext = CreateDbContext();

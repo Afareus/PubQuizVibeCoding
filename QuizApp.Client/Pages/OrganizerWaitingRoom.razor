@@ -24,11 +24,39 @@
 
 @if (snapshot is not null)
 {
+    @if (IsSessionActive && snapshot.CurrentQuestion is not null)
+    {
+        <section class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-2">Položená otázka</h2>
+                <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
+
+                @if (remainingSeconds > 0)
+                {
+                    <p class="mb-2 fs-5"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
+                }
+                else
+                {
+                    <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                }
+
+                <ul class="mb-3">
+                    @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
+                    {
+                        <li><strong>@option.OptionKey</strong> — @option.Text</li>
+                    }
+                </ul>
+
+                <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="TogglePauseAsync">@PauseButtonText</button>
+            </div>
+        </section>
+    }
+
     <section class="card mb-4">
         <div class="card-body">
             <h2 class="h5 mb-3">Detail hry</h2>
             <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName)</p>
-            @if (!IsSessionRunning)
+            @if (!IsSessionActive)
             {
                 <p class="mb-1"><strong>Join code:</strong> <code>@snapshot.JoinCode</code></p>
             }
@@ -42,7 +70,7 @@
                     </button>
                 }
 
-                @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running)
+                @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
                 {
                     <button class="btn btn-outline-danger" type="button" disabled="@isLoading" @onclick="CancelSessionAsync">
                         @(isLoading ? "Provádím..." : "Zrušit hru")
@@ -73,31 +101,6 @@
                 </ul>
             }
 
-            @if (IsSessionRunning && snapshot.CurrentQuestion is not null)
-            {
-                <section class="card mt-3">
-                    <div class="card-body">
-                        <h3 class="h6 mb-2">Položená otázka</h3>
-                        <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
-
-                        @if (remainingSeconds > 0)
-                        {
-                            <p class="mb-2 fs-5"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
-                        }
-                        else
-                        {
-                            <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
-                        }
-
-                        <ul class="mb-0">
-                            @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
-                            {
-                                <li><strong>@option.OptionKey</strong> — @option.Text</li>
-                            }
-                        </ul>
-                    </div>
-                </section>
-            }
         </div>
     </section>
 }
@@ -125,7 +128,10 @@
     private int remainingSeconds;
 
     private bool IsSessionRunning => snapshot?.Status == SessionStatus.Running;
-    private string PageHeading => IsSessionRunning ? "Probíhající hra" : "Čekárna";
+    private bool IsSessionPaused => snapshot?.Status == SessionStatus.Paused;
+    private bool IsSessionActive => IsSessionRunning || IsSessionPaused;
+    private string PageHeading => IsSessionActive ? "Probíhající hra" : "Čekárna";
+    private string PauseButtonText => IsSessionPaused ? "Start hry" : "Pauza hry";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -181,6 +187,50 @@
             countdownTimer?.Dispose();
             countdownTimer = null;
             remainingSeconds = 0;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task TogglePauseAsync()
+    {
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        var wasPaused = IsSessionPaused;
+        var endpoint = wasPaused
+            ? $"/api/sessions/{sessionId.Value}/resume"
+            : $"/api/sessions/{sessionId.Value}/pause";
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            infoMessage = wasPaused
+                ? "Session pokračuje."
+                : "Session byla pozastavena.";
+            RestartCountdownTimer();
+        }
+        else
+        {
             apiError = await ReadApiErrorAsync(response);
         }
 
