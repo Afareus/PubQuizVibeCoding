@@ -8,7 +8,7 @@
 
 <h1>Detail kvízu</h1>
 
-<p class="text-muted">Načtení detailu, import otázek přes CSV a smazání kvízu.</p>
+<p class="text-muted">Správa vybraného kvízu.</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -22,24 +22,8 @@
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5">Výběr kvízu a autentizace</h2>
-
-        <div class="mb-3">
-            <label class="form-label" for="quizId">Quiz ID</label>
-            <InputText id="quizId" class="form-control" @bind-Value="quizIdInput" />
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="authPassword">Mazací heslo (volitelné pro detail/import)</label>
-            <InputText id="authPassword" class="form-control" type="password" @bind-Value="organizerPasswordForAuth" />
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
-        {
-            <p class="mb-0">Lokální organizer token: <code>@storedOrganizerToken</code></p>
-        }
-
-        <button class="btn btn-primary mt-3" type="button" disabled="@isLoadingDetail" @onclick="LoadDetailAsync">@(isLoadingDetail ? "Načítám..." : "Načíst detail")</button>
+        <h2 class="h5 mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
+        <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
     </div>
 </section>
 
@@ -90,60 +74,6 @@
     </div>
 </section>
 
-<section class="card mb-4">
-    <div class="card-body">
-        <h2 class="h5">Session (čekárna)</h2>
-        <p class="mb-3">Vytvoří novou session ve stavu WAITING a vrátí join code pro týmy.</p>
-
-        <button class="btn btn-outline-success" type="button" disabled="@isCreatingSession" @onclick="CreateSessionAsync">@(isCreatingSession ? "Zakládám session..." : "Vytvořit session")</button>
-
-        @if (createdSession is not null)
-        {
-            <div class="mt-3">
-                <p class="mb-1"><strong>Session ID:</strong> <code>@createdSession.SessionId</code></p>
-                <p class="mb-1"><strong>Join code:</strong> <code>@createdSession.JoinCode</code></p>
-                <p class="mb-2"><strong>Stav:</strong> @createdSession.Status</p>
-                <a class="btn btn-sm btn-primary" href="@WaitingRoomUrl">Otevřít čekárnu</a>
-            </div>
-        }
-    </div>
-</section>
-
-@if (quizDetail is not null)
-{
-    <section class="card mb-4">
-        <div class="card-body">
-            <h2 class="h5 mb-3">@quizDetail.Name</h2>
-            <p class="mb-1"><strong>ID:</strong> <code>@quizDetail.QuizId</code></p>
-            <p class="mb-1"><strong>Vytvořeno (UTC):</strong> @quizDetail.CreatedAtUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss")</p>
-            <p class="mb-3"><strong>Počet otázek:</strong> @quizDetail.QuestionCount</p>
-
-            @if (quizDetail.Questions.Count == 0)
-            {
-                <p class="mb-0">Kvíz zatím neobsahuje žádné otázky.</p>
-            }
-            else
-            {
-                <ol class="mb-0">
-                    @foreach (var question in quizDetail.Questions.OrderBy(q => q.OrderIndex))
-                    {
-                        <li class="mb-3">
-                            <div><strong>@question.Text</strong> (@question.TimeLimitSec s)</div>
-                            <ul class="mb-1">
-                                @foreach (var option in question.Options.OrderBy(o => o.OptionKey))
-                                {
-                                    <li>@option.OptionKey: @option.Text</li>
-                                }
-                            </ul>
-                            <div>Správná odpověď: <strong>@question.CorrectOption</strong></div>
-                        </li>
-                    }
-                </ol>
-            }
-        </div>
-    </section>
-}
-
 <section class="card border-danger mb-4">
     <div class="card-body">
         <h2 class="h5 text-danger">Smazání kvízu</h2>
@@ -162,8 +92,6 @@
     [Parameter]
     public Guid? QuizId { get; set; }
 
-    private string quizIdInput = string.Empty;
-    private string organizerPasswordForAuth = string.Empty;
     private string deletePassword = string.Empty;
     private string? storedOrganizerToken;
     private string? selectedFileName;
@@ -177,39 +105,27 @@
     private ApiErrorResponse? apiError;
     private QuizDetailResponse? quizDetail;
     private ImportQuizCsvResponse? importResult;
-    private CreateSessionResponse? createdSession;
-
-    private string WaitingRoomUrl
-    {
-        get
-        {
-            if (createdSession is null)
-            {
-                return "/organizator/session/cekarna";
-            }
-
-            var parsedQuizId = ParseQuizId();
-            var quizPart = parsedQuizId.HasValue ? $"?quizId={parsedQuizId.Value}" : string.Empty;
-            return $"/organizator/session/cekarna/{createdSession.SessionId}{quizPart}";
-        }
-    }
 
     protected override async Task OnParametersSetAsync()
     {
         if (QuizId.HasValue)
         {
-            quizIdInput = QuizId.Value.ToString();
             await LoadStoredTokenAsync(QuizId.Value);
+            await LoadDetailAsync(false);
+            return;
         }
+
+        quizDetail = null;
+        apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Chybí ID kvízu v URL.");
     }
 
-    private async Task LoadDetailAsync()
+    private async Task LoadDetailAsync(bool showSuccessMessage)
     {
         apiError = null;
         infoMessage = null;
         isLoadingDetail = true;
 
-        var quizId = ParseQuizId();
+        var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
@@ -220,13 +136,16 @@
         await LoadStoredTokenAsync(quizId.Value);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId.Value}");
-        ApplyOrganizerAuth(request, organizerPasswordForAuth);
+        ApplyOrganizerAuth(request);
 
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
             quizDetail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
-            infoMessage = "Detail kvízu byl načten.";
+            if (showSuccessMessage)
+            {
+                infoMessage = "Detail kvízu byl načten.";
+            }
         }
         else
         {
@@ -259,7 +178,7 @@
         infoMessage = null;
         isImporting = true;
 
-        var quizId = ParseQuizId();
+        var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
@@ -278,14 +197,14 @@
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/import-csv");
         request.Content = JsonContent.Create(new ImportQuizCsvRequest(quizId.Value, csvContent));
-        ApplyOrganizerAuth(request, organizerPasswordForAuth);
+        ApplyOrganizerAuth(request);
 
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
             importResult = await response.Content.ReadFromJsonAsync<ImportQuizCsvResponse>();
             infoMessage = "Import CSV byl dokončen.";
-            await LoadDetailAsync();
+            await LoadDetailAsync(false);
         }
         else
         {
@@ -296,13 +215,13 @@
         isImporting = false;
     }
 
-    private async Task CreateSessionAsync()
+    private async Task StartQuizAsync()
     {
         apiError = null;
         infoMessage = null;
         isCreatingSession = true;
 
-        var quizId = ParseQuizId();
+        var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
@@ -313,17 +232,24 @@
         await LoadStoredTokenAsync(quizId.Value);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/sessions");
-        ApplyOrganizerAuth(request, organizerPasswordForAuth);
+        ApplyOrganizerAuth(request);
 
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            createdSession = await response.Content.ReadFromJsonAsync<CreateSessionResponse>();
-            infoMessage = "Session byla vytvořena.";
+            var createdSession = await response.Content.ReadFromJsonAsync<CreateSessionResponse>();
+            if (createdSession is null)
+            {
+                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst založenou session.");
+                isCreatingSession = false;
+                return;
+            }
+
+            NavigationManager.NavigateTo($"/organizator/session/cekarna/{createdSession.SessionId}?quizId={quizId.Value}");
+            return;
         }
         else
         {
-            createdSession = null;
             apiError = await ReadApiErrorAsync(response);
         }
 
@@ -336,7 +262,7 @@
         infoMessage = null;
         isDeleting = true;
 
-        var quizId = ParseQuizId();
+        var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
@@ -379,21 +305,13 @@
         storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
     }
 
-    private Guid? ParseQuizId()
-    {
-        return Guid.TryParse(quizIdInput, out var parsedQuizId) ? parsedQuizId : null;
-    }
+    private Guid? GetQuizId() => QuizId;
 
-    private void ApplyOrganizerAuth(HttpRequestMessage request, string? password)
+    private void ApplyOrganizerAuth(HttpRequestMessage request)
     {
         if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
             request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
-        }
-
-        if (!string.IsNullOrWhiteSpace(password))
-        {
-            request.Headers.Add("X-Quiz-Password", password.Trim());
         }
     }
 
