@@ -199,3 +199,17 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Hardening minimum je implementováno kombinací server-side rate limiting politik (`JoinPerIp`, `SubmitPerTeam`, `OrganizerMutations`), centralizované sanitizace textových vstupů (`TextInputSanitizer`) s délkovými limity dle persistence, TLS-ready middleware (`UseForwardedHeaders`, `UseHsts`) a klientské SignalR reconnect policy omezené na 60 sekund (`ReconnectWithinSixtySecondsPolicy`).
 - **Důvod:** Roadmapa S20 explicitně požaduje rate limiting, sanitizaci vstupů, HTTPS/TLS připravenost a ošetřený reconnect do 60s bez rozšiřování scope mimo MVP.
 - **Dopad:** Aplikace má základní provozně-bezpečnostní odolnost v API vrstvě i klientském realtime flow, při zachování jednoduché architektury modulárního monolitu.
+
+### D-028 — S21 integrační testy přes WebApplicationFactory + InMemory a skip migrace v Testing
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** S21
+- **Rozhodnutí:** API integrační testy běží přes `WebApplicationFactory<Program>` s přepnutím hostu do prostředí `Testing`, náhradou `QuizAppDbContext` za InMemory provider a vypnutím startup migrace (`MigrateAsync`) mimo test prostředí.
+- **Důvod:** S21 vyžaduje integrační testy s vysokou hodnotou; v CI/lokálním test běhu bez dostupného PostgreSQL je potřeba deterministický a rychlý host bez externí DB závislosti.
+- **Dopad:** Reálné HTTP flow testy ověřují mapování endpointů, hlavičkovou autentizaci a kontrakty bez ztráty rychlosti testů; produkční běh stále migruje databázi standardně.
+
+### D-029 — Post-S21: databázový dluh je uzavřen po úspěšném `database update`
+- **Datum/čas (UTC):** 2026-03-27T00:00:00Z
+- **Krok:** Post-S21
+- **Rozhodnutí:** Po potvrzeném běhu `dotnet dotnet-ef database update` v prostředí `Development` je původní riziko „nedostupný localhost:5432“ odstraněno ze sekce `Rizika / dluh`.
+- **Důvod:** Otevřený dluh měl být evidován jen do okamžiku praktického ověření migrace proti lokálnímu PostgreSQL.
+- **Dopad:** Stavové soubory nyní přesně odráží aktuální stav projektu; z provozních omezení zůstává jen ruční smoke-check browser/SignalR flow.

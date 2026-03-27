@@ -32,10 +32,10 @@ Po každém kroku jej aktualizuj.
 - [x] S18 — Answer submit backend
 - [x] S19 — Výsledky, ranking a correct answers
 - [x] S20 — Hardening a bezpečnostní minimum
-- [ ] S21 — Testy a release readiness
+- [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S20 — Hardening a bezpečnostní minimum (ověřeno build + testy).
+- S21 — Testy a release readiness (doplněny API integrační testy + finální checklist, ověřeno build + testy).
 
 ## Aktuální poznámky
 - V `QuizApp.Server/Program.cs` je doplněn rate limiting middleware s politikami `JoinPerIp` (10/min), `SubmitPerTeam` (20/min) a `OrganizerMutations` (10/min), plus `UseForwardedHeaders` a `UseHsts` mimo development pro TLS-ready provoz.
@@ -96,12 +96,18 @@ Po každém kroku jej aktualizuj.
 - `QuizApp.Client/Pages/OrganizerSessionResults.razor` vznikla stránka výsledků pro organizátora: načtení tokenu, volání endpointů pro výsledky a správné odpovědi, tabulka rankingu a přehled správných odpovědí s označením správné varianty.
 - `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově obsahuje odkaz „Zobrazit výsledky a správné odpovědi" při stavu FINISHED.
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 9 nových testů S19 (výpočet výsledků, ranked výsledky pro tým/organizátora, chybějící auth, pre-FINISHED odmítnutí, správné odpovědi, tie-break).
-- Další krok je `S20`.
+- V `QuizApp.Tests/ApiIntegrationTests.cs` přibyly HTTP integrační testy nad hostovaným API (`WebApplicationFactory` + InMemory DB) pro end-to-end organizátorský flow (create/import/create-session/join/snapshot) a pro vynucení `X-Team-Reconnect-Token` na state endpointu.
+- `QuizApp.Server/Program.cs` nyní v prostředí `Testing` přeskočí startup migraci (`MigrateAsync`) a exportuje `public partial class Program`, aby šel API host spouštět v integračních testech.
+- V `QuizApp.Tests/QuizApp.Tests.csproj` je přidán balíček `Microsoft.AspNetCore.Mvc.Testing` pro HTTP-level integrační testování.
+- Vznikl finální checklist release připravenosti `.github/context/11-release-checklist.md`.
+- Ruční ověření `dotnet dotnet-ef database update` proti lokálnímu PostgreSQL bylo úspěšně provedeno (Development prostředí).
+- Roadmapa MVP (`S00`–`S21`) je implementačně uzavřená.
 
 ## Rizika / dluh
-- Ověření `database update` proti lokálnímu PostgreSQL v tomto prostředí selhalo kvůli nedostupnému `localhost:5432`; je potřeba ruční ověření na stroji s běžícím PostgreSQL.
+- Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 62/62 passed)
-- Ruční smoke check: neproběhl (S20 rate limit/reconnect ověření vyžaduje běžící server/klienta a interaktivní síťové podmínky)
+- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 64/64 passed)
+- Database update: úspěšný (`dotnet dotnet-ef database update` pro `QuizApp.Server` v `Development`)
+- Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

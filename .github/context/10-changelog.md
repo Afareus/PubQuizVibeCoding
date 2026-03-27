@@ -204,3 +204,18 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V testech (`QuizManagementServiceTests`, `SessionParticipationServiceTests`) přibyly scénáře ověřující sanitizaci a délkové validace textových vstupů.
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (62/62 passed).
 - Omezení: ruční smoke-check rate limitingu a reconnect chování vyžaduje běžící server/klienta v interaktivním prostředí.
+
+## S21 — Testy a release readiness
+- V `QuizApp.Tests/ApiIntegrationTests.cs` přibyla API integrační test sada nad reálným HTTP hostem (`WebApplicationFactory`):
+  - end-to-end organizátorský flow (`POST /api/quizzes` -> `POST /import-csv` přes heslo -> `POST /sessions` -> `POST /api/sessions/join` -> `GET /api/sessions/{sessionId}`),
+  - ověření auth invariantu pro týmový snapshot (`GET /api/sessions/{sessionId}/state`) pro missing/invalid/valid `X-Team-Reconnect-Token`.
+- V `QuizApp.Server/Program.cs` je pro testovatelnost doplněno přeskočení startup migrace v prostředí `Testing` a export `public partial class Program` pro `WebApplicationFactory<Program>`.
+- V `QuizApp.Tests/QuizApp.Tests.csproj` byl přidán balíček `Microsoft.AspNetCore.Mvc.Testing`.
+- Vznikl finální checklist připravenosti release v `.github/context/11-release-checklist.md`.
+- Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (64/64 passed).
+- Omezení: ruční smoke-check v reálném běhu klient/server a verifikace `database update` proti dostupnému PostgreSQL zůstávají mimo toto prostředí.
+
+## Post-S21 — Ověření databázového dluhu
+- Byl ručně spuštěn a úspěšně dokončen `dotnet dotnet-ef database update` pro `QuizApp.Server` v prostředí `Development`.
+- V `08-implementation-state.md` byl odpovídající dluh odstraněn ze sekce `Rizika / dluh` a přesunut do sekce ověření.
+- V `11-release-checklist.md` je položka ověření DB migrace označena jako splněná.
