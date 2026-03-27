@@ -205,7 +205,7 @@ Zprovoznit jádro správy kvízů bez kompletního UI.
 - create quiz service,
 - jednorázové vrácení organizer tokenu,
 - import service navázanou na create quiz / empty quiz flow,
-- hashování mazacího hesla a organizer tokenu,
+- hashování Administrátorkého hesla kvízu a organizer tokenu,
 - audit log pro `QUIZ_CREATED` a `QUIZ_IMPORTED`.
 
 **Nesmíš měnit**

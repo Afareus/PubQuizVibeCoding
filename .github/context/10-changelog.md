@@ -79,8 +79,8 @@ Pro každý dokončený krok přidej záznam ve formátu:
 ## S09 — REST endpointy pro správu kvízů
 - V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byly přidány endpointy `POST /api/quizzes`, `POST /api/quizzes/{quizId}/import-csv`, `GET /api/quizzes/{quizId}` a `DELETE /api/quizzes/{quizId}`.
 - V `QuizApp.Server/Program.cs` je nyní namapováno `app.MapQuizManagementEndpoints()`.
-- `QuizManagementService` byl rozšířen o operace `GetQuizDetailAsync` a `DeleteQuizAsync` včetně auditu `QUIZ_DELETED`, kontroly aktivních session (`WAITING`/`RUNNING`) a verifikace mazacího hesla.
-- Organizátorská autorizace byla sjednocena tak, že `import`, `detail` a `delete` přijímají `X-Organizer-Token` nebo `X-Quiz-Password`; smazání stále vyžaduje správné mazací heslo.
+- `QuizManagementService` byl rozšířen o operace `GetQuizDetailAsync` a `DeleteQuizAsync` včetně auditu `QUIZ_DELETED`, kontroly aktivních session (`WAITING`/`RUNNING`) a verifikace Administrátorkého hesla kvízu.
+- Organizátorská autorizace byla sjednocena tak, že `import`, `detail` a `delete` přijímají `X-Organizer-Token` nebo `X-Quiz-Password`; smazání stále vyžaduje správné Administrátorké heslo kvízu.
 - V `QuizApp.Shared/Contracts/QuizContracts.cs` vznikly DTO kontrakty pro detail kvízu (`QuizDetailResponse`, `QuizDetailQuestionDto`, `QuizDetailQuestionOptionDto`).
 - V `QuizApp.Tests/QuizManagementServiceTests.cs` byly přidány testy pro autentizaci přes heslo, detail kvízu a mazání (včetně blokace při aktivní session).
 - Ověřeno buildem solution a test runem projektu `QuizApp.Tests` (26 passed).
@@ -88,7 +88,7 @@ Pro každý dokončený krok přidej záznam ve formátu:
 ## S10 — Organizátorské UI pro kvízy
 - V `QuizApp.Client/Pages/OrganizerDashboard.razor` byl nahrazen placeholder za funkční organizátorský dashboard s formulářem pro vytvoření kvízu (`POST /api/quizzes`), jednorázovým zobrazením tokenu a lokálním seznamem uložených kvízů.
 - V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` vzniklo minimum UI pro načtení detailu (`GET /api/quizzes/{quizId}`), upload/import CSV (`POST /api/quizzes/{quizId}/import-csv`) a zobrazení validačního reportu.
-- Na stejné detail stránce bylo doplněno smazání kvízu (`DELETE /api/quizzes/{quizId}`) se zadáním mazacího hesla.
+- Na stejné detail stránce bylo doplněno smazání kvízu (`DELETE /api/quizzes/{quizId}`) se zadáním Administrátorkého hesla kvízu.
 - Přidána klientská služba `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` pro ukládání dvojic `quizId + QuizOrganizerToken` do `localStorage`.
 - `QuizApp.Client/Program.cs` registruje `OrganizerQuizLocalStore` do DI a `_Imports.razor` byl rozšířen o sdílené kontrakty/enumy.
 - Hotfix: klientský `HttpClient` nyní čte `ApiBaseUrl` z `QuizApp.Client/wwwroot/appsettings.json`, aby WASM UI volalo server API i při běhu na jiném portu/originu.

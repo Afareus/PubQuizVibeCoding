@@ -247,7 +247,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (string.IsNullOrWhiteSpace(organizerPassword))
         {
-            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí mazací heslo v hlavičce X-Quiz-Password."));
+            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí Administrátorké heslo kvízu v hlavičce X-Quiz-Password."));
         }
 
         if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
@@ -257,7 +257,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (!VerifyPassword(organizerPassword, quiz.DeletePasswordHash))
         {
-            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatné mazací heslo."));
+            return DeleteQuizOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatné Administrátorké heslo kvízu."));
         }
 
         if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
@@ -297,7 +297,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (string.IsNullOrWhiteSpace(request.DeletePassword))
         {
-            errors[nameof(CreateQuizRequest.DeletePassword)] = ["Mazací heslo je povinné."];
+            errors[nameof(CreateQuizRequest.DeletePassword)] = ["Administrátorké heslo kvízu je povinné."];
         }
 
         return errors.Count == 0 ? null : errors;
@@ -355,7 +355,7 @@ public sealed class QuizManagementService : IQuizManagementService
             return true;
         }
 
-        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo mazací heslo.");
+        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo Administrátorké heslo kvízu.");
         return false;
     }
 

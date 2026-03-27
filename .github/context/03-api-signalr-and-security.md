@@ -54,7 +54,7 @@
 - Zobraz ho pouze jednou při vytvoření kvízu.
 - Na serveru ukládej pouze hash.
 - Porovnání tokenů prováděj constant-time.
-- Mazací heslo ukládej pouze jako hash.
+- Administrátorké heslo kvízu ukládej pouze jako hash.
 - Chraň local storage designem UI a minimalizací XSS rizika.
 - Mimo localhost vyžaduj HTTPS/TLS.
 

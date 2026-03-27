@@ -767,7 +767,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return true;
         }
 
-        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo mazací heslo.");
+        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo Administrátorké heslo kvízu.");
         return false;
     }
 

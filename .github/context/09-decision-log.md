@@ -95,10 +95,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Důvod:** Zdroj pravdy explicitně říká, že nový kvíz je prázdný a CSV se nahrává jednorázově.
 - **Dopad:** Následné API/UI kroky mohou stavět na deterministickém `empty quiz -> single import` flow bez potřeby řešit merge nebo reimport.
 
-### D-013 — S09 organizátorská autentizace rozšířena o mazací heslo
+### D-013 — S09 organizátorská autentizace rozšířena o Administrátorké heslo kvízu
 - **Datum/čas (UTC):** 2026-03-26T00:00:00Z
 - **Krok:** S09
-- **Rozhodnutí:** Pro endpointy správy kvízu (`import`, `detail`, `delete`) je autentizace platná při znalosti `X-Organizer-Token` **nebo** `X-Quiz-Password`; operace smazání navíc vyžaduje správné mazací heslo.
+- **Rozhodnutí:** Pro endpointy správy kvízu (`import`, `detail`, `delete`) je autentizace platná při znalosti `X-Organizer-Token` **nebo** `X-Quiz-Password`; operace smazání navíc vyžaduje správné Administrátorké heslo kvízu.
 - **Důvod:** Repo instrukce obsahují uživatelskou preferenci průběžně měnit pravidlo tak, aby znalost hesla opravňovala k organizátorským úkonům.
 - **Dopad:** Organizátorské API je použitelné i bez uloženého tokenu, přitom zůstává zachovaná ochrana mazání kvízu heslem a kontrola aktivních session.
 

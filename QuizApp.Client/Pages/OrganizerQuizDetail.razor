@@ -77,10 +77,10 @@
 <section class="card border-danger mb-4">
     <div class="card-body">
         <h2 class="h5 text-danger">Smazání kvízu</h2>
-        <p>Zadání správného mazacího hesla je povinné.</p>
+        <p>Zadání správného Administrátorkého hesla kvízu je povinné.</p>
 
         <div class="mb-3">
-            <label class="form-label" for="deletePassword">Mazací heslo</label>
+            <label class="form-label" for="deletePassword">Administrátorké heslo kvízu</label>
             <InputText id="deletePassword" class="form-control" type="password" @bind-Value="deletePassword" />
         </div>
 
@@ -272,7 +272,7 @@
 
         if (string.IsNullOrWhiteSpace(deletePassword))
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání je nutné zadat mazací heslo.");
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání je nutné zadat Administrátorké heslo kvízu.");
             isDeleting = false;
             return;
         }
