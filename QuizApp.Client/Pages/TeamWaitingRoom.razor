@@ -97,11 +97,13 @@ else
 
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
+    private bool hasNavigatedToQuestion;
 
     protected override async Task OnParametersSetAsync()
     {
         apiError = null;
         infoMessage = null;
+        hasNavigatedToQuestion = false;
 
         if (!SessionId.HasValue)
         {
@@ -137,6 +139,7 @@ else
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
             infoMessage = "Stav session byl načten.";
+            TryNavigateToQuestionScreen();
         }
         else
         {
@@ -231,6 +234,17 @@ else
             var teamIdQuery = identity is null ? string.Empty : $"?teamId={identity.TeamId}";
             NavigationManager.NavigateTo($"/tym/otazka/{SessionId.Value}{teamIdQuery}");
         }
+    }
+
+    private void TryNavigateToQuestionScreen()
+    {
+        if (hasNavigatedToQuestion || snapshot?.Status != SessionStatus.Running || snapshot.CurrentQuestion is null)
+        {
+            return;
+        }
+
+        hasNavigatedToQuestion = true;
+        GoToQuestionScreen();
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
