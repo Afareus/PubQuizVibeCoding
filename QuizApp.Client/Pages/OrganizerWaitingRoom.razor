@@ -6,9 +6,9 @@
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Čekárna</PageTitle>
+<PageTitle>@PageHeading</PageTitle>
 
-<h1>Čekárna</h1>
+<h1>@PageHeading</h1>
 
 <p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
 
@@ -28,7 +28,10 @@
         <div class="card-body">
             <h2 class="h5 mb-3">Detail hry</h2>
             <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName)</p>
-            <p class="mb-1"><strong>Join code:</strong> <code>@snapshot.JoinCode</code></p>
+            @if (!IsSessionRunning)
+            {
+                <p class="mb-1"><strong>Join code:</strong> <code>@snapshot.JoinCode</code></p>
+            }
             <p class="mb-3"><strong>Stav:</strong> @snapshot.Status</p>
 
             <div class="d-flex gap-2 mb-3">
@@ -65,7 +68,7 @@
                 <ul class="mb-0">
                     @foreach (var team in snapshot.Teams)
                     {
-                        <li><code>@team.TeamId</code> — @team.TeamName</li>
+                        <li>@team.TeamName</li>
                     }
                 </ul>
             }
@@ -92,6 +95,9 @@
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
     private Guid? autoLoadedSessionId;
+
+    private bool IsSessionRunning => snapshot?.Status == SessionStatus.Running;
+    private string PageHeading => IsSessionRunning ? "Probíhající hra" : "Čekárna";
 
     protected override async Task OnParametersSetAsync()
     {
