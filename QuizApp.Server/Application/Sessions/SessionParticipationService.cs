@@ -312,6 +312,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
         var session = await _dbContext.Sessions
             .AsNoTracking()
             .Include(x => x.Quiz)
+                .ThenInclude(x => x!.Questions)
+                .ThenInclude(x => x.Options)
             .Include(x => x.Teams)
             .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
 
@@ -333,6 +335,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
             new DateTimeOffset(session.CreatedAtUtc, TimeSpan.Zero),
             ToUtcOffset(session.StartedAtUtc),
             ToUtcOffset(session.EndedAtUtc),
+            session.CurrentQuestionIndex,
+            ToUtcOffset(session.CurrentQuestionStartedAtUtc),
+            ToUtcOffset(session.QuestionDeadlineUtc),
+            BuildCurrentQuestion(session),
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
                 .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
@@ -345,6 +351,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
     {
         var session = await _dbContext.Sessions
             .Include(x => x.Quiz)
+                .ThenInclude(x => x!.Questions)
+                .ThenInclude(x => x.Options)
             .Include(x => x.Teams)
             .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
 
@@ -588,6 +596,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         var session = await _dbContext.Sessions
             .Include(x => x.Quiz)
+                .ThenInclude(x => x!.Questions)
+                .ThenInclude(x => x.Options)
             .Include(x => x.Teams)
             .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
 
@@ -683,9 +693,38 @@ public sealed class SessionParticipationService : ISessionParticipationService
             new DateTimeOffset(session.CreatedAtUtc, TimeSpan.Zero),
             ToUtcOffset(session.StartedAtUtc),
             ToUtcOffset(session.EndedAtUtc),
+            session.CurrentQuestionIndex,
+            ToUtcOffset(session.CurrentQuestionStartedAtUtc),
+            ToUtcOffset(session.QuestionDeadlineUtc),
+            BuildCurrentQuestion(session),
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
                 .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
+                .ToList());
+    }
+
+    private static SnapshotQuestionDto? BuildCurrentQuestion(QuizSession session)
+    {
+        if (!session.CurrentQuestionIndex.HasValue)
+        {
+            return null;
+        }
+
+        var question = session.Quiz?.Questions
+            .SingleOrDefault(x => x.OrderIndex == session.CurrentQuestionIndex.Value);
+
+        if (question is null)
+        {
+            return null;
+        }
+
+        return new SnapshotQuestionDto(
+            question.QuestionId,
+            question.Text,
+            question.TimeLimitSec,
+            question.Options
+                .OrderBy(x => x.OptionKey)
+                .Select(x => new SnapshotQuestionOptionDto(x.OptionKey, x.Text))
                 .ToList());
     }
 

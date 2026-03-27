@@ -52,6 +52,10 @@ public sealed record OrganizerSessionSnapshotResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? EndedAtUtc,
+    int? CurrentQuestionIndex,
+    DateTimeOffset? CurrentQuestionStartedAtUtc,
+    DateTimeOffset? QuestionDeadlineUtc,
+    SnapshotQuestionDto? CurrentQuestion,
     IReadOnlyList<SnapshotTeamDto> Teams);
 
 public sealed record SnapshotQuestionDto(

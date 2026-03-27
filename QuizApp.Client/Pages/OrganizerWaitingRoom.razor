@@ -72,6 +72,32 @@
                     }
                 </ul>
             }
+
+            @if (IsSessionRunning && snapshot.CurrentQuestion is not null)
+            {
+                <section class="card mt-3">
+                    <div class="card-body">
+                        <h3 class="h6 mb-2">Položená otázka</h3>
+                        <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
+
+                        @if (remainingSeconds > 0)
+                        {
+                            <p class="mb-2 fs-5"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
+                        }
+                        else
+                        {
+                            <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                        }
+
+                        <ul class="mb-0">
+                            @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
+                            {
+                                <li><strong>@option.OptionKey</strong> — @option.Text</li>
+                            }
+                        </ul>
+                    </div>
+                </section>
+            }
         </div>
     </section>
 }
@@ -95,6 +121,8 @@
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
     private Guid? autoLoadedSessionId;
+    private System.Threading.Timer? countdownTimer;
+    private int remainingSeconds;
 
     private bool IsSessionRunning => snapshot?.Status == SessionStatus.Running;
     private string PageHeading => IsSessionRunning ? "Probíhající hra" : "Čekárna";
@@ -145,10 +173,14 @@
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             infoMessage = "Snapshot session byl načten.";
             await EnsureRealtimeConnectionAsync(sessionId.Value);
+            RestartCountdownTimer();
         }
         else
         {
             snapshot = null;
+            countdownTimer?.Dispose();
+            countdownTimer = null;
+            remainingSeconds = 0;
             apiError = await ReadApiErrorAsync(response);
         }
 
@@ -237,6 +269,7 @@
                 snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
                 infoMessage = message;
                 apiError = null;
+                RestartCountdownTimer();
             }
 
             StateHasChanged();
@@ -254,6 +287,9 @@
         {
             await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
         }
+
+        countdownTimer?.Dispose();
+        countdownTimer = null;
 
         await hubConnection.DisposeAsync();
     }
@@ -280,6 +316,7 @@
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             infoMessage = "Session byla spuštěna.";
+            RestartCountdownTimer();
         }
         else
         {
@@ -322,6 +359,7 @@
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             infoMessage = "Session byla zrušena.";
+            RestartCountdownTimer();
         }
         else
         {
@@ -349,6 +387,40 @@
         {
             request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
         }
+    }
+
+    private void RestartCountdownTimer()
+    {
+        countdownTimer?.Dispose();
+        countdownTimer = null;
+
+        UpdateRemainingSeconds();
+
+        if (!IsSessionRunning || snapshot?.QuestionDeadlineUtc is null)
+        {
+            return;
+        }
+
+        countdownTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                UpdateRemainingSeconds();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateRemainingSeconds()
+    {
+        if (snapshot?.QuestionDeadlineUtc is null)
+        {
+            remainingSeconds = 0;
+            return;
+        }
+
+        var diff = snapshot.QuestionDeadlineUtc.Value - DateTimeOffset.UtcNow;
+        remainingSeconds = Math.Max(0, (int)Math.Ceiling(diff.TotalSeconds));
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
