@@ -88,7 +88,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
         var validationErrors = ValidateJoinSessionRequest(request);
         if (validationErrors is not null)
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Vstupní data nejsou validní.", validationErrors));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(
+                ApiErrorCode.ValidationFailed,
+                ResolveJoinSessionValidationMessage(validationErrors),
+                validationErrors));
         }
 
         var normalizedJoinCode = request.JoinCode.Trim().ToUpperInvariant();
@@ -99,23 +102,23 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         if (session is null)
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session pro zadaný join code nebyla nalezena."));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Hra pro zadaný join code nebyla nalezena."));
         }
 
         if (session.Status != SessionStatus.Waiting)
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Do session se lze připojit pouze ve stavu WAITING."));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Do hry se lze připojit pouze ve stavu WAITING."));
         }
 
         if (session.Teams.Count >= MaxTeamsPerSession)
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session již obsahuje maximální počet týmů (20)."));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Hra již obsahuje maximální počet týmů (20)."));
         }
 
         var normalizedTeamName = sanitizedTeamName.ToUpperInvariant();
         if (session.Teams.Any(team => string.Equals(team.NormalizedTeamName, normalizedTeamName, StringComparison.Ordinal)))
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.TeamNameAlreadyUsed, "Název týmu už je v této session použit."));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.TeamNameAlreadyUsed, "Název týmu už je v této hře použit."));
         }
 
         var reconnectToken = GenerateTeamReconnectToken();
@@ -136,7 +139,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
         catch (DbUpdateException)
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.TeamNameAlreadyUsed, "Název týmu už je v této session použit."));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.TeamNameAlreadyUsed, "Název týmu už je v této hře použit."));
         }
 
         await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.TeamJoined, cancellationToken);
@@ -897,6 +900,13 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         return errors.Count == 0 ? null : errors;
+    }
+
+    private static string ResolveJoinSessionValidationMessage(IReadOnlyDictionary<string, string[]> validationErrors)
+    {
+        return validationErrors.ContainsKey(nameof(JoinSessionRequest.JoinCode))
+            ? "Zadejte join kód"
+            : "Vstupní data nejsou validní.";
     }
 
     private static IReadOnlyDictionary<string, string[]>? ValidateSubmitAnswerRequest(SubmitAnswerRequest request)

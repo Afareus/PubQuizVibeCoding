@@ -164,6 +164,20 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task JoinSessionAsync_EmptyJoinCode_ReturnsSpecificValidationMessage()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var result = await sessionService.JoinSessionAsync(new JoinSessionRequest(string.Empty, "Tým"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ApiErrorCode.ValidationFailed, result.Error!.Code);
+        Assert.Equal("Zadejte join kód", result.Error.Message);
+    }
+
+    [Fact]
     public async Task GetSessionStateAsync_InvalidReconnectToken_ReturnsInvalidAuthToken()
     {
         await using var dbContext = CreateDbContext();

@@ -60,7 +60,7 @@ else
                     <ul class="mb-0">
                         @foreach (var team in snapshot.Teams)
                         {
-                            <li><code>@team.TeamId</code> — @team.TeamName</li>
+                            <li>@team.TeamName</li>
                         }
                     </ul>
                 }
@@ -158,7 +158,7 @@ else
                 .WithAutomaticReconnect(new ReconnectWithinSixtySecondsPolicy())
                 .Build();
 
-            hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Připojil se nový tým."));
+            hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync());
             hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla spuštěna."));
             hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Došlo ke změně otázky."));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));
@@ -212,14 +212,14 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task ReloadSnapshotFromRealtimeAsync(string message)
+    private async Task ReloadSnapshotFromRealtimeAsync(string? message = null)
     {
         await InvokeAsync(async () =>
         {
             await LoadSnapshotAsync();
             if (snapshot is not null)
             {
-                infoMessage = message;
+                infoMessage = string.IsNullOrWhiteSpace(message) ? null : message;
             }
 
             StateHasChanged();
