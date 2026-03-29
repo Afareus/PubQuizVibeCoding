@@ -4,10 +4,11 @@
 @implements IAsyncDisposable
 @inject HttpClient HttpClient
 @inject TeamSessionLocalStore TeamSessionLocalStore
+@inject NavigationManager NavigationManager
 
-<PageTitle>Otázka</PageTitle>
+<PageTitle>@PageHeading</PageTitle>
 
-<h1>Otázka</h1>
+<h1>@PageHeading</h1>
 
 <p class="text-muted">Odpověď lze během otázky odeslat pouze jednou.</p>
 <p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
@@ -48,8 +49,14 @@ else if (snapshot.Status is SessionStatus.Cancelled)
 }
 else if (snapshot.Status is SessionStatus.Finished)
 {
-    <div class="alert alert-success" role="alert">Session skončila! Přejděte na výsledky.</div>
-    <a class="btn btn-primary" href="@($"/session/vysledky/{snapshot.SessionId}")">Zobrazit výsledky</a>
+    @if (!snapshot.ResultsPublished)
+    {
+        <div class="alert alert-info mb-2" role="alert">Výsledky zatím nebyly zveřejněny organizátorem.</div>
+    }
+
+    <button class="btn btn-primary" type="button" disabled="@(!snapshot.ResultsPublished)" @onclick="GoToResults">
+        Zobrazit výsledky
+    </button>
 }
 else if (snapshot.CurrentQuestion is null)
 {
@@ -112,6 +119,8 @@ else
     private Guid? realtimeSessionId;
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
+
+    private string PageHeading => snapshot?.Status is SessionStatus.Finished ? "Konec kvízu" : "Otázka";
 
     private bool CanSubmitAnswer => snapshot?.Status == SessionStatus.Running && !submittedOption.HasValue;
 
@@ -216,6 +225,16 @@ else
         }
 
         submittedOption = await TeamSessionLocalStore.FindSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId);
+    }
+
+    private void GoToResults()
+    {
+        if (snapshot is null || !snapshot.ResultsPublished)
+        {
+            return;
+        }
+
+        NavigationManager.NavigateTo($"/session/vysledky/{snapshot.SessionId}");
     }
 
     private void RestartCountdownTimer()

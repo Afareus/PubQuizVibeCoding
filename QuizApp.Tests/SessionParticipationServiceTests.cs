@@ -49,7 +49,7 @@ public class SessionParticipationServiceTests
         await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
 
         Assert.Contains(realtimePublisher.Events, x => x.SessionId == created.SessionId && x.EventName == RealtimeEventName.SessionFinished);
-        Assert.Contains(realtimePublisher.Events, x => x.SessionId == created.SessionId && x.EventName == RealtimeEventName.ResultsReady);
+        Assert.DoesNotContain(realtimePublisher.Events, x => x.SessionId == created.SessionId && x.EventName == RealtimeEventName.ResultsReady);
     }
 
     [Fact]
@@ -217,6 +217,7 @@ public class SessionParticipationServiceTests
         Assert.Equal(session.SessionId, stateResult.Response!.SessionId);
         Assert.Equal(SessionStatus.Waiting, stateResult.Response.Status);
         Assert.Null(stateResult.Response.CurrentQuestion);
+        Assert.False(stateResult.Response.ResultsPublished);
         Assert.Contains(stateResult.Response.Teams, x => x.TeamId == joinResult.Response.TeamId && x.TeamName == "Tým Delta");
     }
 
@@ -682,6 +683,15 @@ public class SessionParticipationServiceTests
 
         var created = await CreateFinishedSessionWithResultsAsync(quizService, sessionService, CancellationToken.None);
 
+        var organizerPublishResult = await sessionService.GetSessionResultsAsync(
+            created.SessionId,
+            null,
+            null,
+            created.OrganizerToken,
+            null,
+            CancellationToken.None);
+        Assert.True(organizerPublishResult.IsSuccess);
+
         var resultsResult = await sessionService.GetSessionResultsAsync(
             created.SessionId, created.Team1Id, created.Team1ReconnectToken, null, null, CancellationToken.None);
 
@@ -725,6 +735,51 @@ public class SessionParticipationServiceTests
         Assert.True(resultsResult.IsSuccess);
         Assert.NotNull(resultsResult.Response);
         Assert.Equal(2, resultsResult.Response!.Results.Count);
+    }
+
+    [Fact]
+    public async Task GetSessionResultsAsync_TeamsCanAccessOnlyAfterOrganizerPublishesResults()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var realtimePublisher = new FakeSessionRealtimePublisher();
+        var sessionService = CreateSessionService(dbContext, realtimePublisher);
+
+        var created = await CreateFinishedSessionWithResultsAsync(quizService, sessionService, CancellationToken.None);
+
+        var teamBeforePublishResult = await sessionService.GetSessionResultsAsync(
+            created.SessionId,
+            created.Team1Id,
+            created.Team1ReconnectToken,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.False(teamBeforePublishResult.IsSuccess);
+        Assert.NotNull(teamBeforePublishResult.Error);
+        Assert.Equal(ApiErrorCode.SessionStateChanged, teamBeforePublishResult.Error!.Code);
+
+        var organizerPublishResult = await sessionService.GetSessionResultsAsync(
+            created.SessionId,
+            null,
+            null,
+            created.OrganizerToken,
+            null,
+            CancellationToken.None);
+
+        Assert.True(organizerPublishResult.IsSuccess);
+        Assert.Contains(realtimePublisher.Events, x => x.SessionId == created.SessionId && x.EventName == RealtimeEventName.ResultsReady);
+
+        var teamAfterPublishResult = await sessionService.GetSessionResultsAsync(
+            created.SessionId,
+            created.Team1Id,
+            created.Team1ReconnectToken,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.True(teamAfterPublishResult.IsSuccess);
+        Assert.NotNull(teamAfterPublishResult.Response);
     }
 
     [Fact]

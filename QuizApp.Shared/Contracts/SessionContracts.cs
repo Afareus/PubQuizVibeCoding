@@ -43,7 +43,8 @@ public sealed record SessionStateSnapshotResponse(
     DateTimeOffset? CurrentQuestionStartedAtUtc,
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
-    IReadOnlyList<SnapshotTeamDto> Teams);
+    IReadOnlyList<SnapshotTeamDto> Teams,
+    bool ResultsPublished);
 
 public sealed record OrganizerSessionSnapshotResponse(
     Guid SessionId,
@@ -57,7 +58,8 @@ public sealed record OrganizerSessionSnapshotResponse(
     DateTimeOffset? CurrentQuestionStartedAtUtc,
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
-    IReadOnlyList<SnapshotTeamDto> Teams);
+    IReadOnlyList<SnapshotTeamDto> Teams,
+    bool ResultsPublished);
 
 public sealed record SnapshotQuestionDto(
     Guid QuestionId,

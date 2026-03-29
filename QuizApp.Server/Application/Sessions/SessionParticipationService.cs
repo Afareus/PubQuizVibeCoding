@@ -44,6 +44,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private const int TeamReconnectTokenEntropyBytes = 32;
     private const int MaxTeamsPerSession = 20;
     private const int MaxTeamNameLength = 120;
+    private const string SessionResultsPublishedAuditAction = "SESSION_RESULTS_PUBLISHED";
 
     private readonly QuizAppDbContext _dbContext;
     private readonly ISessionRealtimePublisher _sessionRealtimePublisher;
@@ -251,6 +252,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
             }
         }
 
+        var resultsPublished = await IsResultsPublishedAsync(session.SessionId, cancellationToken);
+
         var response = new SessionStateSnapshotResponse(
             session.SessionId,
             session.Quiz?.Name ?? string.Empty,
@@ -262,7 +265,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
                 .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
-                .ToList());
+                .ToList(),
+            resultsPublished);
 
         return SessionStateOperationResult.Success(response);
     }
@@ -385,22 +389,9 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(authError!);
         }
 
-        var response = new OrganizerSessionSnapshotResponse(
-            session.SessionId,
-            session.QuizId,
-            session.JoinCode,
-            session.Status,
-            new DateTimeOffset(session.CreatedAtUtc, TimeSpan.Zero),
-            ToUtcOffset(session.StartedAtUtc),
-            ToUtcOffset(session.EndedAtUtc),
-            session.CurrentQuestionIndex,
-            ToUtcOffset(session.CurrentQuestionStartedAtUtc),
-            ToUtcOffset(session.QuestionDeadlineUtc),
-            BuildCurrentQuestion(session),
-            session.Teams
-                .OrderBy(x => x.JoinedAtUtc)
-                .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
-                .ToList());
+        var response = ToOrganizerSnapshot(
+            session,
+            await IsResultsPublishedAsync(session.SessionId, cancellationToken));
 
         return OrganizerSessionStateOperationResult.Success(response);
     }
@@ -568,23 +559,20 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        var authorized = false;
+        var teamAuthorized = false;
 
         if (!string.IsNullOrWhiteSpace(teamReconnectToken) && teamId.HasValue)
         {
             var team = session.Teams.SingleOrDefault(x => x.TeamId == teamId.Value);
             if (team is not null && VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
             {
-                authorized = true;
+                teamAuthorized = true;
             }
         }
 
-        if (!authorized && TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out _))
-        {
-            authorized = true;
-        }
+        var organizerAuthorized = TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out _);
 
-        if (!authorized)
+        if (!teamAuthorized && !organizerAuthorized)
         {
             return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí platná autentizace (tým nebo organizátor)."));
         }
@@ -592,6 +580,31 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (session.Status != SessionStatus.Finished)
         {
             return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Výsledky jsou dostupné pouze po ukončení session."));
+        }
+
+        var resultsPublished = await IsResultsPublishedAsync(session.SessionId, cancellationToken);
+
+        if (organizerAuthorized && !resultsPublished)
+        {
+            var nowUtc = DateTime.UtcNow;
+
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                SessionResultsPublishedAuditAction,
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new SessionResultsPublishedAuditPayload(session.SessionId, session.QuizId))));
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            resultsPublished = true;
+
+            await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.ResultsReady, cancellationToken);
+        }
+
+        if (teamAuthorized && !resultsPublished)
+        {
+            return SessionResultsOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Výsledky budou dostupné až po zveřejnění organizátorem."));
         }
 
         var results = session.Results
@@ -701,7 +714,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 session.Finish(nowUtc);
                 await ComputeSessionResultsAsync(session.SessionId, session.Teams, cancellationToken);
                 emittedEvents.Add((session.SessionId, RealtimeEventName.SessionFinished));
-                emittedEvents.Add((session.SessionId, RealtimeEventName.ResultsReady));
                 continue;
             }
 
@@ -823,7 +835,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
     }
 
-    private static OrganizerSessionSnapshotResponse ToOrganizerSnapshot(QuizSession session)
+    private static OrganizerSessionSnapshotResponse ToOrganizerSnapshot(QuizSession session, bool resultsPublished = false)
     {
         return new OrganizerSessionSnapshotResponse(
             session.SessionId,
@@ -840,7 +852,17 @@ public sealed class SessionParticipationService : ISessionParticipationService
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
                 .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
-                .ToList());
+                .ToList(),
+            resultsPublished);
+    }
+
+    private Task<bool> IsResultsPublishedAsync(Guid sessionId, CancellationToken cancellationToken)
+    {
+        return _dbContext.AuditLogs
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.SessionId == sessionId && x.ActionType == SessionResultsPublishedAuditAction,
+                cancellationToken);
     }
 
     private static SnapshotQuestionDto? BuildCurrentQuestion(QuizSession session)
@@ -1055,6 +1077,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private sealed record SessionCancelledAuditPayload(Guid SessionId, Guid QuizId);
 
     private sealed record SessionCancelledOnStartupAuditPayload(Guid SessionId, Guid QuizId);
+
+    private sealed record SessionResultsPublishedAuditPayload(Guid SessionId, Guid QuizId);
 }
 
 public sealed record JoinSessionOperationResult(
