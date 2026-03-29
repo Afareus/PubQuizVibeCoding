@@ -75,6 +75,29 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task LeaveSessionAsync_ValidRequest_RemovesTeamFromSession()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var realtimePublisher = new FakeSessionRealtimePublisher();
+        var sessionService = CreateSessionService(dbContext, realtimePublisher);
+
+        var session = await CreateWaitingSessionAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(session.JoinCode, "Tým Odchod"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var leaveResult = await sessionService.LeaveSessionAsync(
+            session.SessionId,
+            joinResult.Response!.TeamId,
+            joinResult.Response.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(leaveResult.IsSuccess);
+        Assert.DoesNotContain(await dbContext.Teams.ToListAsync(), x => x.TeamId == joinResult.Response.TeamId);
+        Assert.Contains(realtimePublisher.Events, x => x.SessionId == session.SessionId && x.EventName == RealtimeEventName.TeamJoined);
+    }
+
+    [Fact]
     public async Task JoinSessionAsync_DuplicateTeamName_ReturnsConflict()
     {
         await using var dbContext = CreateDbContext();

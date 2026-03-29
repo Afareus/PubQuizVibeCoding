@@ -262,12 +262,24 @@ else
         apiError = null;
         infoMessage = null;
 
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/sessions/{identity.SessionId}/teams/{identity.TeamId}");
+        request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            apiError = await ReadApiErrorAsync(response);
+            isLeaving = false;
+            return;
+        }
+
         await TeamSessionLocalStore.RemoveIdentityAsync(identity.SessionId, identity.TeamId);
         await DisposeRealtimeConnectionAsync();
 
         identity = null;
         snapshot = null;
         hasNavigatedToQuestion = false;
+        isLeaving = false;
 
         NavigationManager.NavigateTo("/tym/pripojeni");
     }

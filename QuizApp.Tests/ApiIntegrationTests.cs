@@ -97,6 +97,39 @@ public class ApiIntegrationTests
         Assert.Equal(HttpStatusCode.OK, validTokenResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task TeamLeaveEndpoint_RemovesTeamFromSession()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var createQuizResponse = await CreateQuizAsync(client, "Integrační leave kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, createQuizResponse.QuizId, "heslo");
+
+        var session = await CreateSessionAsync(client, createQuizResponse.QuizId, "heslo", "IJKL2345");
+        var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým Leave"));
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+
+        var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
+        Assert.NotNull(joinPayload);
+
+        using var leaveMessage = new HttpRequestMessage(HttpMethod.Delete, $"/api/sessions/{session.SessionId}/teams/{joinPayload!.TeamId}");
+        leaveMessage.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+
+        using var leaveResponse = await client.SendAsync(leaveMessage);
+        Assert.Equal(HttpStatusCode.NoContent, leaveResponse.StatusCode);
+
+        using var organizerSnapshotMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{session.SessionId}");
+        organizerSnapshotMessage.Headers.Add("X-Quiz-Password", "heslo");
+
+        using var organizerSnapshotResponse = await client.SendAsync(organizerSnapshotMessage);
+        Assert.Equal(HttpStatusCode.OK, organizerSnapshotResponse.StatusCode);
+
+        var snapshot = await organizerSnapshotResponse.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+        Assert.NotNull(snapshot);
+        Assert.DoesNotContain(snapshot!.Teams, x => x.TeamId == joinPayload.TeamId);
+    }
+
     private static async Task<CreateQuizResponse> CreateQuizAsync(HttpClient client, string name, string password)
     {
         var createResponse = await client.PostAsJsonAsync("/api/quizzes", new CreateQuizRequest(name, password));

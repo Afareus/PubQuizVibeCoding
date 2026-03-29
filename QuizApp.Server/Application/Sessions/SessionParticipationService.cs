@@ -16,6 +16,8 @@ public interface ISessionParticipationService
 
     Task<JoinSessionOperationResult> JoinSessionAsync(JoinSessionRequest request, CancellationToken cancellationToken);
 
+    Task<LeaveSessionOperationResult> LeaveSessionAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken);
+
     Task<SessionStateOperationResult> GetSessionStateAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken);
 
     Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -144,6 +146,54 @@ public sealed class SessionParticipationService : ISessionParticipationService
             team.TeamId,
             reconnectToken,
             session.Status));
+    }
+
+    public async Task<LeaveSessionOperationResult> LeaveSessionAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(teamReconnectToken))
+        {
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí hlavička X-Team-Reconnect-Token."));
+        }
+
+        var session = await _dbContext.Sessions
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (session.Status != SessionStatus.Waiting)
+        {
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze opustit pouze ve stavu WAITING."));
+        }
+
+        var team = session.Teams.SingleOrDefault(x => x.TeamId == teamId);
+        if (team is null)
+        {
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Tým v session nebyl nalezen."));
+        }
+
+        if (!VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
+        {
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný team reconnect token."));
+        }
+
+        _dbContext.Teams.Remove(team);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
+        }
+
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.TeamJoined, cancellationToken);
+
+        return LeaveSessionOperationResult.Success();
     }
 
     public async Task<SessionStateOperationResult> GetSessionStateAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken)
@@ -1017,6 +1067,16 @@ public sealed record SessionStateOperationResult(
     public static SessionStateOperationResult Success(SessionStateSnapshotResponse response) => new(response, null);
 
     public static SessionStateOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record LeaveSessionOperationResult(
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static LeaveSessionOperationResult Success() => new(Error: null);
+
+    public static LeaveSessionOperationResult Fail(ApiErrorResponse error) => new(error);
 }
 
 public sealed record OrganizerSessionStateOperationResult(

@@ -19,6 +19,8 @@ public static class SessionParticipationEndpoints
         group.MapGet("/{sessionId:guid}/state", GetSessionStateAsync);
         group.MapPost("/{sessionId:guid}/answers", SubmitAnswerAsync)
             .RequireRateLimiting("SubmitPerTeam");
+        group.MapDelete("/{sessionId:guid}/teams/{teamId:guid}", LeaveSessionAsync)
+            .RequireRateLimiting("SubmitPerTeam");
         group.MapPost("/{sessionId:guid}/start", StartSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{sessionId:guid}/pause", PauseSessionAsync)
@@ -45,6 +47,23 @@ public static class SessionParticipationEndpoints
         }
 
         return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> LeaveSessionAsync(
+        Guid sessionId,
+        Guid teamId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
+        var result = await sessionParticipationService.LeaveSessionAsync(sessionId, teamId, teamReconnectToken, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.NoContent();
     }
 
     private static async Task<IResult> PauseSessionAsync(
