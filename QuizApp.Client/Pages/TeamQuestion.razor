@@ -59,8 +59,8 @@ else
 {
     <section class="card mb-3">
         <div class="card-body">
-            <h2 class="h5">@snapshot.CurrentQuestion.Text</h2>
-            <p class="mb-1"><strong>Otázka #:</strong> @snapshot.CurrentQuestionIndex</p>
+            <h2 class="h5 fw-normal mb-2">Otázka číslo: @((snapshot.CurrentQuestionIndex ?? 0) + 1)</h2>
+            <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
             @if (snapshot.Status == SessionStatus.Paused)
             {
                 <p class="mb-1 text-warning"><strong>Hra je pozastavena organizátorem.</strong></p>
@@ -261,7 +261,7 @@ else
                 .WithAutomaticReconnect(new ReconnectWithinSixtySecondsPolicy())
                 .Build();
 
-            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Načtena nová otázka."));
+            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla ukončena."));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));
             hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));

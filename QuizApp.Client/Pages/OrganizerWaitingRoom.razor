@@ -28,7 +28,7 @@
     {
         <section class="card mb-4">
             <div class="card-body">
-                <h2 class="h5 mb-2">Položená otázka</h2>
+                <h2 class="h5 fw-normal mb-2">Otázka číslo: @((snapshot.CurrentQuestionIndex ?? 0) + 1)</h2>
                 <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
 
                 @if (remainingSeconds > 0)
@@ -247,7 +247,7 @@
 
             hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla spuštěna."));
-            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Došlo ke změně otázky."));
+            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));
             hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla ukončena."));
             hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));
