@@ -200,6 +200,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         var response = new SessionStateSnapshotResponse(
             session.SessionId,
+            session.Quiz?.Name ?? string.Empty,
             session.Status,
             session.CurrentQuestionIndex,
             ToUtcOffset(session.CurrentQuestionStartedAtUtc),

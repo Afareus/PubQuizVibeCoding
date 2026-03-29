@@ -10,7 +10,6 @@
 
 <h1>Čekárna týmu</h1>
 
-<p class="text-muted">Stav session: @(snapshot?.Status.ToString() ?? "nenačteno")</p>
 <p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
@@ -35,13 +34,13 @@ else
 {
     <section class="card mb-4">
         <div class="card-body">
-            <h2 class="h5">Tým</h2>
-            <p class="mb-1"><strong>Název:</strong> @identity.TeamName</p>
-            <p class="mb-1"><strong>Session:</strong> <code>@identity.SessionId</code></p>
-            <p class="mb-3"><strong>Team ID:</strong> <code>@identity.TeamId</code></p>
+            <h2 class="h5"><strong>Kvíz:</strong> @(string.IsNullOrWhiteSpace(snapshot?.QuizName) ? "(neznámý název)" : snapshot.QuizName)</h2>
+            <div class="mb-3"></div>
+            <p class="mb-1"><strong>Název týmu:</strong> @identity.TeamName</p>
+            <p class="mb-3 text-muted">Kvíz začne po spuštění organizátorem.</p>
 
-            <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="LoadSnapshotAsync">
-                @(isLoading ? "Načítám..." : "Obnovit stav")
+            <button class="btn btn-outline-danger" type="button" disabled="@isLeaving" @onclick="LeaveTeamAsync">
+                Odejít
             </button>
         </div>
     </section>
@@ -93,6 +92,7 @@ else
     private ApiErrorResponse? apiError;
     private string? infoMessage;
     private bool isLoading;
+    private bool isLeaving;
     private bool isRealtimeConnected;
 
     private HubConnection? hubConnection;
@@ -251,6 +251,27 @@ else
         GoToQuestionScreen();
     }
 
+    private async Task LeaveTeamAsync()
+    {
+        if (identity is null)
+        {
+            return;
+        }
+
+        isLeaving = true;
+        apiError = null;
+        infoMessage = null;
+
+        await TeamSessionLocalStore.RemoveIdentityAsync(identity.SessionId, identity.TeamId);
+        await DisposeRealtimeConnectionAsync();
+
+        identity = null;
+        snapshot = null;
+        hasNavigatedToQuestion = false;
+
+        NavigationManager.NavigateTo("/tym/pripojeni");
+    }
+
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
     {
         var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
@@ -258,6 +279,11 @@ else
     }
 
     public async ValueTask DisposeAsync()
+    {
+        await DisposeRealtimeConnectionAsync();
+    }
+
+    private async Task DisposeRealtimeConnectionAsync()
     {
         if (hubConnection is null)
         {
@@ -270,5 +296,8 @@ else
         }
 
         await hubConnection.DisposeAsync();
+        hubConnection = null;
+        realtimeSessionId = null;
+        isRealtimeConnected = false;
     }
 }

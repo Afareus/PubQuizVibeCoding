@@ -38,6 +38,18 @@ public sealed class TeamSessionLocalStore
         await SaveAsync(IdentityStorageKey, identities);
     }
 
+    public async Task RemoveIdentityAsync(Guid sessionId, Guid teamId)
+    {
+        var identities = (await GetIdentitiesAsync()).ToList();
+        identities.RemoveAll(identity => identity.SessionId == sessionId && identity.TeamId == teamId);
+
+        var answers = (await GetAnswersAsync()).ToList();
+        answers.RemoveAll(answer => answer.SessionId == sessionId && answer.TeamId == teamId);
+
+        await SaveAsync(IdentityStorageKey, identities);
+        await SaveAsync(AnswersStorageKey, answers);
+    }
+
     public async Task<OptionKey?> FindSubmittedAnswerAsync(Guid sessionId, Guid teamId, Guid questionId)
     {
         var answers = await GetAnswersAsync();

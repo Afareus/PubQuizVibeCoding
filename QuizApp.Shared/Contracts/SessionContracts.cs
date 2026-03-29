@@ -37,6 +37,7 @@ public sealed record SubmitAnswerResponse(
 
 public sealed record SessionStateSnapshotResponse(
     Guid SessionId,
+    string QuizName,
     SessionStatus Status,
     int? CurrentQuestionIndex,
     DateTimeOffset? CurrentQuestionStartedAtUtc,
