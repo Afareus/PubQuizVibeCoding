@@ -79,7 +79,7 @@ else
     @if (submittedOption.HasValue)
     {
         <div class="alert alert-success" role="alert">
-            Odpověď <strong>@submittedOption</strong> byla odeslána. Pro tuto otázku už nelze odpověď změnit.
+            Odpověď <strong>@submittedOption</strong> byla odeslána. Odpověď již nelze změnit.
         </div>
     }
 
@@ -188,7 +188,7 @@ else
         {
             await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, option);
             submittedOption = option;
-            infoMessage = "Odpověď byla odeslána a uzamčena pro tuto otázku.";
+            infoMessage = null;
         }
         else
         {

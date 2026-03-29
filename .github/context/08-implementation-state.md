@@ -119,7 +119,7 @@ Po každém kroku jej aktualizuj.
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`)
+- Build: úspěšný (`run_build`)tut
 - Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 64/64 passed)
 - Database update: úspěšný (`dotnet dotnet-ef database update` pro `QuizApp.Server` v `Development`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)
