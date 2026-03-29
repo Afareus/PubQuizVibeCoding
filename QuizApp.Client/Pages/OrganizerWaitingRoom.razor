@@ -177,7 +177,6 @@
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
-            infoMessage = "Snapshot session byl načten.";
             await EnsureRealtimeConnectionAsync(sessionId.Value);
             RestartCountdownTimer();
         }
@@ -246,7 +245,7 @@
                 .WithAutomaticReconnect(new ReconnectWithinSixtySecondsPolicy())
                 .Build();
 
-            hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Připojil se nový tým."));
+            hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla spuštěna."));
             hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Došlo ke změně otázky."));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));

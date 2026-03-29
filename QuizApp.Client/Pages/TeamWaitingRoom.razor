@@ -138,7 +138,6 @@ else
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
-            infoMessage = "Stav session byl načten.";
             TryNavigateToQuestionScreen();
         }
         else

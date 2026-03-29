@@ -7,7 +7,7 @@
 
 <h1>Připojení týmu</h1>
 
-<p class="text-muted">Zadejte join code a unikátní název týmu pro vstup do čekárny.</p>
+<p class="text-muted">Zadejte unikátní název týmu a join code pro vstup do čekárny.</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -22,13 +22,13 @@
 <section class="card">
     <div class="card-body">
         <div class="mb-3">
-            <label class="form-label" for="joinCode">Join code</label>
-            <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
+            <label class="form-label" for="teamName">Název týmu</label>
+            <InputText id="teamName" class="form-control" @bind-Value="teamName" />
         </div>
 
         <div class="mb-3">
-            <label class="form-label" for="teamName">Název týmu</label>
-            <InputText id="teamName" class="form-control" @bind-Value="teamName" />
+            <label class="form-label" for="joinCode">Join code</label>
+            <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
         </div>
 
         <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="JoinSessionAsync">
