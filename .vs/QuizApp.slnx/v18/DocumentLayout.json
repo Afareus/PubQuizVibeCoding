@@ -133,7 +133,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 10,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
@@ -146,12 +146,7 @@
               "ViewState": "AgIAAF0AAAAAAAAAAAAkwHkAAAAhAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-03-25T12:55:05.479Z",
-              "IsPinned": true,
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{004be353-6879-467c-9d1e-9ac23cdf6d49}"
+              "IsPinned": true
             },
             {
               "$type": "Bookmark",
@@ -171,6 +166,19 @@
             },
             {
               "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "OrganizerWaitingRoom.razor",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
+              "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
+              "RelativeToolTip": "QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
+              "ViewState": "AgIAACgAAAAAAAAAAAAQwBEAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2026-03-27T12:44:43.865Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 1,
               "Title": "TeamQuestion.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\TeamQuestion.razor",
@@ -179,8 +187,7 @@
               "RelativeToolTip": "QuizApp.Client\\Pages\\TeamQuestion.razor",
               "ViewState": "AgIAACAAAAAAAAAAAAAwwDUAAABtAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-03-27T11:26:36.834Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T11:26:36.834Z"
             },
             {
               "$type": "Document",
@@ -204,8 +211,7 @@
               "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\SessionParticipationEndpoints.cs",
               "ViewState": "AgIAABUAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T15:59:18.686Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T15:59:18.686Z"
             },
             {
               "$type": "Document",
@@ -217,21 +223,7 @@
               "RelativeToolTip": "QuizApp.Shared\\Enums\\SharedEnums.cs",
               "ViewState": "AgIAACgAAAAAAAAAAIBZwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T15:58:59.98Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "OrganizerWaitingRoom.razor",
-              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
-              "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
-              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
-              "RelativeToolTip": "QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
-              "ViewState": "AgIAAOYAAAAAAAAAAAApwPkAAACCAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-03-27T12:44:43.865Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T15:58:59.98Z"
             },
             {
               "$type": "Document",
@@ -243,8 +235,7 @@
               "RelativeToolTip": "QuizApp.Server\\Domain\\Entities\\Team.cs",
               "ViewState": "AgIAAD4AAAAAAAAAAEBdwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-29T17:44:06.28Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-29T17:44:06.28Z"
             },
             {
               "$type": "Document",
@@ -256,8 +247,7 @@
               "RelativeToolTip": ".github\\copilot-instructions.md",
               "ViewState": "AgIAAHIAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-03-29T20:01:54.761Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-29T20:01:54.761Z"
             },
             {
               "$type": "Document",
@@ -269,8 +259,7 @@
               "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\SessionParticipationService.cs",
               "ViewState": "AgIAAB4AAAAAAAAAAAA1wGEAAABMAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T12:44:53.462Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T12:44:53.462Z"
             },
             {
               "$type": "Document",
@@ -282,8 +271,7 @@
               "RelativeToolTip": "QuizApp.Client\\Pages\\TeamJoin.razor",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAUAAAAlAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-03-27T11:35:43.648Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T11:35:43.648Z"
             },
             {
               "$type": "Document",
@@ -319,8 +307,7 @@
               "RelativeToolTip": "..\\..\\..\\copilot-instructions.md",
               "ViewState": "AgIAAAUAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-03-27T13:16:35.11Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T13:16:35.11Z"
             },
             {
               "$type": "Document",
@@ -332,8 +319,7 @@
               "RelativeToolTip": "QuizApp.Tests\\SessionParticipationServiceTests.cs",
               "ViewState": "AgIAALMCAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T13:10:51.436Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T13:10:51.436Z"
             },
             {
               "$type": "Document",
@@ -345,8 +331,7 @@
               "RelativeToolTip": "QuizApp.Tests\\ApiIntegrationTests.cs",
               "ViewState": "AgIAAIEAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T13:10:25.795Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T13:10:25.795Z"
             },
             {
               "$type": "Document",
@@ -382,8 +367,7 @@
               "RelativeToolTip": "QuizApp.Shared\\Contracts\\SessionContracts.cs",
               "ViewState": "AgIAAC0AAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T13:09:27.371Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T13:09:27.371Z"
             },
             {
               "$type": "Document",
@@ -503,8 +487,7 @@
               "RelativeToolTip": "QuizApp.Client\\Pages\\TeamWaitingRoom.razor",
               "ViewState": "AgIAAD0AAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2026-03-27T11:35:52.172Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T11:35:52.172Z"
             },
             {
               "$type": "Document",
@@ -540,8 +523,7 @@
               "RelativeToolTip": "QuizApp.Client\\Team\\TeamSessionLocalStore.cs",
               "ViewState": "AgIAADEAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-03-27T11:26:23.246Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-03-27T11:26:23.246Z"
             }
           ]
         }

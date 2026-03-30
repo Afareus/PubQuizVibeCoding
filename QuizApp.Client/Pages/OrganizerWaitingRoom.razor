@@ -56,6 +56,13 @@
         <div class="card-body">
             <h2 class="h5 mb-3">Detail hry</h2>
             <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName)</p>
+            @if (snapshot.Status == SessionStatus.Waiting)
+            {
+                <div class="alert alert-primary mb-2" role="alert">
+                    <div class="small text-uppercase fw-semibold">Join kód</div>
+                    <div class="fs-3 fw-bold"><code class="fs-3">@snapshot.JoinCode</code></div>
+                </div>
+            }
             <p class="mb-3"><strong>Stav:</strong> @snapshot.Status</p>
 
             <div class="d-flex gap-2 mb-3">
