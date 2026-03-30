@@ -10,6 +10,106 @@
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="QuizApp.Client.styles.css" rel="stylesheet" />
+    <style>
+        /* Inline layout – bullet-proof, no caching/isolation issues */
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+        }
+
+        .app-top-bar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 3.5rem;
+            background-color: rgba(255,255,255,0.92);
+            border-bottom: 1px solid #d6d5d5;
+            backdrop-filter: blur(4px);
+        }
+
+        .app-home-link,
+        .app-home-link:visited {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-decoration: none;
+            font-weight: 600;
+            color: #1f2937;
+            background: #fff;
+            border: 1px solid #d6d5d5;
+            border-radius: 999px;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.95rem;
+        }
+        .app-home-link:hover { text-decoration: underline; color: #0071c1; }
+
+        .app-page-content {
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 1.5rem 1rem 2rem;
+            text-align: center;
+        }
+
+        /* Center all block children */
+        .app-page-content h1,
+        .app-page-content h2,
+        .app-page-content h3,
+        .app-page-content h4,
+        .app-page-content h5,
+        .app-page-content h6,
+        .app-page-content p,
+        .app-page-content .alert,
+        .app-page-content .card,
+        .app-page-content .card-body {
+            text-align: center;
+        }
+
+        .app-page-content .d-flex {
+            justify-content: center;
+        }
+
+        /* Tables stay left-aligned for readability */
+        .app-page-content table,
+        .app-page-content table th,
+        .app-page-content table td {
+            text-align: start;
+        }
+
+        /* Form labels stay left-aligned */
+        .app-page-content .form-label,
+        .app-page-content label {
+            text-align: start;
+            display: block;
+        }
+
+        .app-page-content ul,
+        .app-page-content ol {
+            padding-left: 0;
+            list-style-position: inside;
+        }
+
+        .app-page-content .form-control,
+        .app-page-content .form-select {
+            text-align: center;
+        }
+
+        .app-page-content form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-page-content div.mb-3,
+        .app-page-content div.mb-4 {
+            width: 100%;
+        }
+    </style>
 </head>
 
 <body>

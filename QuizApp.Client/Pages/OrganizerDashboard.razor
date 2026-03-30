@@ -29,11 +29,12 @@
         else
         {
             <div class="table-responsive">
-                <table class="table table-sm align-middle">
+                <table class="table table-sm align-middle text-start">
                     <thead>
                         <tr>
                             <th>Název kvízu</th>
                             <th>Datum založení</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -41,11 +42,9 @@
                         {
                             <tr>
                                 <td>@GetQuizName(quiz)</td>
-                                <td>
-                                    <div class="d-flex justify-content-between align-items-center gap-2">
-                                        <span>@GetQuizCreatedAt(quiz)</span>
-                                        <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
-                                    </div>
+                                <td>@GetQuizCreatedAt(quiz)</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
                                 </td>
                             </tr>
                         }

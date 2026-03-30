@@ -1,16 +1,11 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
 
-    <main>
-        <div class="top-row px-4">
-            <span>Pub kvíz — MVP</span>
-        </div>
+<div class="app-top-bar">
+    <NavLink class="app-home-link" href="" Match="NavLinkMatch.All">
+        <span aria-hidden="true">🏠</span> Domů
+    </NavLink>
+</div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+<div class="app-page-content">
+    @Body
 </div>
