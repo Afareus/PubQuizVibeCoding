@@ -61,7 +61,9 @@ public sealed class QuizAppDbContext : DbContext
             entity.Property(x => x.OrderIndex).IsRequired();
             entity.Property(x => x.Text).IsRequired().HasMaxLength(1500);
             entity.Property(x => x.TimeLimitSec).IsRequired();
-            entity.Property(x => x.CorrectOption).IsRequired();
+            entity.Property(x => x.QuestionType).IsRequired();
+            entity.Property(x => x.CorrectOption);
+            entity.Property(x => x.CorrectNumericValue).HasPrecision(18, 4);
 
             entity.HasIndex(x => new { x.QuizId, x.OrderIndex })
                 .IsUnique();
@@ -131,7 +133,8 @@ public sealed class QuizAppDbContext : DbContext
         modelBuilder.Entity<TeamAnswer>(entity =>
         {
             entity.HasKey(x => x.TeamAnswerId);
-            entity.Property(x => x.SelectedOption).IsRequired();
+            entity.Property(x => x.SelectedOption);
+            entity.Property(x => x.NumericValue).HasPrecision(18, 4);
             entity.Property(x => x.SubmittedAtUtc).IsRequired();
             entity.Property(x => x.IsCorrect).IsRequired();
             entity.Property(x => x.ResponseTimeMs).IsRequired();

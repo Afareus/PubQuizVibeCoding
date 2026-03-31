@@ -3,11 +3,13 @@ namespace QuizApp.Shared.Contracts;
 public static class CsvQuizContract
 {
     public const string QuestionTextColumn = "question_text";
+    public const string QuestionTypeColumn = "question_type";
     public const string OptionAColumn = "option_a";
     public const string OptionBColumn = "option_b";
     public const string OptionCColumn = "option_c";
     public const string OptionDColumn = "option_d";
     public const string CorrectOptionColumn = "correct_option";
+    public const string CorrectNumericValueColumn = "correct_numeric_value";
     public const string TimeLimitSecColumn = "time_limit_sec";
 
     public static readonly IReadOnlyList<string> Header =
@@ -18,6 +20,19 @@ public static class CsvQuizContract
         OptionCColumn,
         OptionDColumn,
         CorrectOptionColumn,
+        TimeLimitSecColumn
+    ];
+
+    public static readonly IReadOnlyList<string> ExtendedHeader =
+    [
+        QuestionTextColumn,
+        QuestionTypeColumn,
+        OptionAColumn,
+        OptionBColumn,
+        OptionCColumn,
+        OptionDColumn,
+        CorrectOptionColumn,
+        CorrectNumericValueColumn,
         TimeLimitSecColumn
     ];
 }

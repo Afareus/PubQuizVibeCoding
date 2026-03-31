@@ -245,6 +245,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
                     question.QuestionId,
                     question.Text,
                     question.TimeLimitSec,
+                    question.QuestionType,
                     question.Options
                         .OrderBy(x => x.OptionKey)
                         .Select(x => new SnapshotQuestionOptionDto(x.OptionKey, x.Text))
@@ -340,14 +341,33 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         var responseTimeMs = Math.Max(0L, (long)(nowUtc - session.CurrentQuestionStartedAtUtc.Value).TotalMilliseconds);
-        var isCorrect = request.SelectedOption == currentQuestion.CorrectOption;
+        var submittedOption = request.SelectedOption;
+        var submittedNumericValue = request.NumericValue;
+
+        if (currentQuestion.QuestionType == QuestionType.MultipleChoice)
+        {
+            if (!submittedOption.HasValue || submittedNumericValue.HasValue)
+            {
+                return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro multiple-choice otázku musíte odeslat pouze zvolenou možnost A-D."));
+            }
+        }
+        else
+        {
+            if (!submittedNumericValue.HasValue || submittedOption.HasValue)
+            {
+                return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro číselnou otázku musíte odeslat pouze číselný tip."));
+            }
+        }
+
+        var isCorrect = currentQuestion.QuestionType == QuestionType.MultipleChoice && submittedOption == currentQuestion.CorrectOption;
 
         _dbContext.TeamAnswers.Add(TeamAnswer.Create(
             Guid.NewGuid(),
             sessionId,
             request.TeamId,
             request.QuestionId,
-            request.SelectedOption,
+            submittedOption,
+            submittedNumericValue,
             nowUtc,
             isCorrect,
             responseTimeMs));
@@ -365,7 +385,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
             sessionId,
             request.TeamId,
             request.QuestionId,
-            request.SelectedOption,
+            submittedOption,
+            submittedNumericValue,
             new DateTimeOffset(nowUtc, TimeSpan.Zero)));
     }
 
@@ -669,29 +690,37 @@ public sealed class SessionParticipationService : ISessionParticipationService
             }
         }
 
-        Dictionary<Guid, OptionKey>? teamAnswersByQuestionId = null;
+        Dictionary<Guid, TeamAnswer>? teamAnswersByQuestionId = null;
         if (teamAuthorized && teamId.HasValue)
         {
             teamAnswersByQuestionId = await _dbContext.TeamAnswers
                 .AsNoTracking()
                 .Where(x => x.SessionId == sessionId && x.TeamId == teamId.Value)
-                .ToDictionaryAsync(x => x.QuestionId, x => x.SelectedOption, cancellationToken);
+                .ToDictionaryAsync(x => x.QuestionId, x => x, cancellationToken);
         }
 
         var correctAnswers = session.Quiz!.Questions
             .OrderBy(q => q.OrderIndex)
-            .Select(q => new CorrectAnswerDto(
-                q.QuestionId,
-                q.OrderIndex,
-                q.Text,
-                q.CorrectOption,
-                teamAnswersByQuestionId is not null && teamAnswersByQuestionId.TryGetValue(q.QuestionId, out var selectedOption)
-                    ? selectedOption
-                    : null,
-                q.Options
-                    .OrderBy(o => o.OptionKey)
-                    .Select(o => new SnapshotQuestionOptionDto(o.OptionKey, o.Text))
-                    .ToList()))
+            .Select(q =>
+            {
+                var teamAnswer = teamAnswersByQuestionId is not null && teamAnswersByQuestionId.TryGetValue(q.QuestionId, out var resolvedAnswer)
+                    ? resolvedAnswer
+                    : null;
+
+                return new CorrectAnswerDto(
+                    q.QuestionId,
+                    q.OrderIndex,
+                    q.Text,
+                    q.QuestionType,
+                    q.CorrectOption,
+                    q.CorrectNumericValue,
+                    teamAnswer?.SelectedOption,
+                    teamAnswer?.NumericValue,
+                    q.Options
+                        .OrderBy(o => o.OptionKey)
+                        .Select(o => new SnapshotQuestionOptionDto(o.OptionKey, o.Text))
+                        .ToList());
+            })
             .ToList();
 
         return CorrectAnswersOperationResult.Success(new CorrectAnswersResponse(session.SessionId, correctAnswers));
@@ -747,7 +776,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             if (nextQuestion is null)
             {
                 session.Finish(nowUtc);
-                await ComputeSessionResultsAsync(session.SessionId, session.Teams, cancellationToken);
+                await ComputeSessionResultsAsync(session, cancellationToken);
                 emittedEvents.Add((session.SessionId, RealtimeEventName.SessionFinished));
                 continue;
             }
@@ -828,33 +857,99 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
     }
 
-    private async Task ComputeSessionResultsAsync(Guid sessionId, IReadOnlyCollection<Team> teams, CancellationToken cancellationToken)
+    private async Task ComputeSessionResultsAsync(QuizSession session, CancellationToken cancellationToken)
     {
+        var sessionId = session.SessionId;
         var answers = await _dbContext.TeamAnswers
             .Where(x => x.SessionId == sessionId)
             .ToListAsync(cancellationToken);
 
-        var teamStats = teams
-            .Select(team =>
+        var statsByTeam = session.Teams.ToDictionary(
+            t => t.TeamId,
+            _ => new TeamResultStats(0, 0, 0L));
+
+        var questions = session.Quiz?.Questions
+            .OrderBy(q => q.OrderIndex)
+            .ToList() ?? [];
+
+        foreach (var question in questions)
+        {
+            var questionAnswers = answers.Where(a => a.QuestionId == question.QuestionId).ToList();
+
+            if (question.QuestionType == QuestionType.MultipleChoice)
             {
-                var teamAnswers = answers.Where(a => a.TeamId == team.TeamId).ToList();
-                var correctAnswers = teamAnswers.Where(a => a.IsCorrect).ToList();
-                return new
+                foreach (var answer in questionAnswers.Where(a => a.IsCorrect))
                 {
-                    team.TeamId,
-                    Score = correctAnswers.Count,
-                    CorrectCount = correctAnswers.Count,
-                    TotalCorrectResponseTimeMs = correctAnswers.Sum(a => a.ResponseTimeMs)
+                    if (!statsByTeam.TryGetValue(answer.TeamId, out var teamResultStats))
+                    {
+                        continue;
+                    }
+
+                    statsByTeam[answer.TeamId] = teamResultStats with
+                    {
+                        Score = teamResultStats.Score + 1,
+                        CorrectCount = teamResultStats.CorrectCount + 1,
+                        TotalCorrectResponseTimeMs = teamResultStats.TotalCorrectResponseTimeMs + answer.ResponseTimeMs
+                    };
+                }
+
+                continue;
+            }
+
+            if (!question.CorrectNumericValue.HasValue)
+            {
+                continue;
+            }
+
+            var numericAnswers = questionAnswers
+                .Where(a => a.NumericValue.HasValue)
+                .Select(a => new
+                {
+                    Answer = a,
+                    Distance = decimal.Abs(a.NumericValue!.Value - question.CorrectNumericValue.Value)
+                })
+                .ToList();
+
+            if (numericAnswers.Count == 0)
+            {
+                continue;
+            }
+
+            var minDistance = numericAnswers.Min(x => x.Distance);
+            foreach (var winner in numericAnswers.Where(x => x.Distance == minDistance).Select(x => x.Answer))
+            {
+                if (!statsByTeam.TryGetValue(winner.TeamId, out var teamResultStats))
+                {
+                    continue;
+                }
+
+                statsByTeam[winner.TeamId] = teamResultStats with
+                {
+                    Score = teamResultStats.Score + 1,
+                    CorrectCount = winner.NumericValue == question.CorrectNumericValue
+                        ? teamResultStats.CorrectCount + 1
+                        : teamResultStats.CorrectCount,
+                    TotalCorrectResponseTimeMs = teamResultStats.TotalCorrectResponseTimeMs + winner.ResponseTimeMs
                 };
+            }
+        }
+
+        var rankedTeamStats = statsByTeam
+            .Select(x => new
+            {
+                TeamId = x.Key,
+                x.Value.Score,
+                x.Value.CorrectCount,
+                x.Value.TotalCorrectResponseTimeMs
             })
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.TotalCorrectResponseTimeMs)
             .ToList();
 
         var currentRank = 1;
-        for (var i = 0; i < teamStats.Count; i++)
+        for (var i = 0; i < rankedTeamStats.Count; i++)
         {
-            if (i > 0 && (teamStats[i].Score != teamStats[i - 1].Score || teamStats[i].TotalCorrectResponseTimeMs != teamStats[i - 1].TotalCorrectResponseTimeMs))
+            if (i > 0 && (rankedTeamStats[i].Score != rankedTeamStats[i - 1].Score || rankedTeamStats[i].TotalCorrectResponseTimeMs != rankedTeamStats[i - 1].TotalCorrectResponseTimeMs))
             {
                 currentRank = i + 1;
             }
@@ -862,10 +957,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
             _dbContext.SessionResults.Add(SessionResult.Create(
                 Guid.NewGuid(),
                 sessionId,
-                teamStats[i].TeamId,
-                teamStats[i].Score,
-                teamStats[i].CorrectCount,
-                teamStats[i].TotalCorrectResponseTimeMs,
+                rankedTeamStats[i].TeamId,
+                rankedTeamStats[i].Score,
+                rankedTeamStats[i].CorrectCount,
+                rankedTeamStats[i].TotalCorrectResponseTimeMs,
                 currentRank));
         }
     }
@@ -919,11 +1014,14 @@ public sealed class SessionParticipationService : ISessionParticipationService
             question.QuestionId,
             question.Text,
             question.TimeLimitSec,
+            question.QuestionType,
             question.Options
                 .OrderBy(x => x.OptionKey)
                 .Select(x => new SnapshotQuestionOptionDto(x.OptionKey, x.Text))
                 .ToList());
     }
+
+    private sealed record TeamResultStats(int Score, int CorrectCount, long TotalCorrectResponseTimeMs);
 
     private static DateTimeOffset? ToUtcOffset(DateTime? value)
     {

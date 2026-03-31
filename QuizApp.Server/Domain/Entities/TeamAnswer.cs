@@ -13,7 +13,8 @@ public sealed class TeamAnswer
         Guid sessionId,
         Guid teamId,
         Guid questionId,
-        OptionKey selectedOption,
+        OptionKey? selectedOption,
+        decimal? numericValue,
         DateTime submittedAtUtc,
         bool isCorrect,
         long responseTimeMs)
@@ -43,6 +44,7 @@ public sealed class TeamAnswer
         TeamId = teamId;
         QuestionId = questionId;
         SelectedOption = selectedOption;
+        NumericValue = numericValue;
         SubmittedAtUtc = EntityGuards.Utc(submittedAtUtc, nameof(submittedAtUtc));
         IsCorrect = isCorrect;
         ResponseTimeMs = EntityGuards.NonNegative(responseTimeMs, nameof(responseTimeMs), "Response time must be non-negative.");
@@ -56,7 +58,9 @@ public sealed class TeamAnswer
 
     public Guid QuestionId { get; private set; }
 
-    public OptionKey SelectedOption { get; private set; }
+    public OptionKey? SelectedOption { get; private set; }
+
+    public decimal? NumericValue { get; private set; }
 
     public DateTime SubmittedAtUtc { get; private set; }
 
@@ -75,11 +79,12 @@ public sealed class TeamAnswer
         Guid sessionId,
         Guid teamId,
         Guid questionId,
-        OptionKey selectedOption,
+        OptionKey? selectedOption,
+        decimal? numericValue,
         DateTime submittedAtUtc,
         bool isCorrect,
         long responseTimeMs)
     {
-        return new TeamAnswer(teamAnswerId, sessionId, teamId, questionId, selectedOption, submittedAtUtc, isCorrect, responseTimeMs);
+        return new TeamAnswer(teamAnswerId, sessionId, teamId, questionId, selectedOption, numericValue, submittedAtUtc, isCorrect, responseTimeMs);
     }
 }

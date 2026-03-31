@@ -26,8 +26,8 @@ public class ApiIntegrationTests
 
         var importRequest = new ImportQuizCsvRequest(
             createQuizResponse.QuizId,
-            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
-            "Kolik je 2+2?,3,4,5,6,B,30\n");
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;30\n");
 
         using var importMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{createQuizResponse.QuizId}/import-csv")
         {
@@ -130,6 +130,103 @@ public class ApiIntegrationTests
         Assert.DoesNotContain(snapshot!.Teams, x => x.TeamId == joinPayload.TeamId);
     }
 
+    [Fact]
+    public async Task AddQuestionEndpoint_AllowsManualQuestionInsertViaQuizPassword()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var createQuizResponse = await CreateQuizAsync(client, "Ruční otázky", "heslo");
+
+        using var addQuestionMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{createQuizResponse.QuizId}/questions")
+        {
+            Content = JsonContent.Create(new AddQuizQuestionRequest(
+                "Kolik je 10+5?",
+                25,
+                QuestionType.MultipleChoice,
+                OptionKey.C,
+                null,
+                "12",
+                "14",
+                "15",
+                "16"))
+        };
+        addQuestionMessage.Headers.Add("X-Quiz-Password", "heslo");
+
+        using var addQuestionResponse = await client.SendAsync(addQuestionMessage);
+        Assert.Equal(HttpStatusCode.Created, addQuestionResponse.StatusCode);
+
+        using var detailMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{createQuizResponse.QuizId}");
+        detailMessage.Headers.Add("X-Quiz-Password", "heslo");
+
+        using var detailResponse = await client.SendAsync(detailMessage);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+
+        var detailPayload = await detailResponse.Content.ReadFromJsonAsync<QuizDetailResponse>();
+        Assert.NotNull(detailPayload);
+        Assert.Equal(1, detailPayload!.QuestionCount);
+        Assert.Equal("Kolik je 10+5?", detailPayload.Questions[0].Text);
+    }
+
+    [Fact]
+    public async Task UpdateQuestionEndpoint_ValidatesDuplicateOrder()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var createQuizResponse = await CreateQuizAsync(client, "Editace pořadí", "heslo");
+
+        await AddManualQuestionAsync(client, createQuizResponse.QuizId, "heslo", "Q1", 1);
+        await AddManualQuestionAsync(client, createQuizResponse.QuizId, "heslo", "Q2", 2);
+
+        var detail = await GetQuizDetailAsync(client, createQuizResponse.QuizId, "heslo");
+        var secondQuestion = detail.Questions.Single(x => x.Text == "Q2");
+
+        using var updateMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{createQuizResponse.QuizId}/questions/{secondQuestion.QuestionId}")
+        {
+            Content = JsonContent.Create(new UpdateQuizQuestionRequest(
+                "Q2 upravená",
+                30,
+                QuestionType.MultipleChoice,
+                OptionKey.B,
+                null,
+                "A",
+                "B",
+                "C",
+                "D",
+                1))
+        };
+        updateMessage.Headers.Add("X-Quiz-Password", "heslo");
+
+        using var updateResponse = await client.SendAsync(updateMessage);
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteQuestionEndpoint_RemovesQuestionFromQuizDetail()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var createQuizResponse = await CreateQuizAsync(client, "Mazání otázky", "heslo");
+        await AddManualQuestionAsync(client, createQuizResponse.QuizId, "heslo", "Q1", 1);
+        await AddManualQuestionAsync(client, createQuizResponse.QuizId, "heslo", "Q2", 2);
+
+        var detailBeforeDelete = await GetQuizDetailAsync(client, createQuizResponse.QuizId, "heslo");
+        var firstQuestion = detailBeforeDelete.Questions.Single(x => x.OrderIndex == 0);
+
+        using var deleteMessage = new HttpRequestMessage(HttpMethod.Delete, $"/api/quizzes/{createQuizResponse.QuizId}/questions/{firstQuestion.QuestionId}");
+        deleteMessage.Headers.Add("X-Quiz-Password", "heslo");
+
+        using var deleteResponse = await client.SendAsync(deleteMessage);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var detailAfterDelete = await GetQuizDetailAsync(client, createQuizResponse.QuizId, "heslo");
+        Assert.Single(detailAfterDelete.Questions);
+        Assert.Equal("Q2", detailAfterDelete.Questions[0].Text);
+        Assert.Equal(0, detailAfterDelete.Questions[0].OrderIndex);
+    }
+
     private static async Task<CreateQuizResponse> CreateQuizAsync(HttpClient client, string name, string password)
     {
         var createResponse = await client.PostAsJsonAsync("/api/quizzes", new CreateQuizRequest(name, password));
@@ -140,12 +237,47 @@ public class ApiIntegrationTests
         return createPayload!;
     }
 
+    private static async Task AddManualQuestionAsync(HttpClient client, Guid quizId, string password, string questionText, int order)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId}/questions")
+        {
+            Content = JsonContent.Create(new AddQuizQuestionRequest(
+                questionText,
+                30,
+                QuestionType.MultipleChoice,
+                OptionKey.A,
+                null,
+                "A",
+                "B",
+                "C",
+                "D",
+                order))
+        };
+        message.Headers.Add("X-Quiz-Password", password);
+
+        using var response = await client.SendAsync(message);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private static async Task<QuizDetailResponse> GetQuizDetailAsync(HttpClient client, Guid quizId, string password)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId}");
+        message.Headers.Add("X-Quiz-Password", password);
+
+        using var response = await client.SendAsync(message);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
     private static async Task ImportSingleQuestionAsync(HttpClient client, Guid quizId, string password)
     {
         var request = new ImportQuizCsvRequest(
             quizId,
-            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
-            "Kolik je 2+2?,3,4,5,6,B,30\n");
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;30\n");
 
         using var message = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId}/import-csv")
         {

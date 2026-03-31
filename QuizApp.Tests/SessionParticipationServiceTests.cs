@@ -528,7 +528,7 @@ public class SessionParticipationServiceTests
 
         var submitResult = await sessionService.SubmitAnswerAsync(
             created.SessionId,
-            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null),
             created.TeamReconnectToken,
             CancellationToken.None);
 
@@ -554,14 +554,14 @@ public class SessionParticipationServiceTests
 
         var firstSubmit = await sessionService.SubmitAnswerAsync(
             created.SessionId,
-            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null),
             created.TeamReconnectToken,
             CancellationToken.None);
         Assert.True(firstSubmit.IsSuccess);
 
         var secondSubmit = await sessionService.SubmitAnswerAsync(
             created.SessionId,
-            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null),
             created.TeamReconnectToken,
             CancellationToken.None);
 
@@ -585,7 +585,7 @@ public class SessionParticipationServiceTests
 
         var submitResult = await sessionService.SubmitAnswerAsync(
             created.SessionId,
-            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null),
             created.TeamReconnectToken,
             CancellationToken.None);
 
@@ -605,7 +605,7 @@ public class SessionParticipationServiceTests
 
         var submitResult = await sessionService.SubmitAnswerAsync(
             created.SessionId,
-            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B),
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null),
             "neplatny-token",
             CancellationToken.None);
 
@@ -634,8 +634,8 @@ public class SessionParticipationServiceTests
         var snapshot1 = await sessionService.GetSessionStateAsync(created.SessionId, join1.Response!.TeamId, join1.Response.TeamReconnectToken, CancellationToken.None);
         var q1Id = snapshot1.Response!.CurrentQuestion!.QuestionId;
 
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q1Id, OptionKey.B), join1.Response.TeamReconnectToken, CancellationToken.None);
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, q1Id, OptionKey.A), join2.Response.TeamReconnectToken, CancellationToken.None);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q1Id, OptionKey.B, null), join1.Response.TeamReconnectToken, CancellationToken.None);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, q1Id, OptionKey.A, null), join2.Response.TeamReconnectToken, CancellationToken.None);
 
         var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
         session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
@@ -649,7 +649,7 @@ public class SessionParticipationServiceTests
         var snapshot2 = await sessionService.GetSessionStateAsync(created.SessionId, join1.Response.TeamId, join1.Response.TeamReconnectToken, CancellationToken.None);
         var q2Id = snapshot2.Response!.CurrentQuestion!.QuestionId;
 
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q2Id, OptionKey.B), join1.Response.TeamReconnectToken, CancellationToken.None);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q2Id, OptionKey.B, null), join1.Response.TeamReconnectToken, CancellationToken.None);
 
         session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
         session.SetCurrentQuestion(1, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
@@ -900,10 +900,10 @@ public class SessionParticipationServiceTests
         var snapshot = await sessionService.GetSessionStateAsync(created.SessionId, join1.Response!.TeamId, join1.Response.TeamReconnectToken, CancellationToken.None);
         var qId = snapshot.Response!.CurrentQuestion!.QuestionId;
 
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, qId, OptionKey.B), join1.Response.TeamReconnectToken, CancellationToken.None);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, qId, OptionKey.B, null), join1.Response.TeamReconnectToken, CancellationToken.None);
 
         await Task.Delay(50);
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, qId, OptionKey.B), join2.Response.TeamReconnectToken, CancellationToken.None);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, qId, OptionKey.B, null), join2.Response.TeamReconnectToken, CancellationToken.None);
 
         var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
         session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-40), DateTime.UtcNow.AddSeconds(-1));
@@ -917,6 +917,49 @@ public class SessionParticipationServiceTests
         Assert.True(results[0].TotalCorrectResponseTimeMs <= results[1].TotalCorrectResponseTimeMs);
         Assert.Equal(1, results[0].Rank);
         Assert.Equal(2, results[1].Rank);
+    }
+
+    [Fact]
+    public async Task NumericClosest_NearestButNotExact_GivesScoreButNotCorrectCount()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithSingleNumericQuestionAsync(quizService, CancellationToken.None);
+
+        var join1 = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Nejblíž"), CancellationToken.None);
+        Assert.True(join1.IsSuccess);
+        var join2 = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Dál"), CancellationToken.None);
+        Assert.True(join2.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var snapshot = await sessionService.GetSessionStateAsync(created.SessionId, join1.Response!.TeamId, join1.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.NotNull(snapshot.Response?.CurrentQuestion);
+        var questionId = snapshot.Response!.CurrentQuestion!.QuestionId;
+
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, questionId, null, 8.9m), join1.Response.TeamReconnectToken, CancellationToken.None);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, questionId, null, 8.0m), join2.Response.TeamReconnectToken, CancellationToken.None);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
+
+        var results = await dbContext.SessionResults
+            .Where(x => x.SessionId == created.SessionId)
+            .ToListAsync();
+
+        var nearestTeam = results.Single(x => x.TeamId == join1.Response.TeamId);
+        Assert.Equal(1, nearestTeam.Score);
+        Assert.Equal(0, nearestTeam.CorrectCount);
+
+        var fartherTeam = results.Single(x => x.TeamId == join2.Response.TeamId);
+        Assert.Equal(0, fartherTeam.Score);
+        Assert.Equal(0, fartherTeam.CorrectCount);
     }
 
     private static QuizManagementService CreateQuizService(QuizAppDbContext dbContext)
@@ -945,8 +988,8 @@ public class SessionParticipationServiceTests
         var organizerToken = createQuizResult.Response.QuizOrganizerToken;
 
         var csv =
-            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
-            "Kolik je 2+2?,3,4,5,6,B,30\n";
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;30\n";
 
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
@@ -965,13 +1008,33 @@ public class SessionParticipationServiceTests
         var organizerToken = createQuizResult.Response.QuizOrganizerToken;
 
         var csv =
-            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
-            "Kolik je 2+2?,3,4,5,6,B,30\n";
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;30\n";
 
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
 
         var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("EFGH2345"), organizerToken, null, cancellationToken);
+        Assert.True(createSessionResult.IsSuccess);
+
+        return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
+    }
+
+    private static async Task<(Guid QuizId, Guid SessionId, string JoinCode, string DeletePassword, string OrganizerToken)> CreateWaitingSessionWithSingleNumericQuestionAsync(QuizManagementService quizService, CancellationToken cancellationToken)
+    {
+        const string deletePassword = "heslo";
+        var createQuizResult = await quizService.CreateQuizAsync(new CreateQuizRequest("Numerický kvíz", deletePassword), cancellationToken);
+        var quizId = createQuizResult.Response!.QuizId;
+        var organizerToken = createQuizResult.Response.QuizOrganizerToken;
+
+        var csv =
+            "question_text;question_type;option_a;option_b;option_c;option_d;correct_option;correct_numeric_value;time_limit_sec\n" +
+            "Kolik je 3x3?;numeric;;;;;;9;10\n";
+
+        var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
+        Assert.True(importResult.IsSuccess);
+
+        var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("NUME2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
         return (quizId, createSessionResult.Response!.SessionId, createSessionResult.Response.JoinCode, deletePassword, organizerToken);
@@ -1014,9 +1077,9 @@ public class SessionParticipationServiceTests
         var organizerToken = createQuizResult.Response.QuizOrganizerToken;
 
         var csv =
-            "question_text,option_a,option_b,option_c,option_d,correct_option,time_limit_sec\n" +
-            "Kolik je 2+2?,3,4,5,6,B,10\n" +
-            "Kolik je 3+3?,5,6,7,8,B,10\n";
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;10\n" +
+            "Kolik je 3+3?;5;6;7;8;B;10\n";
 
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
@@ -1045,8 +1108,8 @@ public class SessionParticipationServiceTests
         var snapshot = await sessionService.GetSessionStateAsync(created.SessionId, join1.Response!.TeamId, join1.Response.TeamReconnectToken, cancellationToken);
         var q1Id = snapshot.Response!.CurrentQuestion!.QuestionId;
 
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q1Id, OptionKey.B), join1.Response.TeamReconnectToken, cancellationToken);
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, q1Id, OptionKey.A), join2.Response.TeamReconnectToken, cancellationToken);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q1Id, OptionKey.B, null), join1.Response.TeamReconnectToken, cancellationToken);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join2.Response!.TeamId, q1Id, OptionKey.A, null), join2.Response.TeamReconnectToken, cancellationToken);
 
         var dbContext = sessionService.GetType().GetField("_dbContext", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(sessionService) as QuizAppDbContext;
         var session = await dbContext!.Sessions.SingleAsync(x => x.SessionId == created.SessionId, cancellationToken);
@@ -1058,7 +1121,7 @@ public class SessionParticipationServiceTests
         var snapshot2 = await sessionService.GetSessionStateAsync(created.SessionId, join1.Response.TeamId, join1.Response.TeamReconnectToken, cancellationToken);
         var q2Id = snapshot2.Response!.CurrentQuestion!.QuestionId;
 
-        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q2Id, OptionKey.B), join1.Response.TeamReconnectToken, cancellationToken);
+        await sessionService.SubmitAnswerAsync(created.SessionId, new SubmitAnswerRequest(join1.Response.TeamId, q2Id, OptionKey.B, null), join1.Response.TeamReconnectToken, cancellationToken);
 
         session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId, cancellationToken);
         session.SetCurrentQuestion(1, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));

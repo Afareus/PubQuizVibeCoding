@@ -18,6 +18,35 @@ public sealed record ImportQuizCsvResponse(
     int ImportedQuestionsCount,
     IReadOnlyList<CsvValidationIssueDto> ValidationIssues);
 
+public sealed record AddQuizQuestionRequest(
+    string Text,
+    int TimeLimitSec,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue,
+    string? OptionA,
+    string? OptionB,
+    string? OptionC,
+    string? OptionD,
+    int? Order = null);
+
+public sealed record UpdateQuizQuestionRequest(
+    string Text,
+    int TimeLimitSec,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue,
+    string? OptionA,
+    string? OptionB,
+    string? OptionC,
+    string? OptionD,
+    int Order);
+
+public sealed record AddQuizQuestionResponse(
+    Guid QuestionId,
+    int OrderIndex,
+    QuestionType QuestionType);
+
 public sealed record QuizDetailResponse(
     Guid QuizId,
     string Name,
@@ -30,7 +59,9 @@ public sealed record QuizDetailQuestionDto(
     int OrderIndex,
     string Text,
     int TimeLimitSec,
-    OptionKey CorrectOption,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue,
     IReadOnlyList<QuizDetailQuestionOptionDto> Options);
 
 public sealed record QuizDetailQuestionOptionDto(

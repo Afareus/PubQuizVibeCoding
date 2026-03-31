@@ -93,17 +93,26 @@ else
                     {
                         <div class="mb-3 p-3 border rounded">
                             <p class="mb-1"><strong>Otázka @(q.OrderIndex + 1):</strong> @q.QuestionText</p>
-                            <ul class="mb-1">
-                                @foreach (var o in q.Options)
-                                {
-                                    var isCorrect = o.OptionKey == q.CorrectOption;
-                                    var isSelectedWrong = q.TeamSelectedOption.HasValue && q.TeamSelectedOption != q.CorrectOption && o.OptionKey == q.TeamSelectedOption.Value;
-                                    <li class="@(isCorrect ? "text-success fw-bold" : isSelectedWrong ? "text-danger fw-bold" : "")">
-                                        @o.OptionKey — @o.Text @(isCorrect ? "✓" : isSelectedWrong ? "✗" : "")
-                                    </li>
-                                }
-                            </ul>
-                            <p class="mb-0 text-muted">Správná odpověď: <strong>@q.CorrectOption</strong></p>
+
+                            @if (q.QuestionType == QuestionType.MultipleChoice)
+                            {
+                                <ul class="mb-1">
+                                    @foreach (var o in q.Options)
+                                    {
+                                        var isCorrect = o.OptionKey == q.CorrectOption;
+                                        var isSelectedWrong = q.TeamSelectedOption.HasValue && q.TeamSelectedOption != q.CorrectOption && o.OptionKey == q.TeamSelectedOption.Value;
+                                        <li class="@(isCorrect ? "text-success fw-bold" : isSelectedWrong ? "text-danger fw-bold" : "")">
+                                            @o.OptionKey — @o.Text @(isCorrect ? "✓" : isSelectedWrong ? "✗" : "")
+                                        </li>
+                                    }
+                                </ul>
+                                <p class="mb-0 text-muted">Správná odpověď: <strong>@q.CorrectOption</strong></p>
+                            }
+                            else
+                            {
+                                <p class="mb-1 text-muted">Správná odpověď: <strong>@FormatDecimal(q.CorrectNumericValue)</strong></p>
+                                <p class="mb-0 text-muted">Váš tip: <strong>@(q.TeamSubmittedNumericValue.HasValue ? FormatDecimal(q.TeamSubmittedNumericValue) : "(bez odpovědi)")</strong></p>
+                            }
                         </div>
                     }
                 }
@@ -205,9 +214,20 @@ else
         var seconds = totalMs / 1000.0;
         if (results is not null && HasDuplicateWholeSeconds(results.Results))
         {
-            return seconds.ToString("F3");
+            return seconds.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture);
         }
-        return seconds.ToString("F0");
+
+        return Math.Round(seconds, 0).ToString("0", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private static string FormatDecimal(decimal? value)
+    {
+        if (!value.HasValue)
+        {
+            return "-";
+        }
+
+        return value.Value.ToString("0.############################", System.Globalization.CultureInfo.CurrentCulture);
     }
 
     private static bool HasDuplicateWholeSeconds(IReadOnlyList<SessionResultDto> items)

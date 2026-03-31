@@ -26,13 +26,15 @@ public sealed record CancelSessionRequest(
 public sealed record SubmitAnswerRequest(
     Guid TeamId,
     Guid QuestionId,
-    OptionKey SelectedOption);
+    OptionKey? SelectedOption,
+    decimal? NumericValue);
 
 public sealed record SubmitAnswerResponse(
     Guid SessionId,
     Guid TeamId,
     Guid QuestionId,
-    OptionKey SelectedOption,
+    OptionKey? SelectedOption,
+    decimal? NumericValue,
     DateTimeOffset SubmittedAtUtc);
 
 public sealed record SessionStateSnapshotResponse(
@@ -65,6 +67,7 @@ public sealed record SnapshotQuestionDto(
     Guid QuestionId,
     string Text,
     int TimeLimitSec,
+    QuestionType QuestionType,
     IReadOnlyList<SnapshotQuestionOptionDto> Options);
 
 public sealed record SnapshotQuestionOptionDto(
@@ -96,6 +99,9 @@ public sealed record CorrectAnswerDto(
     Guid QuestionId,
     int OrderIndex,
     string QuestionText,
-    OptionKey CorrectOption,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue,
     OptionKey? TeamSelectedOption,
+    decimal? TeamSubmittedNumericValue,
     IReadOnlyList<SnapshotQuestionOptionDto> Options);

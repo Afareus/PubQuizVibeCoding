@@ -1,5 +1,6 @@
 using QuizApp.Shared.Contracts;
 using QuizApp.Shared.Enums;
+using System.Globalization;
 
 namespace QuizApp.Server.Application.QuizImport;
 
@@ -12,6 +13,8 @@ public sealed class QuizCsvParser : IQuizCsvParser
 {
     private const int MinimumTimeLimitSec = 10;
     private const int MaximumTimeLimitSec = 300;
+    private const char CsvDelimiter = ';';
+    private const string ExcelSeparatorDirective = "sep=;";
 
     public CsvQuizImportParseResult Parse(string csvContent)
     {
@@ -26,9 +29,10 @@ public sealed class QuizCsvParser : IQuizCsvParser
         }
 
         var headerRecord = records[0];
-        if (!HasValidHeader(headerRecord.Cells))
+        var headerKind = ResolveHeaderKind(headerRecord.Cells);
+        if (headerKind == CsvHeaderKind.Invalid)
         {
-            issues.Add(CreateIssue(headerRecord.Row, "header", $"Neplatná CSV hlavička. Očekávaný formát: {string.Join(",", CsvQuizContract.Header)}."));
+            issues.Add(CreateIssue(headerRecord.Row, "header", $"Neplatná CSV hlavička. Očekávaný formát: {string.Join(CsvDelimiter, CsvQuizContract.Header)} nebo {string.Join(CsvDelimiter, CsvQuizContract.ExtendedHeader)}."));
             return new CsvQuizImportParseResult(parsedQuestions, issues);
         }
 
@@ -36,31 +40,73 @@ public sealed class QuizCsvParser : IQuizCsvParser
         {
             var record = records[index];
 
-            if (record.Cells.Count != CsvQuizContract.Header.Count)
+            var expectedColumnCount = headerKind == CsvHeaderKind.Extended
+                ? CsvQuizContract.ExtendedHeader.Count
+                : CsvQuizContract.Header.Count;
+
+            if (record.Cells.Count != expectedColumnCount)
             {
-                issues.Add(CreateIssue(record.Row, "row", $"Řádek musí obsahovat přesně {CsvQuizContract.Header.Count} sloupců."));
+                issues.Add(CreateIssue(record.Row, "row", $"Řádek musí obsahovat přesně {expectedColumnCount} sloupců."));
                 continue;
             }
 
             var questionText = record.Cells[0].Trim();
-            var optionA = record.Cells[1].Trim();
-            var optionB = record.Cells[2].Trim();
-            var optionC = record.Cells[3].Trim();
-            var optionD = record.Cells[4].Trim();
-            var correctOptionRaw = record.Cells[5].Trim();
-            var timeLimitRaw = record.Cells[6].Trim();
+            var questionTypeRaw = headerKind == CsvHeaderKind.Extended ? record.Cells[1].Trim() : "choice";
+            var optionOffset = headerKind == CsvHeaderKind.Extended ? 2 : 1;
+
+            var optionA = record.Cells[optionOffset].Trim();
+            var optionB = record.Cells[optionOffset + 1].Trim();
+            var optionC = record.Cells[optionOffset + 2].Trim();
+            var optionD = record.Cells[optionOffset + 3].Trim();
+            var correctOptionRaw = record.Cells[optionOffset + 4].Trim();
+            var correctNumericRaw = headerKind == CsvHeaderKind.Extended ? record.Cells[optionOffset + 5].Trim() : string.Empty;
+            var timeLimitRaw = record.Cells[optionOffset + (headerKind == CsvHeaderKind.Extended ? 6 : 5)].Trim();
 
             var hasRowIssues = false;
             hasRowIssues |= ValidateRequired(questionText, CsvQuizContract.QuestionTextColumn, record.Row, issues);
-            hasRowIssues |= ValidateRequired(optionA, CsvQuizContract.OptionAColumn, record.Row, issues);
-            hasRowIssues |= ValidateRequired(optionB, CsvQuizContract.OptionBColumn, record.Row, issues);
-            hasRowIssues |= ValidateRequired(optionC, CsvQuizContract.OptionCColumn, record.Row, issues);
-            hasRowIssues |= ValidateRequired(optionD, CsvQuizContract.OptionDColumn, record.Row, issues);
 
-            if (!TryParseOption(correctOptionRaw, out var correctOption))
+            if (!TryParseQuestionType(questionTypeRaw, out var questionType))
             {
                 hasRowIssues = true;
-                issues.Add(CreateIssue(record.Row, CsvQuizContract.CorrectOptionColumn, "Hodnota correct_option musí být jedna z hodnot A, B, C, D."));
+                issues.Add(CreateIssue(record.Row, CsvQuizContract.QuestionTypeColumn, "Hodnota question_type musí být 'choice' nebo 'numeric'."));
+            }
+
+            OptionKey? correctOption = null;
+            decimal? correctNumericValue = null;
+
+            if (questionType == QuestionType.MultipleChoice)
+            {
+                hasRowIssues |= ValidateRequired(optionA, CsvQuizContract.OptionAColumn, record.Row, issues);
+                hasRowIssues |= ValidateRequired(optionB, CsvQuizContract.OptionBColumn, record.Row, issues);
+                hasRowIssues |= ValidateRequired(optionC, CsvQuizContract.OptionCColumn, record.Row, issues);
+                hasRowIssues |= ValidateRequired(optionD, CsvQuizContract.OptionDColumn, record.Row, issues);
+
+                if (!TryParseOption(correctOptionRaw, out var parsedCorrectOption))
+                {
+                    hasRowIssues = true;
+                    issues.Add(CreateIssue(record.Row, CsvQuizContract.CorrectOptionColumn, "Hodnota correct_option musí být jedna z hodnot A, B, C, D."));
+                }
+                else
+                {
+                    correctOption = parsedCorrectOption;
+                }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(correctNumericRaw))
+                {
+                    hasRowIssues = true;
+                    issues.Add(CreateIssue(record.Row, CsvQuizContract.CorrectNumericValueColumn, "Sloupec correct_numeric_value je povinný pro question_type=numeric."));
+                }
+                else if (!decimal.TryParse(correctNumericRaw.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedNumericValue))
+                {
+                    hasRowIssues = true;
+                    issues.Add(CreateIssue(record.Row, CsvQuizContract.CorrectNumericValueColumn, "Hodnota correct_numeric_value musí být číslo."));
+                }
+                else
+                {
+                    correctNumericValue = parsedNumericValue;
+                }
             }
 
             if (!int.TryParse(timeLimitRaw, out var timeLimitSec) || timeLimitSec < MinimumTimeLimitSec || timeLimitSec > MaximumTimeLimitSec)
@@ -80,7 +126,9 @@ public sealed class QuizCsvParser : IQuizCsvParser
                 optionB,
                 optionC,
                 optionD,
+                questionType,
                 correctOption,
+                correctNumericValue,
                 timeLimitSec,
                 record.Row));
         }
@@ -88,16 +136,31 @@ public sealed class QuizCsvParser : IQuizCsvParser
         return new CsvQuizImportParseResult(parsedQuestions, issues);
     }
 
-    private static bool HasValidHeader(IReadOnlyList<string> headerCells)
+    private static CsvHeaderKind ResolveHeaderKind(IReadOnlyList<string> headerCells)
     {
-        if (headerCells.Count != CsvQuizContract.Header.Count)
+        if (MatchesHeader(headerCells, CsvQuizContract.Header))
+        {
+            return CsvHeaderKind.Legacy;
+        }
+
+        if (MatchesHeader(headerCells, CsvQuizContract.ExtendedHeader))
+        {
+            return CsvHeaderKind.Extended;
+        }
+
+        return CsvHeaderKind.Invalid;
+    }
+
+    private static bool MatchesHeader(IReadOnlyList<string> headerCells, IReadOnlyList<string> expectedHeader)
+    {
+        if (headerCells.Count != expectedHeader.Count)
         {
             return false;
         }
 
         for (var index = 0; index < headerCells.Count; index++)
         {
-            if (!string.Equals(headerCells[index].Trim(), CsvQuizContract.Header[index], StringComparison.Ordinal))
+            if (!string.Equals(headerCells[index].Trim(), expectedHeader[index], StringComparison.Ordinal))
             {
                 return false;
             }
@@ -115,6 +178,24 @@ public sealed class QuizCsvParser : IQuizCsvParser
 
         issues.Add(CreateIssue(row, column, $"Sloupec {column} je povinný."));
         return true;
+    }
+
+    private static bool TryParseQuestionType(string value, out QuestionType questionType)
+    {
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "choice":
+            case "multiplechoice":
+                questionType = QuestionType.MultipleChoice;
+                return true;
+            case "numeric":
+            case "numericclosest":
+                questionType = QuestionType.NumericClosest;
+                return true;
+            default:
+                questionType = default;
+                return false;
+        }
     }
 
     private static bool TryParseOption(string value, out OptionKey optionKey)
@@ -166,6 +247,11 @@ public sealed class QuizCsvParser : IQuizCsvParser
                 continue;
             }
 
+            if (records.Count == 0 && string.Equals(line.Trim(), ExcelSeparatorDirective, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var cells = ParseLine(line);
             if (cells.All(static value => string.IsNullOrWhiteSpace(value)))
             {
@@ -201,7 +287,7 @@ public sealed class QuizCsvParser : IQuizCsvParser
                 continue;
             }
 
-            if (!inQuotes && character == ',')
+            if (!inQuotes && character == CsvDelimiter)
             {
                 cells.Add(current.ToString());
                 current.Clear();
@@ -216,6 +302,13 @@ public sealed class QuizCsvParser : IQuizCsvParser
     }
 
     private sealed record CsvRecord(int Row, IReadOnlyList<string> Cells);
+
+    private enum CsvHeaderKind
+    {
+        Invalid = 0,
+        Legacy = 1,
+        Extended = 2
+    }
 }
 
 public sealed record CsvQuizImportParseResult(
@@ -231,6 +324,8 @@ public sealed record ParsedCsvQuestion(
     string OptionB,
     string OptionC,
     string OptionD,
-    OptionKey CorrectOption,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue,
     int TimeLimitSec,
     int SourceRow);
