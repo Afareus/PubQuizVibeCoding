@@ -1,0 +1,280 @@
+@page "/organizator/session/vysledky/{SessionId:guid}"
+@inject HttpClient HttpClient
+@inject OrganizerQuizLocalStore OrganizerQuizLocalStore
+
+<PageTitle>Výsledky hry</PageTitle>
+
+<h1>Výsledky hry</h1>
+
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+}
+
+@if (results is null)
+{
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Autentizace</h2>
+
+            <div class="mb-3">
+                <label class="form-label" for="quizId">Quiz ID (pro načtení uloženého tokenu)</label>
+                <InputText id="quizId" class="form-control" @bind-Value="quizIdInput" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="authPassword">Administrátorké heslo kvízu (volitelné)</label>
+                <InputText id="authPassword" class="form-control" type="password" @bind-Value="organizerPasswordForAuth" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+            {
+                <p class="mb-3">Lokální organizer token: <code>@storedOrganizerToken</code></p>
+            }
+
+            <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="LoadAllAsync">
+                @(isLoading ? "Načítám..." : "Načíst výsledky a správné odpovědi")
+            </button>
+        </div>
+    </section>
+}
+
+@if (results is not null)
+{
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Finální pořadí</h2>
+
+            @if (results.Results.Count == 0)
+            {
+                <p class="mb-0">Žádné výsledky nejsou k dispozici.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tým</th>
+                                <th>Body</th>
+                                <th>Správně</th>
+                                <th>Celkový čas (s)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in results.Results)
+                            {
+                                var isWinner = r.Rank == 1;
+                                <tr>
+                                    <td><strong>@r.Rank</strong></td>
+                                    <td>@r.TeamName @(isWinner ? "⭐" : "")</td>
+                                    <td>@r.Score</td>
+                                    <td>@r.CorrectCount</td>
+                                    <td>@FormatTimeSeconds(r.TotalCorrectResponseTimeMs)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@if (correctAnswers is not null)
+{
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Správné odpovědi</h2>
+
+            @if (correctAnswers.CorrectAnswers.Count == 0)
+            {
+                <p class="mb-0">Žádné otázky nejsou k dispozici.</p>
+            }
+            else
+            {
+                @foreach (var q in correctAnswers.CorrectAnswers)
+                {
+                    <div class="mb-3 p-3 border rounded">
+                        <p class="mb-1"><strong>Otázka @(q.OrderIndex + 1):</strong> @q.QuestionText</p>
+
+                        @if (q.QuestionType == QuestionType.MultipleChoice)
+                        {
+                            <ul class="mb-1">
+                                @foreach (var o in q.Options)
+                                {
+                                    var isCorrect = o.OptionKey == q.CorrectOption;
+                                    <li class="@(isCorrect ? "text-success fw-bold" : "")">
+                                        @o.OptionKey — @o.Text @(isCorrect ? "✓" : "")
+                                    </li>
+                                }
+                            </ul>
+                            <p class="mb-0 text-muted">Správná odpověď: <strong>@q.CorrectOption</strong></p>
+                        }
+                        else
+                        {
+                            <p class="mb-0 text-muted">Správná odpověď: <strong>@FormatDecimal(q.CorrectNumericValue)</strong></p>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </section>
+}
+
+<a class="btn btn-outline-primary" href="/organizator">Zpět na úvod</a>
+
+@code {
+    [Parameter]
+    public Guid SessionId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public Guid? QuizId { get; set; }
+
+    private string quizIdInput = string.Empty;
+    private string organizerPasswordForAuth = string.Empty;
+    private string? storedOrganizerToken;
+    private string? infoMessage;
+    private bool isLoading;
+
+    private ApiErrorResponse? apiError;
+    private SessionResultsResponse? results;
+    private CorrectAnswersResponse? correctAnswers;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (QuizId.HasValue)
+        {
+            quizIdInput = QuizId.Value.ToString();
+            await LoadStoredTokenAsync(QuizId.Value);
+        }
+
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isLoading = true;
+
+        var quizId = ParseQuizId();
+        if (quizId.HasValue)
+        {
+            await LoadStoredTokenAsync(quizId.Value);
+        }
+
+        if (string.IsNullOrWhiteSpace(storedOrganizerToken) && string.IsNullOrWhiteSpace(organizerPasswordForAuth))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Zadejte Quiz ID pro načtení tokenu nebo Administrátorké heslo kvízu.");
+            isLoading = false;
+            return;
+        }
+
+        await LoadResultsAsync();
+
+        if (apiError is null)
+        {
+            await LoadCorrectAnswersAsync();
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadResultsAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{SessionId}/results");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            results = await response.Content.ReadFromJsonAsync<SessionResultsResponse>();
+        }
+        else
+        {
+            results = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+    }
+
+    private async Task LoadCorrectAnswersAsync()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{SessionId}/correct-answers");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            correctAnswers = await response.Content.ReadFromJsonAsync<CorrectAnswersResponse>();
+        }
+        else
+        {
+            correctAnswers = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+    }
+
+    private async Task LoadStoredTokenAsync(Guid quizId)
+    {
+        var storedQuiz = await OrganizerQuizLocalStore.FindByQuizIdAsync(quizId);
+        storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
+    }
+
+    private Guid? ParseQuizId()
+    {
+        return Guid.TryParse(quizIdInput, out var parsedQuizId) ? parsedQuizId : null;
+    }
+
+    private void ApplyOrganizerAuth(HttpRequestMessage request)
+    {
+        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(organizerPasswordForAuth))
+        {
+            request.Headers.Add("X-Quiz-Password", organizerPasswordForAuth.Trim());
+        }
+    }
+
+    private string FormatTimeSeconds(long totalMs)
+    {
+        var seconds = totalMs / 1000.0;
+        if (results is not null && HasDuplicateWholeSeconds(results.Results))
+        {
+            return seconds.ToString("0.###", System.Globalization.CultureInfo.CurrentCulture);
+        }
+
+        return Math.Round(seconds, 0).ToString("0", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private static string FormatDecimal(decimal? value)
+    {
+        if (!value.HasValue)
+        {
+            return "-";
+        }
+
+        return value.Value.ToString("0.############################", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private static bool HasDuplicateWholeSeconds(IReadOnlyList<SessionResultDto> items)
+    {
+        var wholeSeconds = items.Select(r => (long)(r.TotalCorrectResponseTimeMs / 1000.0));
+        return wholeSeconds.Count() != wholeSeconds.Distinct().Count();
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        return error ?? new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Načtení dat selhalo.");
+    }
+}

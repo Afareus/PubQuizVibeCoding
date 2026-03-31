@@ -1,0 +1,4 @@
+sep=;
+question_text;question_type;option_a;option_b;option_c;option_d;correct_option;correct_numeric_value;time_limit_sec
+"Kolik kontinentů je na Zemi?";choice;"5";"6";"7";"8";C;;30
+"Kolik stupňů má pravý úhel?";numeric;;;;;;90;20

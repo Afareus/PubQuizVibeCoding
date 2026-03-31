@@ -1,0 +1,200 @@
+@page "/organizator"
+@inject HttpClient HttpClient
+@inject OrganizerQuizLocalStore OrganizerQuizLocalStore
+
+<PageTitle>Organizátor</PageTitle>
+
+<h1>Organizátorský panel</h1>
+
+<p class="text-muted">Spouštějte nebo spravujte dostupné kvízy.</p>
+
+@if (!string.IsNullOrWhiteSpace(createSuccessMessage))
+{
+    <div class="alert alert-success" role="alert">@createSuccessMessage</div>
+}
+
+@if (createError is not null)
+{
+    <div class="alert alert-danger" role="alert">@createError.Message</div>
+}
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Dostupné kvízy</h2>
+
+        @if (storedQuizzes.Count == 0)
+        {
+            <p class="mb-0">Zatím tu není uložen žádný kvíz.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle text-start">
+                    <thead>
+                        <tr>
+                            <th>Název kvízu</th>
+                            <th>Datum založení</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var quiz in storedQuizzes.OrderByDescending(x => x.CreatedAtUtc ?? DateTimeOffset.MinValue))
+                        {
+                            <tr>
+                                <td>@GetQuizName(quiz)</td>
+                                <td>@GetQuizCreatedAt(quiz)</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Založit nový kvíz</h2>
+        <EditForm Model="createQuizForm" OnValidSubmit="CreateQuizAsync">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label" for="quizName">Název kvízu</label>
+                <InputText id="quizName" class="form-control" @bind-Value="createQuizForm.Name" />
+                <ValidationMessage For="() => createQuizForm.Name" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="deletePassword">Administrátorké heslo kvízu</label>
+                <InputText id="deletePassword" class="form-control" type="password" @bind-Value="createQuizForm.DeletePassword" />
+                <ValidationMessage For="() => createQuizForm.DeletePassword" />
+            </div>
+
+            <button class="btn btn-primary" type="submit" disabled="@isCreatingQuiz">@CreateButtonText</button>
+        </EditForm>
+    </div>
+</section>
+
+@code {
+    private readonly CreateQuizFormModel createQuizForm = new();
+    private List<StoredOrganizerQuiz> storedQuizzes = [];
+    private ApiErrorResponse? createError;
+    private string? createSuccessMessage;
+    private bool isCreatingQuiz;
+
+    private string CreateButtonText => isCreatingQuiz ? "Vytvářím..." : "Vytvořit kvíz";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStoredQuizzesAsync();
+    }
+
+    private async Task CreateQuizAsync()
+    {
+        isCreatingQuiz = true;
+        createError = null;
+        createSuccessMessage = null;
+
+        var request = new CreateQuizRequest(createQuizForm.Name.Trim(), createQuizForm.DeletePassword.Trim());
+        using var response = await HttpClient.PostAsJsonAsync("/api/quizzes", request);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var payload = await response.Content.ReadFromJsonAsync<CreateQuizResponse>();
+            if (payload is not null)
+            {
+                var detail = await TryGetQuizDetailAsync(payload.QuizId, payload.QuizOrganizerToken);
+                await OrganizerQuizLocalStore.UpsertAsync(
+                    payload.QuizId,
+                    payload.QuizOrganizerToken,
+                    detail?.Name ?? createQuizForm.Name.Trim(),
+                    detail?.CreatedAtUtc ?? DateTimeOffset.UtcNow);
+                await LoadStoredQuizzesAsync();
+
+                createSuccessMessage = "Kvíz byl vytvořen.";
+                createQuizForm.Clear();
+            }
+        }
+        else
+        {
+            createError = await ReadApiErrorAsync(response);
+        }
+
+        isCreatingQuiz = false;
+    }
+
+    private async Task LoadStoredQuizzesAsync()
+    {
+        var storedItems = (await OrganizerQuizLocalStore.GetAllAsync()).ToList();
+        var needsRefresh = false;
+
+        foreach (var quiz in storedItems.Where(x => string.IsNullOrWhiteSpace(x.QuizName) || x.CreatedAtUtc is null))
+        {
+            var detail = await TryGetQuizDetailAsync(quiz.QuizId, quiz.QuizOrganizerToken);
+            if (detail is null)
+            {
+                continue;
+            }
+
+            await OrganizerQuizLocalStore.UpsertAsync(quiz.QuizId, quiz.QuizOrganizerToken, detail.Name, detail.CreatedAtUtc);
+            needsRefresh = true;
+        }
+
+        storedQuizzes = needsRefresh
+            ? (await OrganizerQuizLocalStore.GetAllAsync()).ToList()
+            : storedItems;
+    }
+
+    private async Task<QuizDetailResponse?> TryGetQuizDetailAsync(Guid quizId, string organizerToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId}");
+        request.Headers.Add("X-Organizer-Token", organizerToken);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+    }
+
+    private static string GetQuizName(StoredOrganizerQuiz quiz)
+    {
+        return string.IsNullOrWhiteSpace(quiz.QuizName) ? "(neznámý název)" : quiz.QuizName;
+    }
+
+    private static string GetQuizCreatedAt(StoredOrganizerQuiz quiz)
+    {
+        return quiz.CreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        if (apiError is not null)
+        {
+            return apiError;
+        }
+
+        return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Operace selhala.");
+    }
+
+    private sealed class CreateQuizFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Název kvízu je povinný.")]
+        public string Name { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Administrátorké heslo kvízu je povinné.")]
+        public string DeletePassword { get; set; } = string.Empty;
+
+        public void Clear()
+        {
+            Name = string.Empty;
+            DeletePassword = string.Empty;
+        }
+    }
+}

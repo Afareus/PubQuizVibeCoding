@@ -5,7 +5,7 @@
 ### Organizátor
 Umí:
 - založit nový kvíz,
-- nastavit mazací heslo,
+- nastavit Administrátorké heslo kvízu,
 - nahrát CSV s otázkami,
 - zobrazit detail kvízu,
 - založit novou session,
@@ -64,7 +64,7 @@ Umí:
 - duplicitní název týmu
 - pozdní odpověď
 - duplicitní submit
-- chybné mazací heslo
+- chybné Administrátorké heslo kvízu
 - chybná hlavička CSV
 - nevalidní `correct_option`
 - nevalidní `time_limit_sec`

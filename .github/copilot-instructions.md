@@ -13,8 +13,7 @@ Nejvyšší prioritu mají tyto soubory v tomto pořadí:
 8. `context/08-implementation-state.md`
 9. `context/09-decision-log.md`
 
-Pokud narazíš na konflikt, zastav se u souboru s vyšší prioritou.
-Pokud dokumentace něco neřeší, zvol nejjednodušší řešení konzistentní s úzkým MVP, uveď to jako doplněný návrh a zapiš to do `context/09-decision-log.md`.
+Pokud narazíš na konflikt, zastav se u souboru s vyšší prioritou. Pokud dokumentace něco neřeší, zvol nejjednodušší řešení konzistentní s úzkým MVP, uveď to jako doplněný návrh a zapiš to do `context/09-decision-log.md`.
 
 ## 2. Význam uživatelských příkazů
 Když uživatel napíše pouze nebo převážně jednu z následujících vět, interpretuj ji takto:
@@ -67,6 +66,7 @@ Nikdy bez výslovného pokynu:
 - Nepoužívej provider-specific zkratky, které zhorší přenositelnost nebo čitelnost, pokud nejsou nezbytné.
 - U business pravidel preferuj explicitní aplikační služby a malé, dobře pojmenované metody.
 - U každé změny mysli na reconnect, souběh a determinismus.
+- Používej nejnovější dostupné verze závislostí/nástrojů, pokud jsou kompatibilní (např. PostgreSQL 18).
 
 ## 6. Definition of Done pro každý krok
 Krok je hotový jen tehdy, když:
@@ -109,6 +109,9 @@ Pokud něco není výslovně rozhodnuto:
 Ptej se jen tehdy, pokud by dvě různé varianty vedly k zásadně odlišné architektuře nebo porušení zdroje pravdy.
 
 ## 9. Jak zacházet se stavovými soubory
-`context/08-implementation-state.md`, `context/09-decision-log.md` a `context/10-changelog.md` jsou provozní paměť repozitáře.
-Při každém kroku je aktualizuj.
-Bez jejich aktualizace nepovažuj krok za dokončený.
+`context/08-implementation-state.md`, `context/09-decision-log.md` a `context/10-changelog.md` jsou provozní paměť repozitáře. Při každém kroku je aktualizuj. Bez jejich aktualizace nepovažuj krok za dokončený.
+
+## 10. Specifické uživatelské preference
+- Tlačítko 'Zobrazit výsledky' na týmové obrazovce po konci hry zůstane viditelné a bude do zveřejnění výsledků organizátorem pouze disablované, nikoli skryté.
+- Na týmové obrazovce po konci kvízu bude hláška 'Výsledky zatím nebyly zveřejněny organizátorem.' umístěna nad tlačítkem 'Zobrazit výsledky'.
+- Po smazání otázky tlačítkem 'Smazat otázku' na stránce OrganizerQuizDetail má být formulář 'Ruční vložení otázky' automaticky sbalen.

@@ -51,7 +51,7 @@ Tento repozitář implementuje úzké MVP webové aplikace pro pub kvízy.
 ## Bezpečnostní minimum
 - `QuizOrganizerToken` musí mít minimálně 256 bitů entropie.
 - Na serveru se ukládá pouze hash tokenu.
-- Mazací heslo se ukládá pouze jako hash.
+- Administrátorké heslo kvízu se ukládá pouze jako hash.
 - Porovnání tokenů musí být constant-time.
 - Organizátorské requesty nesmí projít bez `X-Organizer-Token`.
 - Týmové requesty po joinu nesmí projít bez `X-Team-Reconnect-Token`.

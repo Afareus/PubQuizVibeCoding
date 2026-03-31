@@ -1,0 +1,978 @@
+@page "/organizator/kviz"
+@page "/organizator/kviz/{QuizId:guid}"
+@inject HttpClient HttpClient
+@inject OrganizerQuizLocalStore OrganizerQuizLocalStore
+@inject NavigationManager NavigationManager
+
+<PageTitle>Detail kvízu</PageTitle>
+
+<h1>Detail kvízu</h1>
+
+<p class="text-muted">Správa vybraného kvízu.</p>
+
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+}
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5 mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
+
+        <div class="mb-3">
+            <label class="form-label" for="joinCode">Join kód pro hráče</label>
+            <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
+            <div class="form-text">Join kód musí mít alespoň 4 znaky.</div>
+        </div>
+
+        <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Otázky kvízu</h2>
+        @if ((quizDetail?.QuestionCount ?? 0) > 0)
+        {
+            <p class="text-muted">Otázky i správné odpovědi se zobrazí až po zadání Administrátorského hesla kvízu.</p>
+        }
+
+        @if (questionApiError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@questionApiError.Message</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(questionInfoMessage))
+        {
+            <div class="alert alert-info" role="alert">@questionInfoMessage</div>
+        }
+
+        @if (!hasLoadedQuestions && (quizDetail?.QuestionCount ?? 0) > 0 && !allowManualAddWithoutPassword)
+        {
+            <div class="mb-3">
+                <label class="form-label" for="questionsPassword">Administrátorské heslo kvízu</label>
+                <InputText id="questionsPassword" class="form-control" type="password" @bind-Value="questionsPassword" />
+            </div>
+
+            <button class="btn btn-outline-primary mb-3" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "Načítám otázky..." : "Zobrazit otázky")</button>
+        }
+
+        @if (hasLoadedQuestions || (quizDetail?.QuestionCount ?? 0) == 0 || allowManualAddWithoutPassword)
+        {
+            <div class="border rounded p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="h6 mb-0">Ruční vložení otázky</h3>
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" @onclick="ToggleManualQuestionForm">@(isManualQuestionFormExpanded ? "▲" : "▼")</button>
+                </div>
+
+                @if (isManualQuestionFormExpanded)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="manualOrder">Pořadí otázky</label>
+                        <InputNumber id="manualOrder" class="form-control" @bind-Value="manualOrder" />
+                        @if (TryGetManualValidationMessage(nameof(manualOrder), out var orderError))
+                        {
+                            <div class="text-danger small mt-1">@orderError</div>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="manualQuestionType">Typ otázky</label>
+                        <InputSelect id="manualQuestionType" class="form-select" @bind-Value="manualQuestionType">
+                            <option value="@QuestionType.MultipleChoice">Výběr A-D</option>
+                            <option value="@QuestionType.NumericClosest">Číselný tip</option>
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="manualQuestionText">Text otázky</label>
+                        <InputText id="manualQuestionText" class="form-control" @bind-Value="manualQuestionText" />
+                        @if (TryGetManualValidationMessage(nameof(manualQuestionText), out var textError))
+                        {
+                            <div class="text-danger small mt-1">@textError</div>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="manualTimeLimit">Časový limit (sekundy)</label>
+                        <InputNumber id="manualTimeLimit" class="form-control" @bind-Value="manualTimeLimitSec" />
+                        @if (TryGetManualValidationMessage(nameof(manualTimeLimitSec), out var timeLimitError))
+                        {
+                            <div class="text-danger small mt-1">@timeLimitError</div>
+                        }
+                    </div>
+
+                    @if (manualQuestionType == QuestionType.MultipleChoice)
+                    {
+                        <div class="mb-2">
+                            <label class="form-label" for="manualOptionA">Odpověď A</label>
+                            <InputText id="manualOptionA" class="form-control" @bind-Value="manualOptionA" />
+                            @if (TryGetManualValidationMessage(nameof(manualOptionA), out var optionAError))
+                            {
+                                <div class="text-danger small mt-1">@optionAError</div>
+                            }
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="manualOptionB">Odpověď B</label>
+                            <InputText id="manualOptionB" class="form-control" @bind-Value="manualOptionB" />
+                            @if (TryGetManualValidationMessage(nameof(manualOptionB), out var optionBError))
+                            {
+                                <div class="text-danger small mt-1">@optionBError</div>
+                            }
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="manualOptionC">Odpověď C</label>
+                            <InputText id="manualOptionC" class="form-control" @bind-Value="manualOptionC" />
+                            @if (TryGetManualValidationMessage(nameof(manualOptionC), out var optionCError))
+                            {
+                                <div class="text-danger small mt-1">@optionCError</div>
+                            }
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="manualOptionD">Odpověď D</label>
+                            <InputText id="manualOptionD" class="form-control" @bind-Value="manualOptionD" />
+                            @if (TryGetManualValidationMessage(nameof(manualOptionD), out var optionDError))
+                            {
+                                <div class="text-danger small mt-1">@optionDError</div>
+                            }
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="manualCorrectOption">Správná odpověď</label>
+                            <InputSelect id="manualCorrectOption" class="form-select" @bind-Value="manualCorrectOption">
+                                <option value="">Vyberte správnou odpověď</option>
+                                <option value="@OptionKey.A">A</option>
+                                <option value="@OptionKey.B">B</option>
+                                <option value="@OptionKey.C">C</option>
+                                <option value="@OptionKey.D">D</option>
+                            </InputSelect>
+                            @if (TryGetManualValidationMessage(nameof(manualCorrectOption), out var correctOptionError))
+                            {
+                                <div class="text-danger small mt-1">@correctOptionError</div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label" for="manualCorrectNumeric">Správná číselná hodnota</label>
+                            <InputNumber id="manualCorrectNumeric" class="form-control" @bind-Value="manualCorrectNumericValue" />
+                            @if (TryGetManualValidationMessage(nameof(manualCorrectNumericValue), out var correctNumericError))
+                            {
+                                <div class="text-danger small mt-1">@correctNumericError</div>
+                            }
+                        </div>
+                    }
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" type="button" disabled="@(isAddingQuestion || isDeletingQuestion)" @onclick="SaveManualQuestionAsync">@(isAddingQuestion ? "Ukládám otázku..." : (editingQuestionId.HasValue ? "Uložit změny" : "Přidat otázku"))</button>
+                        @if (editingQuestionId.HasValue)
+                        {
+                            <button class="btn btn-outline-danger" type="button" disabled="@(isAddingQuestion || isDeletingQuestion)" @onclick="DeleteEditedQuestionAsync">@(isDeletingQuestion ? "Mažu otázku..." : "Smazat otázku")</button>
+                            <button class="btn btn-outline-secondary" type="button" disabled="@(isAddingQuestion || isDeletingQuestion)" @onclick="CancelQuestionEdit">Zrušit úpravu</button>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (revealedQuestions.Count == 0)
+            {
+                <p class="mb-0">Kvíz zatím neobsahuje žádné otázky.</p>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-3">
+                    @foreach (var question in revealedQuestions.OrderBy(x => x.OrderIndex))
+                    {
+                        <article class="border rounded p-3 quiz-question-item" style="background-color:#eef4ff;border:1px solid #d8e4ff;box-shadow:inset 0 0 0 1px #e4edff;">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <p class="mb-0"><strong>Otázka číslo:</strong> @(question.OrderIndex + 1)</p>
+                                <button class="btn btn-sm btn-outline-primary" type="button" @onclick="() => StartEditQuestion(question)">Upravit</button>
+                            </div>
+                            <p class="mb-2">@question.Text</p>
+                            <p class="mb-2"><strong>Typ otázky:</strong> @(question.QuestionType == QuestionType.MultipleChoice ? "Výběr A-D" : "Číselný tip")</p>
+                            <p class="mb-3"><strong>Čas na odpověď:</strong> @question.TimeLimitSec s</p>
+
+                            @if (question.QuestionType == QuestionType.MultipleChoice)
+                            {
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var option in question.Options.OrderBy(x => x.OptionKey))
+                                    {
+                                        var isCorrectOption = option.OptionKey == question.CorrectOption;
+                                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 @(isCorrectOption ? "text-success fw-semibold" : string.Empty)" style="background-color:transparent;">
+                                            <span>@option.OptionKey) @option.Text</span>
+
+                                            @if (isCorrectOption)
+                                            {
+                                                <span class="badge bg-light text-success border border-success">Správná</span>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p class="mb-0"><strong>Správná odpověď:</strong> @FormatDecimal(question.CorrectNumericValue)</p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        }
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body text-start">
+        <h2 class="h5">Import otázek CSV</h2>
+        <p class="mb-2">
+            <a class="link-primary" href="templates/quiz-question-import-template.csv" download>Stáhnout CSV předpis (šablonu)</a>
+        </p>
+        <p class="form-text mt-0">CSV import používá oddělovač <strong>středník (;)</strong>.</p>
+
+        <InputFile OnChange="ReadCsvFileAsync" accept=".csv,text/csv" />
+
+        @if (!string.IsNullOrWhiteSpace(selectedFileName))
+        {
+            <p class="mt-2 mb-2">Vybraný soubor: <strong>@selectedFileName</strong></p>
+        }
+
+        <button class="btn btn-outline-primary" type="button" disabled="@isImporting" @onclick="ImportCsvAsync">@(isImporting ? "Importuji..." : "Nahrát CSV")</button>
+
+        @if (importResult is not null)
+        {
+            <div class="mt-3">
+                <p class="mb-2">Importováno otázek: <strong>@importResult.ImportedQuestionsCount</strong></p>
+
+                @if (importResult.ValidationIssues.Count > 0)
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Řádek</th>
+                                    <th>Sloupec</th>
+                                    <th>Chyba</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var issue in importResult.ValidationIssues)
+                                {
+                                    <tr>
+                                        <td>@issue.Row</td>
+                                        <td>@issue.Column</td>
+                                        <td>@issue.Message</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+<section class="card border-danger mb-4">
+    <div class="card-body">
+        <h2 class="h5 text-danger">Smazání kvízu</h2>
+        <p>Zadání správného Administrátorkého hesla kvízu je povinné.</p>
+
+        <div class="mb-3">
+            <label class="form-label" for="deletePassword">Administrátorké heslo kvízu</label>
+            <InputText id="deletePassword" class="form-control" type="password" @bind-Value="deletePassword" />
+        </div>
+
+        <button class="btn btn-danger" type="button" disabled="@isDeleting" @onclick="DeleteQuizAsync">@(isDeleting ? "Mažu..." : "Smazat kvíz")</button>
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public Guid? QuizId { get; set; }
+
+    private string deletePassword = string.Empty;
+    private string joinCode = string.Empty;
+    private string questionsPassword = string.Empty;
+    private string? storedOrganizerToken;
+    private string? selectedFileName;
+    private string? csvContent;
+    private string? infoMessage;
+    private string? questionInfoMessage;
+    private bool isLoadingDetail;
+    private bool isImporting;
+    private bool isCreatingSession;
+    private bool isDeleting;
+    private bool isLoadingQuestions;
+    private bool isAddingQuestion;
+    private bool isDeletingQuestion;
+    private bool hasLoadedQuestions;
+    private bool isManualQuestionFormExpanded;
+    private bool allowManualAddWithoutPassword;
+    private Guid? editingQuestionId;
+    private string manualQuestionText = string.Empty;
+    private int manualTimeLimitSec = 30;
+    private int manualOrder = 1;
+    private QuestionType manualQuestionType = QuestionType.MultipleChoice;
+    private OptionKey? manualCorrectOption;
+    private decimal? manualCorrectNumericValue;
+    private string manualOptionA = string.Empty;
+    private string manualOptionB = string.Empty;
+    private string manualOptionC = string.Empty;
+    private string manualOptionD = string.Empty;
+    private Dictionary<string, string[]>? manualQuestionValidationErrors;
+
+    private ApiErrorResponse? apiError;
+    private ApiErrorResponse? questionApiError;
+    private QuizDetailResponse? quizDetail;
+    private ImportQuizCsvResponse? importResult;
+    private IReadOnlyList<QuizDetailQuestionDto> revealedQuestions = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (QuizId.HasValue)
+        {
+            ResetRevealedQuestionsState();
+            await LoadStoredTokenAsync(QuizId.Value);
+            await LoadDetailAsync(false);
+            return;
+        }
+
+        quizDetail = null;
+        apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Chybí ID kvízu v URL.");
+    }
+
+    private async Task LoadDetailAsync(bool showSuccessMessage)
+    {
+        apiError = null;
+        infoMessage = null;
+        isLoadingDetail = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isLoadingDetail = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId.Value}");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var payload = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            quizDetail = payload is null
+                ? null
+                : payload with { Questions = [] };
+
+            if (showSuccessMessage)
+            {
+                infoMessage = "Detail kvízu byl načten.";
+            }
+        }
+        else
+        {
+            quizDetail = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoadingDetail = false;
+    }
+
+    private async Task ReadCsvFileAsync(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(1024 * 1024);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+
+        csvContent = DecodeCsvContent(memoryStream.ToArray());
+        selectedFileName = file.Name;
+        infoMessage = "CSV soubor je načtený a připravený k importu.";
+    }
+
+    private async Task ImportCsvAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isImporting = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isImporting = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(csvContent))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nejprve vyberte CSV soubor.");
+            isImporting = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/import-csv");
+        request.Content = JsonContent.Create(new ImportQuizCsvRequest(quizId.Value, csvContent));
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            importResult = await response.Content.ReadFromJsonAsync<ImportQuizCsvResponse>();
+            infoMessage = "Import CSV byl dokončen.";
+            await LoadDetailAsync(false);
+
+            if ((importResult?.ImportedQuestionsCount ?? 0) > 0)
+            {
+                await LoadQuestionsAsync();
+            }
+        }
+        else
+        {
+            importResult = null;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isImporting = false;
+    }
+
+    private async Task LoadQuestionsAsync()
+    {
+        questionApiError = null;
+        questionInfoMessage = null;
+        isLoadingQuestions = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isLoadingQuestions = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro zobrazení otázek zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            isLoadingQuestions = false;
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId.Value}");
+        if (!string.IsNullOrWhiteSpace(questionsPassword))
+        {
+            request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+        }
+
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var detail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            revealedQuestions = detail?.Questions ?? [];
+            hasLoadedQuestions = true;
+            questionInfoMessage = $"Načteno otázek: {revealedQuestions.Count}.";
+
+            if (!editingQuestionId.HasValue)
+            {
+                manualOrder = GetNextAvailableManualOrder();
+            }
+        }
+        else
+        {
+            revealedQuestions = [];
+            hasLoadedQuestions = false;
+            questionApiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoadingQuestions = false;
+    }
+
+    private async Task SaveManualQuestionAsync()
+    {
+        questionApiError = null;
+        questionInfoMessage = null;
+        manualQuestionValidationErrors = null;
+        isAddingQuestion = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isAddingQuestion = false;
+            return;
+        }
+
+        manualQuestionValidationErrors = ValidateManualQuestionForm();
+        if (manualQuestionValidationErrors is not null)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Formulář obsahuje chyby. Opravte prosím zvýrazněná pole.");
+            isAddingQuestion = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro ruční vložení otázky zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            isAddingQuestion = false;
+            return;
+        }
+
+        HttpRequestMessage request;
+
+        if (editingQuestionId.HasValue)
+        {
+            var updatePayload = new UpdateQuizQuestionRequest(
+                manualQuestionText,
+                manualTimeLimitSec,
+                manualQuestionType,
+                manualQuestionType == QuestionType.MultipleChoice ? manualCorrectOption : null,
+                manualQuestionType == QuestionType.NumericClosest ? manualCorrectNumericValue : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionA : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionB : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionC : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionD : null,
+                manualOrder);
+
+            request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{editingQuestionId.Value}")
+            {
+                Content = JsonContent.Create(updatePayload)
+            };
+        }
+        else
+        {
+            var addPayload = new AddQuizQuestionRequest(
+                manualQuestionText,
+                manualTimeLimitSec,
+                manualQuestionType,
+                manualQuestionType == QuestionType.MultipleChoice ? manualCorrectOption : null,
+                manualQuestionType == QuestionType.NumericClosest ? manualCorrectNumericValue : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionA : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionB : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionC : null,
+                manualQuestionType == QuestionType.MultipleChoice ? manualOptionD : null,
+                manualOrder);
+
+            request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/questions")
+            {
+                Content = JsonContent.Create(addPayload)
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(questionsPassword))
+        {
+            request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+        }
+
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        request.Dispose();
+        if (response.IsSuccessStatusCode)
+        {
+            if (hasLoadedQuestions || !string.IsNullOrWhiteSpace(questionsPassword))
+            {
+                await LoadQuestionsAsync();
+            }
+            else if (quizDetail is not null)
+            {
+                allowManualAddWithoutPassword = true;
+                if (!editingQuestionId.HasValue)
+                {
+                    quizDetail = quizDetail with { QuestionCount = quizDetail.QuestionCount + 1 };
+                }
+                revealedQuestions = [];
+                hasLoadedQuestions = false;
+            }
+
+            if (questionApiError is null)
+            {
+                var wasEditing = editingQuestionId.HasValue;
+                ResetManualQuestionForm();
+                questionInfoMessage = wasEditing ? "Otázka byla úspěšně upravena." : "Otázka byla úspěšně přidána.";
+            }
+        }
+        else
+        {
+            questionApiError = await ReadApiErrorAsync(response);
+        }
+
+        isAddingQuestion = false;
+    }
+
+    private void StartEditQuestion(QuizDetailQuestionDto question)
+    {
+        manualQuestionValidationErrors = null;
+        isManualQuestionFormExpanded = true;
+        editingQuestionId = question.QuestionId;
+        manualQuestionType = question.QuestionType;
+        manualQuestionText = question.Text;
+        manualTimeLimitSec = question.TimeLimitSec;
+        manualOrder = question.OrderIndex + 1;
+        manualCorrectOption = question.CorrectOption;
+        manualCorrectNumericValue = question.CorrectNumericValue;
+        manualOptionA = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.A)?.Text ?? string.Empty;
+        manualOptionB = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.B)?.Text ?? string.Empty;
+        manualOptionC = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.C)?.Text ?? string.Empty;
+        manualOptionD = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.D)?.Text ?? string.Empty;
+    }
+
+    private void CancelQuestionEdit()
+    {
+        ResetManualQuestionForm();
+        questionApiError = null;
+        questionInfoMessage = null;
+    }
+
+    private async Task DeleteEditedQuestionAsync()
+    {
+        questionApiError = null;
+        questionInfoMessage = null;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            return;
+        }
+
+        if (!editingQuestionId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nejprve vyberte otázku k úpravě.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání otázky zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            return;
+        }
+
+        isDeletingQuestion = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/quizzes/{quizId.Value}/questions/{editingQuestionId.Value}");
+        if (!string.IsNullOrWhiteSpace(questionsPassword))
+        {
+            request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+        }
+
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadQuestionsAsync();
+            if (questionApiError is null)
+            {
+                ResetManualQuestionForm();
+                isManualQuestionFormExpanded = false;
+                questionInfoMessage = "Otázka byla úspěšně smazána.";
+            }
+        }
+        else
+        {
+            questionApiError = await ReadApiErrorAsync(response);
+        }
+
+        isDeletingQuestion = false;
+    }
+
+    private async Task StartQuizAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isCreatingSession = true;
+
+        var normalizedJoinCode = joinCode.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedJoinCode))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuštění zadejte join kód.");
+            isCreatingSession = false;
+            return;
+        }
+
+        if (normalizedJoinCode.Length < 4)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kód musí mít alespoň 4 znaky.");
+            isCreatingSession = false;
+            return;
+        }
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isCreatingSession = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/sessions")
+        {
+            Content = JsonContent.Create(new CreateSessionRequest(normalizedJoinCode))
+        };
+
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var createdSession = await response.Content.ReadFromJsonAsync<CreateSessionResponse>();
+            if (createdSession is null)
+            {
+                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst založenou session.");
+                isCreatingSession = false;
+                return;
+            }
+
+            NavigationManager.NavigateTo($"/organizator/session/cekarna/{createdSession.SessionId}?quizId={quizId.Value}");
+            return;
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isCreatingSession = false;
+    }
+
+    private async Task DeleteQuizAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isDeleting = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isDeleting = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(deletePassword))
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání je nutné zadat Administrátorké heslo kvízu.");
+            isDeleting = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/quizzes/{quizId.Value}");
+        request.Headers.Add("X-Quiz-Password", deletePassword.Trim());
+
+        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+        }
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            await OrganizerQuizLocalStore.RemoveAsync(quizId.Value);
+            NavigationManager.NavigateTo("/organizator");
+            return;
+        }
+
+        apiError = await ReadApiErrorAsync(response);
+        isDeleting = false;
+    }
+
+    private async Task LoadStoredTokenAsync(Guid quizId)
+    {
+        var storedQuiz = await OrganizerQuizLocalStore.FindByQuizIdAsync(quizId);
+        storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
+    }
+
+    private Guid? GetQuizId() => QuizId;
+
+    private void ToggleManualQuestionForm()
+    {
+        isManualQuestionFormExpanded = !isManualQuestionFormExpanded;
+    }
+
+    private void ResetRevealedQuestionsState()
+    {
+        questionsPassword = string.Empty;
+        questionInfoMessage = null;
+        questionApiError = null;
+        hasLoadedQuestions = false;
+        allowManualAddWithoutPassword = false;
+        editingQuestionId = null;
+        revealedQuestions = [];
+        ResetManualQuestionForm();
+    }
+
+    private void ResetManualQuestionForm()
+    {
+        manualQuestionValidationErrors = null;
+        editingQuestionId = null;
+        manualQuestionText = string.Empty;
+        manualTimeLimitSec = 30;
+        manualQuestionType = QuestionType.MultipleChoice;
+        manualOrder = GetNextAvailableManualOrder();
+        manualCorrectOption = null;
+        manualCorrectNumericValue = null;
+        manualOptionA = string.Empty;
+        manualOptionB = string.Empty;
+        manualOptionC = string.Empty;
+        manualOptionD = string.Empty;
+    }
+
+    private int GetNextAvailableManualOrder()
+    {
+        if (revealedQuestions.Count > 0)
+        {
+            var usedOrders = revealedQuestions
+                .Select(x => x.OrderIndex + 1)
+                .ToHashSet();
+
+            var nextOrder = 1;
+            while (usedOrders.Contains(nextOrder))
+            {
+                nextOrder++;
+            }
+
+            return nextOrder;
+        }
+
+        var knownQuestionCount = quizDetail?.QuestionCount ?? 0;
+        return knownQuestionCount + 1;
+    }
+
+    private bool TryGetManualValidationMessage(string fieldName, out string message)
+    {
+        message = string.Empty;
+
+        if (manualQuestionValidationErrors is null || !manualQuestionValidationErrors.TryGetValue(fieldName, out var messages) || messages.Length == 0)
+        {
+            return false;
+        }
+
+        message = messages[0];
+        return true;
+    }
+
+    private Dictionary<string, string[]>? ValidateManualQuestionForm()
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        if (manualOrder < 1)
+        {
+            errors[nameof(manualOrder)] = ["Pořadí otázky musí být alespoň 1."];
+        }
+
+        if (string.IsNullOrWhiteSpace(manualQuestionText))
+        {
+            errors[nameof(manualQuestionText)] = ["Zadejte text otázky."];
+        }
+        else if (manualQuestionText.Trim().Length > 1500)
+        {
+            errors[nameof(manualQuestionText)] = ["Text otázky je příliš dlouhý (max. 1500 znaků)."];
+        }
+
+        if (manualTimeLimitSec < 10 || manualTimeLimitSec > 300)
+        {
+            errors[nameof(manualTimeLimitSec)] = ["Časový limit musí být mezi 10 a 300 sekundami."];
+        }
+
+        if (manualQuestionType == QuestionType.MultipleChoice)
+        {
+            ValidateManualOption(manualOptionA, nameof(manualOptionA), "Vyplňte odpověď A.", errors);
+            ValidateManualOption(manualOptionB, nameof(manualOptionB), "Vyplňte odpověď B.", errors);
+            ValidateManualOption(manualOptionC, nameof(manualOptionC), "Vyplňte odpověď C.", errors);
+            ValidateManualOption(manualOptionD, nameof(manualOptionD), "Vyplňte odpověď D.", errors);
+
+            if (!manualCorrectOption.HasValue)
+            {
+                errors[nameof(manualCorrectOption)] = ["Vyberte správnou odpověď."];
+            }
+        }
+        else if (!manualCorrectNumericValue.HasValue)
+        {
+            errors[nameof(manualCorrectNumericValue)] = ["Zadejte správnou číselnou hodnotu."];
+        }
+
+        return errors.Count == 0 ? null : errors;
+    }
+
+    private static void ValidateManualOption(string? optionValue, string fieldName, string requiredMessage, IDictionary<string, string[]> errors)
+    {
+        if (string.IsNullOrWhiteSpace(optionValue))
+        {
+            errors[fieldName] = [requiredMessage];
+            return;
+        }
+
+        if (optionValue.Trim().Length > 500)
+        {
+            errors[fieldName] = ["Text odpovědi je příliš dlouhý (max. 500 znaků)."];
+        }
+    }
+
+    private static string FormatDecimal(decimal? value)
+    {
+        if (!value.HasValue)
+        {
+            return "-";
+        }
+
+        return value.Value.ToString("0.############################", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private static string DecodeCsvContent(byte[] csvBytes)
+    {
+        if (csvBytes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return new System.Text.UTF8Encoding(false, true).GetString(csvBytes);
+        }
+        catch (System.Text.DecoderFallbackException)
+        {
+        }
+
+        return System.Text.Encoding.GetEncoding(1250).GetString(csvBytes);
+    }
+
+    private void ApplyOrganizerAuth(HttpRequestMessage request)
+    {
+        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+        }
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        if (apiError is not null)
+        {
+            return apiError;
+        }
+
+        return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Operace selhala.");
+    }
+}

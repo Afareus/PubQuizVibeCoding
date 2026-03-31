@@ -1,0 +1,540 @@
+@page "/organizator/session/cekarna"
+@page "/organizator/session/cekarna/{SessionId:guid}"
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject HttpClient HttpClient
+@inject OrganizerQuizLocalStore OrganizerQuizLocalStore
+@inject IJSRuntime JSRuntime
+@inject ActiveSessionState ActiveSessionState
+
+<PageTitle>@PageHeading</PageTitle>
+
+<h1>@PageHeading</h1>
+
+<p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
+
+@if (!string.IsNullOrWhiteSpace(infoMessage))
+{
+    <div class="alert alert-info" role="alert">@infoMessage</div>
+}
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+}
+
+@if (snapshot is not null)
+{
+    @if (IsSessionActive && snapshot.CurrentQuestion is not null)
+    {
+        <section class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 fw-normal mb-2">Otázka číslo: @((snapshot.CurrentQuestionIndex ?? 0) + 1)</h2>
+                <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
+
+                @if (remainingSeconds > 0)
+                {
+                    <p class="mb-2 fs-5"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
+                }
+                else
+                {
+                    <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                }
+
+                @if (snapshot.CurrentQuestion.QuestionType == QuestionType.MultipleChoice)
+                {
+                    <div class="d-grid gap-2 mb-3">
+                        @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
+                        {
+                            <button class="btn btn-outline-primary text-start" type="button" disabled>
+                                <strong>@option.OptionKey</strong> — @option.Text
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="mb-3 text-muted">Typ otázky: číselný tip (bod získá nejbližší odpověď).</p>
+                }
+
+                <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="TogglePauseAsync">@PauseButtonText</button>
+            </div>
+        </section>
+    }
+
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Detail hry</h2>
+            <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName)</p>
+            @if (snapshot.Status == SessionStatus.Waiting)
+            {
+                <div class="alert alert-primary mb-2" role="alert">
+                    <div class="small text-uppercase fw-semibold">Join kód</div>
+                    <div class="fs-3 fw-bold"><code class="fs-3">@snapshot.JoinCode</code></div>
+                </div>
+            }
+            <p class="mb-3"><strong>Stav:</strong> @snapshot.Status</p>
+
+            <div class="d-flex gap-2 mb-3">
+                @if (snapshot.Status == SessionStatus.Waiting)
+                {
+                    <button class="btn btn-success" type="button" disabled="@isLoading" @onclick="StartSessionAsync">
+                        @(isLoading ? "Provádím..." : "Spustit hru")
+                    </button>
+                }
+
+                @if (snapshot.Status == SessionStatus.Finished)
+                {
+                    <a class="btn btn-primary" href="@($"/organizator/session/vysledky/{snapshot.SessionId}?quizId={snapshot.QuizId}")">
+                        Zobrazit výsledky a správné odpovědi
+                    </a>
+                }
+            </div>
+
+            <h3 class="h6">Připojené týmy (@snapshot.Teams.Count)</h3>
+
+            @if (snapshot.Teams.Count == 0)
+            {
+                <p class="mb-0">Zatím není připojen žádný tým.</p>
+            }
+            else
+            {
+                <ul class="mb-0">
+                    @foreach (var team in snapshot.Teams)
+                    {
+                        <li>@team.TeamName</li>
+                    }
+                </ul>
+            }
+
+            @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
+            {
+                <div class="mt-3">
+                    <button class="btn btn-outline-danger" type="button" disabled="@isLoading" @onclick="CancelSessionAsync">
+                        @(isLoading ? "Provádím..." : "Zrušit hru")
+                    </button>
+                </div>
+            }
+
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public Guid? SessionId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public Guid? QuizId { get; set; }
+
+    private string sessionIdInput = string.Empty;
+    private string? storedOrganizerToken;
+    private string? storedQuizName;
+    private string? infoMessage;
+    private bool isLoading;
+    private bool isRealtimeConnected;
+
+    private ApiErrorResponse? apiError;
+    private OrganizerSessionSnapshotResponse? snapshot;
+    private HubConnection? hubConnection;
+    private Guid? realtimeSessionId;
+    private Guid? autoLoadedSessionId;
+    private System.Threading.Timer? countdownTimer;
+    private int remainingSeconds;
+
+    private bool IsSessionRunning => snapshot?.Status == SessionStatus.Running;
+    private bool IsSessionPaused => snapshot?.Status == SessionStatus.Paused;
+    private bool IsSessionActive => IsSessionRunning || IsSessionPaused;
+    private string PageHeading => snapshot?.Status switch
+    {
+        SessionStatus.Running or SessionStatus.Paused => "Probíhající hra",
+        SessionStatus.Finished => "Výsledky",
+        _ => "Čekárna"
+    };
+    private string PauseButtonText => IsSessionPaused ? "Start hry" : "Pauza hry";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (SessionId.HasValue)
+        {
+            sessionIdInput = SessionId.Value.ToString();
+        }
+
+        if (QuizId.HasValue)
+        {
+            await LoadStoredTokenAsync(QuizId.Value);
+        }
+
+        if (SessionId.HasValue && autoLoadedSessionId != SessionId.Value)
+        {
+            autoLoadedSessionId = SessionId.Value;
+            await LoadSnapshotAsync();
+        }
+        else if (!SessionId.HasValue)
+        {
+            autoLoadedSessionId = null;
+        }
+    }
+
+    private async Task LoadSnapshotAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isLoading = true;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            isLoading = false;
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{sessionId.Value}");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            await EnsureRealtimeConnectionAsync(sessionId.Value);
+            RestartCountdownTimer();
+            UpdateActiveSessionState();
+        }
+        else
+        {
+            snapshot = null;
+            countdownTimer?.Dispose();
+            countdownTimer = null;
+            remainingSeconds = 0;
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task TogglePauseAsync()
+    {
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        var wasPaused = IsSessionPaused;
+        var endpoint = wasPaused
+            ? $"/api/sessions/{sessionId.Value}/resume"
+            : $"/api/sessions/{sessionId.Value}/pause";
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            infoMessage = wasPaused
+                ? "Session pokračuje."
+                : "Session byla pozastavena.";
+            RestartCountdownTimer();
+            UpdateActiveSessionState();
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task EnsureRealtimeConnectionAsync(Guid sessionId)
+    {
+        if (hubConnection is null)
+        {
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(new Uri(HttpClient.BaseAddress!, "/hubs/sessions"))
+                .WithAutomaticReconnect(new ReconnectWithinSixtySecondsPolicy())
+                .Build();
+
+            hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
+            hubConnection.On(RealtimeEventName.TeamLeft.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
+            hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla spuštěna."));
+            hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
+            hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla zrušena."));
+            hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla ukončena."));
+            hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));
+
+            hubConnection.Reconnecting += _ =>
+            {
+                isRealtimeConnected = false;
+                return InvokeAsync(StateHasChanged);
+            };
+
+            hubConnection.Reconnected += async _ =>
+            {
+                isRealtimeConnected = true;
+                var reconnectSessionId = realtimeSessionId ?? sessionId;
+                await SubscribeRealtimeSessionAsync(reconnectSessionId);
+                await ReloadSnapshotFromRealtimeAsync("Realtime připojení bylo obnoveno.");
+            };
+
+            hubConnection.Closed += _ =>
+            {
+                isRealtimeConnected = false;
+                return InvokeAsync(StateHasChanged);
+            };
+        }
+
+        if (hubConnection.State == HubConnectionState.Disconnected)
+        {
+            await hubConnection.StartAsync();
+            isRealtimeConnected = true;
+        }
+
+        await SubscribeRealtimeSessionAsync(sessionId);
+    }
+
+    private async Task SubscribeRealtimeSessionAsync(Guid sessionId)
+    {
+        if (hubConnection is null)
+        {
+            return;
+        }
+
+        if (realtimeSessionId.HasValue && realtimeSessionId.Value != sessionId)
+        {
+            await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
+        }
+
+        await hubConnection.InvokeAsync("SubscribeToSessionAsync", sessionId);
+        realtimeSessionId = sessionId;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadSnapshotFromRealtimeAsync(string message)
+    {
+        await InvokeAsync(async () =>
+        {
+            var sessionId = ParseSessionId();
+            if (!sessionId.HasValue)
+            {
+                return;
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{sessionId.Value}");
+            ApplyOrganizerAuth(request);
+
+            using var response = await HttpClient.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+                infoMessage = message;
+                apiError = null;
+                RestartCountdownTimer();
+                UpdateActiveSessionState();
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ActiveSessionState.Clear();
+
+        if (hubConnection is null)
+        {
+            return;
+        }
+
+        if (realtimeSessionId.HasValue && hubConnection.State == HubConnectionState.Connected)
+        {
+            await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
+        }
+
+        countdownTimer?.Dispose();
+        countdownTimer = null;
+
+        await hubConnection.DisposeAsync();
+    }
+
+    private async Task StartSessionAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/start");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            infoMessage = "Session byla spuštěna.";
+            RestartCountdownTimer();
+            UpdateActiveSessionState();
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task CancelSessionAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Opravdu chcete zrušit session?");
+        if (!confirmed)
+        {
+            infoMessage = "Zrušení session bylo stornováno.";
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/cancel")
+        {
+            Content = JsonContent.Create(new CancelSessionRequest(true))
+        };
+
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            infoMessage = "Session byla zrušena.";
+            RestartCountdownTimer();
+            UpdateActiveSessionState();
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task LoadStoredTokenAsync(Guid quizId)
+    {
+        var storedQuiz = await OrganizerQuizLocalStore.FindByQuizIdAsync(quizId);
+        storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
+        storedQuizName = storedQuiz?.QuizName;
+    }
+
+    private Guid? ParseSessionId()
+    {
+        return Guid.TryParse(sessionIdInput, out var parsedSessionId) ? parsedSessionId : null;
+    }
+
+    private void ApplyOrganizerAuth(HttpRequestMessage request)
+    {
+        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+        }
+    }
+
+    private void RestartCountdownTimer()
+    {
+        countdownTimer?.Dispose();
+        countdownTimer = null;
+
+        UpdateRemainingSeconds();
+
+        if (!IsSessionRunning || snapshot?.QuestionDeadlineUtc is null)
+        {
+            return;
+        }
+
+        countdownTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                UpdateRemainingSeconds();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateRemainingSeconds()
+    {
+        if (snapshot?.QuestionDeadlineUtc is null)
+        {
+            remainingSeconds = 0;
+            return;
+        }
+
+        var diff = snapshot.QuestionDeadlineUtc.Value - DateTimeOffset.UtcNow;
+        remainingSeconds = Math.Max(0, (int)Math.Ceiling(diff.TotalSeconds));
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        if (apiError is not null)
+        {
+            return apiError;
+        }
+
+        return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Operace selhala.");
+    }
+
+    private void UpdateActiveSessionState()
+    {
+        if (snapshot is not null && snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
+        {
+            ActiveSessionState.Set("Opravdu chcete opustit hru? Aktivní kvíz bude zrušen.", async () =>
+            {
+                var sessionId = ParseSessionId();
+                if (!sessionId.HasValue)
+                {
+                    return;
+                }
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/cancel")
+                {
+                    Content = JsonContent.Create(new CancelSessionRequest(true))
+                };
+                ApplyOrganizerAuth(request);
+
+                using var response = await HttpClient.SendAsync(request);
+            });
+        }
+        else
+        {
+            ActiveSessionState.Clear();
+        }
+    }
+}
