@@ -669,6 +669,15 @@ public sealed class SessionParticipationService : ISessionParticipationService
             }
         }
 
+        Dictionary<Guid, OptionKey>? teamAnswersByQuestionId = null;
+        if (teamAuthorized && teamId.HasValue)
+        {
+            teamAnswersByQuestionId = await _dbContext.TeamAnswers
+                .AsNoTracking()
+                .Where(x => x.SessionId == sessionId && x.TeamId == teamId.Value)
+                .ToDictionaryAsync(x => x.QuestionId, x => x.SelectedOption, cancellationToken);
+        }
+
         var correctAnswers = session.Quiz!.Questions
             .OrderBy(q => q.OrderIndex)
             .Select(q => new CorrectAnswerDto(
@@ -676,6 +685,9 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 q.OrderIndex,
                 q.Text,
                 q.CorrectOption,
+                teamAnswersByQuestionId is not null && teamAnswersByQuestionId.TryGetValue(q.QuestionId, out var selectedOption)
+                    ? selectedOption
+                    : null,
                 q.Options
                     .OrderBy(o => o.OptionKey)
                     .Select(o => new SnapshotQuestionOptionDto(o.OptionKey, o.Text))

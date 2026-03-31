@@ -817,6 +817,39 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task GetCorrectAnswersAsync_TeamAuth_ReturnsSelectedOptionForTeamAnswers()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateFinishedSessionWithResultsAsync(quizService, sessionService, CancellationToken.None);
+
+        var organizerPublishResult = await sessionService.GetSessionResultsAsync(
+            created.SessionId,
+            null,
+            null,
+            created.OrganizerToken,
+            null,
+            CancellationToken.None);
+        Assert.True(organizerPublishResult.IsSuccess);
+
+        var correctResult = await sessionService.GetCorrectAnswersAsync(
+            created.SessionId,
+            created.Team2Id,
+            created.Team2ReconnectToken,
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.True(correctResult.IsSuccess);
+        Assert.NotNull(correctResult.Response);
+        Assert.Equal(2, correctResult.Response!.CorrectAnswers.Count);
+        Assert.Equal(OptionKey.A, correctResult.Response.CorrectAnswers[0].TeamSelectedOption);
+        Assert.Null(correctResult.Response.CorrectAnswers[1].TeamSelectedOption);
+    }
+
+    [Fact]
     public async Task GetCorrectAnswersAsync_RunningSession_ReturnsSessionStateChanged()
     {
         await using var dbContext = CreateDbContext();

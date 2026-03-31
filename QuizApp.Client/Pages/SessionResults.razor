@@ -97,8 +97,9 @@ else
                                 @foreach (var o in q.Options)
                                 {
                                     var isCorrect = o.OptionKey == q.CorrectOption;
-                                    <li class="@(isCorrect ? "text-success fw-bold" : "")">
-                                        @o.OptionKey — @o.Text @(isCorrect ? "✓" : "")
+                                    var isSelectedWrong = q.TeamSelectedOption.HasValue && q.TeamSelectedOption != q.CorrectOption && o.OptionKey == q.TeamSelectedOption.Value;
+                                    <li class="@(isCorrect ? "text-success fw-bold" : isSelectedWrong ? "text-danger fw-bold" : "")">
+                                        @o.OptionKey — @o.Text @(isCorrect ? "✓" : isSelectedWrong ? "✗" : "")
                                     </li>
                                 }
                             </ul>

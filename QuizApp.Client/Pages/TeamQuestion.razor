@@ -234,12 +234,12 @@ else
 
     private void GoToResults()
     {
-        if (snapshot is null || !snapshot.ResultsPublished)
+        if (snapshot is null || !snapshot.ResultsPublished || identity is null)
         {
             return;
         }
 
-        NavigationManager.NavigateTo($"/session/vysledky/{snapshot.SessionId}");
+        NavigationManager.NavigateTo($"/session/vysledky/{snapshot.SessionId}?teamId={identity.TeamId}");
     }
 
     private void RestartCountdownTimer()

@@ -97,4 +97,5 @@ public sealed record CorrectAnswerDto(
     int OrderIndex,
     string QuestionText,
     OptionKey CorrectOption,
+    OptionKey? TeamSelectedOption,
     IReadOnlyList<SnapshotQuestionOptionDto> Options);
