@@ -70,9 +70,10 @@
                         <tbody>
                             @foreach (var r in results.Results)
                             {
+                                var isWinner = r.Rank == 1;
                                 <tr>
                                     <td><strong>@r.Rank</strong></td>
-                                    <td>@r.TeamName</td>
+                                    <td>@r.TeamName @(isWinner ? "⭐" : "")</td>
                                     <td>@r.Score</td>
                                     <td>@r.CorrectCount</td>
                                     <td>@FormatTimeSeconds(r.TotalCorrectResponseTimeMs)</td>

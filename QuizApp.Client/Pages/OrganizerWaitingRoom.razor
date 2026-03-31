@@ -40,12 +40,14 @@
                     <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
                 }
 
-                <ul class="mb-3">
+                <div class="d-grid gap-2 mb-3">
                     @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
                     {
-                        <li><strong>@option.OptionKey</strong> — @option.Text</li>
+                        <button class="btn btn-outline-primary text-start" type="button" disabled>
+                            <strong>@option.OptionKey</strong> — @option.Text
+                        </button>
                     }
-                </ul>
+                </div>
 
                 <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="TogglePauseAsync">@PauseButtonText</button>
             </div>

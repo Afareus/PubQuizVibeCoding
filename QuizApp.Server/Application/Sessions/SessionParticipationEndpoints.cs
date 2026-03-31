@@ -213,14 +213,16 @@ public static class SessionParticipationEndpoints
 
     private static async Task<IResult> GetCorrectAnswersAsync(
         Guid sessionId,
+        Guid? teamId,
         HttpContext httpContext,
         ISessionParticipationService sessionParticipationService,
         CancellationToken cancellationToken)
     {
+        var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
         var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
 
-        var result = await sessionParticipationService.GetCorrectAnswersAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
+        var result = await sessionParticipationService.GetCorrectAnswersAsync(sessionId, teamId, teamReconnectToken, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));

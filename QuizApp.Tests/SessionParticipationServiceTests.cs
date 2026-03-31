@@ -808,7 +808,7 @@ public class SessionParticipationServiceTests
         var created = await CreateFinishedSessionWithResultsAsync(quizService, sessionService, CancellationToken.None);
 
         var correctResult = await sessionService.GetCorrectAnswersAsync(
-            created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+            created.SessionId, null, null, created.OrganizerToken, null, CancellationToken.None);
 
         Assert.True(correctResult.IsSuccess);
         Assert.NotNull(correctResult.Response);
@@ -826,7 +826,7 @@ public class SessionParticipationServiceTests
         var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
 
         var correctResult = await sessionService.GetCorrectAnswersAsync(
-            created.SessionId, null, null, CancellationToken.None);
+            created.SessionId, null, null, null, null, CancellationToken.None);
 
         Assert.False(correctResult.IsSuccess);
     }
@@ -841,7 +841,7 @@ public class SessionParticipationServiceTests
         var created = await CreateFinishedSessionWithResultsAsync(quizService, sessionService, CancellationToken.None);
 
         var correctResult = await sessionService.GetCorrectAnswersAsync(
-            created.SessionId, null, null, CancellationToken.None);
+            created.SessionId, null, null, null, null, CancellationToken.None);
 
         Assert.False(correctResult.IsSuccess);
         Assert.Equal(ApiErrorCode.MissingAuthToken, correctResult.Error!.Code);

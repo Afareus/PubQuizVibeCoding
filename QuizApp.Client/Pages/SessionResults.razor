@@ -61,9 +61,10 @@ else
                             @foreach (var r in results.Results)
                             {
                                 var isMyTeam = r.TeamId == identity.TeamId;
+                                var isWinner = r.Rank == 1;
                                 <tr class="@(isMyTeam ? "table-primary" : "")">
                                     <td><strong>@r.Rank</strong></td>
-                                    <td>@r.TeamName @(isMyTeam ? "⭐" : "")</td>
+                                    <td>@r.TeamName @(isWinner ? "⭐" : "")</td>
                                     <td>@r.Score</td>
                                     <td>@r.CorrectCount</td>
                                     <td>@FormatTimeSeconds(r.TotalCorrectResponseTimeMs)</td>
@@ -75,6 +76,39 @@ else
             }
         </div>
     </section>
+
+    @if (correctAnswers is not null)
+    {
+        <section class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Správné odpovědi</h2>
+
+                @if (correctAnswers.CorrectAnswers.Count == 0)
+                {
+                    <p class="mb-0">Žádné otázky nejsou k dispozici.</p>
+                }
+                else
+                {
+                    @foreach (var q in correctAnswers.CorrectAnswers)
+                    {
+                        <div class="mb-3 p-3 border rounded">
+                            <p class="mb-1"><strong>Otázka @(q.OrderIndex + 1):</strong> @q.QuestionText</p>
+                            <ul class="mb-1">
+                                @foreach (var o in q.Options)
+                                {
+                                    var isCorrect = o.OptionKey == q.CorrectOption;
+                                    <li class="@(isCorrect ? "text-success fw-bold" : "")">
+                                        @o.OptionKey — @o.Text @(isCorrect ? "✓" : "")
+                                    </li>
+                                }
+                            </ul>
+                            <p class="mb-0 text-muted">Správná odpověď: <strong>@q.CorrectOption</strong></p>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+    }
 
     <a class="btn btn-outline-primary" href="/">Zpět na úvod</a>
 }
@@ -88,6 +122,7 @@ else
 
     private StoredTeamIdentity? identity;
     private SessionResultsResponse? results;
+    private CorrectAnswersResponse? correctAnswers;
     private ApiErrorResponse? apiError;
     private string? infoMessage;
     private bool isLoading;
@@ -109,6 +144,11 @@ else
         }
 
         await LoadResultsAsync();
+
+        if (results is not null)
+        {
+            await LoadCorrectAnswersAsync();
+        }
     }
 
     private async Task LoadResultsAsync()
@@ -136,6 +176,27 @@ else
         }
 
         isLoading = false;
+    }
+
+    private async Task LoadCorrectAnswersAsync()
+    {
+        if (!SessionId.HasValue || identity is null)
+        {
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{SessionId.Value}/correct-answers?teamId={identity.TeamId}");
+        request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            correctAnswers = await response.Content.ReadFromJsonAsync<CorrectAnswersResponse>();
+        }
+        else
+        {
+            correctAnswers = null;
+        }
     }
 
     private string FormatTimeSeconds(long totalMs)

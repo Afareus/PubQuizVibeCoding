@@ -34,7 +34,7 @@ public interface ISessionParticipationService
 
     Task<SessionResultsOperationResult> GetSessionResultsAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
-    Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+    Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task ProgressDueSessionsAsync(CancellationToken cancellationToken);
 }
@@ -622,13 +622,14 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return SessionResultsOperationResult.Success(new SessionResultsResponse(session.SessionId, session.Status, results));
     }
 
-    public async Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    public async Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
     {
         var session = await _dbContext.Sessions
             .AsNoTracking()
             .Include(x => x.Quiz!)
                 .ThenInclude(x => x.Questions)
                 .ThenInclude(x => x.Options)
+            .Include(x => x.Teams)
             .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
 
         if (session is null)
@@ -636,14 +637,36 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return CorrectAnswersOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        var teamAuthorized = false;
+
+        if (!string.IsNullOrWhiteSpace(teamReconnectToken) && teamId.HasValue)
         {
-            return CorrectAnswersOperationResult.Fail(authError!);
+            var team = session.Teams.SingleOrDefault(x => x.TeamId == teamId.Value);
+            if (team is not null && VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
+            {
+                teamAuthorized = true;
+            }
+        }
+
+        var organizerAuthorized = TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out _);
+
+        if (!teamAuthorized && !organizerAuthorized)
+        {
+            return CorrectAnswersOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí platná autentizace (tým nebo organizátor)."));
         }
 
         if (session.Status != SessionStatus.Finished)
         {
             return CorrectAnswersOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Správné odpovědi jsou dostupné pouze po ukončení session."));
+        }
+
+        if (teamAuthorized && !organizerAuthorized)
+        {
+            var resultsPublished = await IsResultsPublishedAsync(session.SessionId, cancellationToken);
+            if (!resultsPublished)
+            {
+                return CorrectAnswersOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Správné odpovědi budou dostupné až po zveřejnění výsledků organizátorem."));
+            }
         }
 
         var correctAnswers = session.Quiz!.Questions
