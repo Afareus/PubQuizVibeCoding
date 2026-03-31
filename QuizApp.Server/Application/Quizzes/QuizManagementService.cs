@@ -112,7 +112,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (quiz.Questions.Count == 0)
         {
-            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Session lze založit jen nad kvízem, který obsahuje alespoň jednu otázku."));
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Nelze spustit kvíz, který neobsahuje žádné otázky."));
         }
 
         if (!HasCompleteQuestionOrder(quiz.Questions))
@@ -123,7 +123,7 @@ public sealed class QuizManagementService : IQuizManagementService
         var joinCodeAlreadyUsed = await _dbContext.Sessions.AnyAsync(x => x.JoinCode == normalizedJoinCode, cancellationToken);
         if (joinCodeAlreadyUsed)
         {
-            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join code už je použitý v jiné session."));
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join kód už je použitý v jiné spuštěné hře."));
         }
 
         var nowUtc = DateTime.UtcNow;
@@ -144,7 +144,7 @@ public sealed class QuizManagementService : IQuizManagementService
         }
         catch (DbUpdateException)
         {
-            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join code už je použitý v jiné session."));
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join kód už je použitý v jiné spuštěné hře."));
         }
 
         return CreateSessionOperationResult.Success(new CreateSessionResponse(session.SessionId, session.JoinCode, session.Status));
@@ -175,7 +175,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
         {
-            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní session."));
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní hru."));
         }
 
         var desiredOrder = request.Order ?? (quiz.Questions.Count + 1);
@@ -243,7 +243,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
         {
-            return DeleteQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní session."));
+            return DeleteQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní hru."));
         }
 
         var question = quiz.Questions.SingleOrDefault(x => x.QuestionId == questionId);
@@ -306,7 +306,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
         {
-            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní session."));
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní hru."));
         }
 
         var question = quiz.Questions.SingleOrDefault(x => x.QuestionId == questionId);
@@ -741,13 +741,13 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (string.IsNullOrWhiteSpace(normalizedJoinCode))
         {
-            errors[nameof(CreateSessionRequest.JoinCode)] = ["Join code je povinný."];
+            errors[nameof(CreateSessionRequest.JoinCode)] = ["Join kód je povinný."];
         }
         else
         {
             if (normalizedJoinCode.Length < MinJoinCodeLength)
             {
-                errors[nameof(CreateSessionRequest.JoinCode)] = [$"Join code musí mít alespoň {MinJoinCodeLength} znaky."];
+                errors[nameof(CreateSessionRequest.JoinCode)] = [$"Join kód musí mít alespoň {MinJoinCodeLength} znaky."];
             }
         }
 

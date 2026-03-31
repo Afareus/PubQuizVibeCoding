@@ -103,7 +103,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         if (session is null)
         {
-            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Hra pro zadaný join code nebyla nalezena."));
+            return JoinSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Hra pro zadaný join kód nebyla nalezena."));
         }
 
         if (session.Status != SessionStatus.Waiting)
@@ -1034,7 +1034,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         if (string.IsNullOrWhiteSpace(request.JoinCode))
         {
-            errors[nameof(JoinSessionRequest.JoinCode)] = ["Join code je povinný."];
+            errors[nameof(JoinSessionRequest.JoinCode)] = ["Join kód je povinný."];
         }
 
         if (string.IsNullOrWhiteSpace(request.TeamName))

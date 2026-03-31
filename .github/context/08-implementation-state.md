@@ -35,9 +35,12 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Post-S21 UX tweak — po úspěšném CSV importu se v sekci `Otázky kvízu` automaticky zobrazí nově nahrané otázky.
+- Post-S21 UI tweak — po smazání otázky tlačítkem `Smazat otázku` se v `OrganizerQuizDetail` automaticky sbalí formulář `Ruční vložení otázky`.
 
 ## Aktuální poznámky
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po úspěšném `DeleteEditedQuestionAsync` formulář `Ruční vložení otázky` automaticky sbalí (`isManualQuestionFormExpanded = false`).
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se CSV soubor při uploadu čte jako raw bytes a dekóduje přes UTF-8 (strict) s fallbackem na CP1250, aby se správně načetla čeština i u ne-UTF8 exportů.
+- V `QuizApp.Client/Program.cs` je registrován `CodePagesEncodingProvider`, aby byl fallback dekodér CP1250 dostupný i ve WASM klientu.
 - V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` po úspěšném `ImportCsvAsync` automaticky proběhne `LoadQuestionsAsync`, takže importované otázky jsou vidět ihned bez dalšího klikání.
 - `LoadQuestionsAsync` nyní pro načtení otázek akceptuje nejen `X-Quiz-Password`, ale i uložený `X-Organizer-Token`.
 - V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `DeleteQuestionAsync` (autorizace `X-Organizer-Token`/`X-Quiz-Password`, blokace při aktivní session, audit `QUESTION_DELETED`, reindex pořadí zbývajících otázek).
@@ -162,6 +165,6 @@ Po každém kroku jej aktualizuj.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: neproběhly (změna je v Blazor UI; automatizované UI testy nejsou v repo k dispozici)
+- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 85/85 passed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

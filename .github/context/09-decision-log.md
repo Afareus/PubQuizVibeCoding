@@ -444,3 +444,17 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Po úspěšném `ImportCsvAsync` klient automaticky volá `LoadQuestionsAsync` (pokud se skutečně importovala alespoň jedna otázka), aby se nové otázky zobrazily ihned bez manuálního kroku `Zobrazit otázky`.
 - **Důvod:** Uživatel explicitně požadoval okamžité zobrazení nahraných otázek po CSV importu.
 - **Dopad:** Kratší a plynulejší organizátorský workflow; po importu je stav kvízu okamžitě viditelný v otázkové sekci.
+
+### D-063 — CSV upload v klientu má fallback dekódování pro české ANSI/Excel soubory
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 bugfix
+- **Rozhodnutí:** `OrganizerQuizDetail` při načítání CSV souboru dekóduje obsah nejprve jako UTF-8 s `throwOnInvalidBytes=true`; pokud dekódování selže, použije fallback Windows-1250 (`CP1250`).
+- **Důvod:** Uživatel nahlásil rozpad české diakritiky (`Kolik stup�� je prav� �hel?`) po importu CSV exportovaného mimo UTF-8 (typicky Excel/ANSI).
+- **Dopad:** Import zůstává kompatibilní s UTF-8 i běžnými českými Windows exporty a texty otázek se na frontendu zobrazují korektně.
+
+### D-064 — Po smazání otázky se edit formulář automaticky sbalí
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** V `OrganizerQuizDetail` se po úspěšném `DeleteEditedQuestionAsync` nastaví `isManualQuestionFormExpanded = false`, takže se formulář `Ruční vložení otázky` po smazání otázky automaticky sbalí.
+- **Důvod:** Uživatel explicitně požadoval automatické sbalení formuláře po akci `Smazat otázku`.
+- **Dopad:** Po smazání je obrazovka přehlednější a organizátor se vrací k seznamu otázek bez ručního klikání na toggle formuláře.

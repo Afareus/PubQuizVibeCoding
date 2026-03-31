@@ -397,9 +397,10 @@
         }
 
         await using var stream = file.OpenReadStream(1024 * 1024);
-        using var reader = new StreamReader(stream);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
 
-        csvContent = await reader.ReadToEndAsync();
+        csvContent = DecodeCsvContent(memoryStream.ToArray());
         selectedFileName = file.Name;
         infoMessage = "CSV soubor je načtený a připravený k importu.";
     }
@@ -681,6 +682,7 @@
             if (questionApiError is null)
             {
                 ResetManualQuestionForm();
+                isManualQuestionFormExpanded = false;
                 questionInfoMessage = "Otázka byla úspěšně smazána.";
             }
         }
@@ -935,6 +937,24 @@
         }
 
         return value.Value.ToString("0.############################", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private static string DecodeCsvContent(byte[] csvBytes)
+    {
+        if (csvBytes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return new System.Text.UTF8Encoding(false, true).GetString(csvBytes);
+        }
+        catch (System.Text.DecoderFallbackException)
+        {
+        }
+
+        return System.Text.Encoding.GetEncoding(1250).GetString(csvBytes);
     }
 
     private void ApplyOrganizerAuth(HttpRequestMessage request)

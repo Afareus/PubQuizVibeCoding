@@ -114,3 +114,4 @@ Ptej se jen tehdy, pokud by dvě různé varianty vedly k zásadně odlišné ar
 ## 10. Specifické uživatelské preference
 - Tlačítko 'Zobrazit výsledky' na týmové obrazovce po konci hry zůstane viditelné a bude do zveřejnění výsledků organizátorem pouze disablované, nikoli skryté.
 - Na týmové obrazovce po konci kvízu bude hláška 'Výsledky zatím nebyly zveřejněny organizátorem.' umístěna nad tlačítkem 'Zobrazit výsledky'.
+- Po smazání otázky tlačítkem 'Smazat otázku' na stránce OrganizerQuizDetail má být formulář 'Ruční vložení otázky' automaticky sbalen.

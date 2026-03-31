@@ -413,3 +413,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` byl upraven `ImportCsvAsync`: po úspěšném importu (s `ImportedQuestionsCount > 0`) se automaticky volá `LoadQuestionsAsync`, takže otázky jsou ihned viditelné v sekci `Otázky kvízu`.
 - `LoadQuestionsAsync` nyní podporuje načtení otázek i přes uložený `X-Organizer-Token` (bez nutnosti vyplnit `X-Quiz-Password`), pokud je token k dispozici.
 - Ověřeno buildem solution (`run_build`).
+
+## Post-S21 bugfix — CSV diakritika z Excel/ANSI exportů
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` byl upload CSV změněn z `StreamReader` na čtení raw bytes + explicitní dekódování.
+- Dekódování nyní používá UTF-8 strict (`throwOnInvalidBytes=true`) a při selhání fallback na Windows-1250, takže se správně načtou české znaky i u ne-UTF8 souborů.
+- V `QuizApp.Client/Program.cs` je registrován `CodePagesEncodingProvider`, aby byl fallback dekodér dostupný i ve WASM runtime.
+- Ověřeno buildem solution (`run_build`) a test runem projektu `QuizApp.Tests` (`run_tests`, 85/85 passed).
+
+## Post-S21 UI tweak — Po smazání otázky se formulář ručního vložení automaticky sbalí
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` byl upraven `DeleteEditedQuestionAsync`: po úspěšném smazání otázky se kromě resetu formuláře nastaví i `isManualQuestionFormExpanded = false`.
+- Tlačítko `Smazat otázku` nyní po dokončení akce vrátí UI do sbaleného stavu sekce `Ruční vložení otázky`.
