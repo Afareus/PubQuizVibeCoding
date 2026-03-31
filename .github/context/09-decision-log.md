@@ -262,3 +262,199 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Validace `CreateSessionRequest.JoinCode` byla uvolněna na jediné pravidlo „alespoň 4 znaky“; byly odstraněny požadavky na pevnou délku 8 znaků a omezenou znakovou sadu.
 - **Důvod:** Uživatel explicitně požadoval, aby kód `ABCD1234` procházel a aby jediným omezením byla minimální délka.
 - **Dopad:** Organizátor může použít libovolný join kód délky 4+ znaků, pokud je unikátní; UI i backend hlášky jsou konzistentní s tímto pravidlem.
+
+### D-037 — Zavedení druhého typu otázky `NumericClosest` při zachování kompatibility
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 feature
+- **Rozhodnutí:** Otázky mají nový typ `NumericClosest`; CSV import podporuje rozšířenou hlavičku s `question_type` a `correct_numeric_value`, přičemž původní 7-sloupcová hlavička zůstává validní jako `MultipleChoice`.
+- **Důvod:** Uživatel požadoval druhý typ otázky s číselným tipem a bodováním nejbližších odpovědí bez rozbití existujícího obsahu a workflow.
+- **Dopad:** Aplikace zvládá kombinaci multiple-choice i numerických otázek v jednom kvízu; scoring je deterministický (v numerické otázce bod dostanou všechny týmy se shodně nejmenší odchylkou).
+
+### D-038 — Chybějící DB migrace pro `NumericClosest` se řeší jako explicitní Post-S21 bugfix
+- **Datum/čas (UTC):** 2026-03-31T19:05:00Z
+- **Krok:** Post-S21 bugfix
+- **Rozhodnutí:** Byla vygenerována a aplikována migrace `20260331190153_AddNumericClosestQuestionFields` místo dočasných workaroundů (vypnutí background služby / ignorování výjimky).
+- **Důvod:** Runtime pád (`42703 column q0.CorrectNumericValue does not exist`) byl způsoben nesouladem modelu a DB schématu; správné řešení v rámci MVP je dorovnat schéma přes EF migraci.
+- **Dopad:** `Questions` a `TeamAnswers` mají očekávané sloupce pro numerické otázky, background progression služba již nepadá na chybějícím sloupci a klient přestává dostávat následné `TypeError: Failed to fetch` po pádu serveru.
+
+### D-039 — Ruční vkládání otázek je samostatný endpoint místo opětovného CSV importu
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 feature
+- **Rozhodnutí:** Pro ruční přidání otázek byl zaveden endpoint `POST /api/quizzes/{quizId}/questions` s novým kontraktem `AddQuizQuestionRequest`, namísto workaroundu přes generování jednorázového CSV importu.
+- **Důvod:** Existující import je záměrně jednorázový pro prázdný kvíz; uživatelský požadavek na ruční vkládání otázek v detailu kvízu vyžaduje možnost přidávat otázky i po založení kvízu bez porušení import flow.
+- **Dopad:** Organizátor může otázky přidávat přímo z UI (multiple-choice i numeric), backend zachovává stávající auth model (`token` nebo `heslo`) a úpravy jsou blokované při aktivní session (`WAITING`/`RUNNING`) kvůli determinismu hry.
+
+### D-040 — Klientské desetinné hodnoty se zobrazují bez pevných koncových nul
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI bugfix
+- **Rozhodnutí:** V klientských stránkách s numerickými otázkami a výsledky je použito jednotné formátování desetinných čísel bez nulového paddingu (`0.############################`) a u času v sekundách je při detailním zobrazení použito `0.###` místo pevného `F3`.
+- **Důvod:** Uživatel požadoval, aby se desetinná místa zobrazovala jen tehdy, když obsahují relevantní číslice.
+- **Dopad:** UI je čitelnější, bez hodnot typu `12.000`/`5.5000`; při zachování potřeby odlišit těsné časové rozdíly ve výsledcích.
+
+### D-041 — `NumericClosest`: bod za nejbližší tip, `CorrectCount` jen za přesnou shodu
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 backend bugfix
+- **Rozhodnutí:** Ve výpočtu session výsledků zůstává u `NumericClosest` pravidlo bodování nejbližších tipů pro `Score`, ale `CorrectCount` se navyšuje pouze při přesné numerické shodě (`NumericValue == CorrectNumericValue`).
+- **Důvod:** Uživatel explicitně požadoval, aby sloupec `Správně` znamenal skutečně správné odpovědi, ne jen vítězný nejbližší odhad.
+- **Dopad:** Výsledkový grid přesněji odlišuje „získané body“ od „fakticky správných odpovědí“ u numerických otázek.
+
+### D-042 — Terminologie numerických výsledků: `Správná odpověď` místo `Správná hodnota`
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI text tweak
+- **Rozhodnutí:** V klientských obrazovkách byl popisek u numerických správných hodnot sjednocen na `Správná odpověď:`.
+- **Důvod:** Uživatel explicitně požadoval jednotnou terminologii.
+- **Dopad:** Konzistentnější UX napříč detailem kvízu i výsledkovými stránkami.
+
+### D-043 — `Otázky kvízu`: při `QuestionCount == 0` se ruční formulář zobrazí ihned
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** V `OrganizerQuizDetail` se formulář `Ruční vložení otázky` zobrazuje okamžitě, pokud kvíz nemá žádné otázky; flow se zadáním hesla a tlačítkem `Zobrazit otázky` zůstává pro kvízy, které už otázky obsahují.
+- **Důvod:** Uživatel požadoval zrychlit první vložení otázky do nově vytvořeného (prázdného) kvízu bez mezikroku načítání.
+- **Dopad:** První otázku lze přidat přímo po otevření detailu; po přidání první otázky se UI vrací do původního režimu zobrazení otázek.
+
+### D-044 — Po prvním ručním vložení zachovat možnost přidávat další otázky bez hesla v aktuální relaci stránky
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** `OrganizerQuizDetail` drží dočasný UI režim, který po prvním úspěšném ručním vložení otázky umožní v tomtéž otevření stránky dál přidávat otázky bez zadávání `X-Quiz-Password`; tento režim se při novém otevření detailu resetuje.
+- **Důvod:** Uživatel požadoval plynulé vkládání více otázek za sebou po založení prázdného kvízu, ale zároveň zachovat heslo při pozdějším návratu do detailu.
+- **Dopad:** UX pro počáteční naplnění kvízu je rychlejší bez oslabení pravidla, že při dalším přístupu se otázky načítají přes heslo.
+
+### D-045 — Ruční správa otázek používá explicitní pořadí bez automatického přeskládání
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 feature
+- **Rozhodnutí:** Pro ruční `POST` i `PUT` otázky se používá explicitně zadané pořadí (`Order`), které musí být unikátní v rámci kvízu; při kolizi se operace odmítne validační chybou místo automatického přesunu ostatních otázek.
+- **Důvod:** Uživatel explicitně požadoval validaci existence otázky s požadovaným pořadím a současně možnost řídit pořadí při vkládání/editaci.
+- **Dopad:** Chování je deterministické a předvídatelné, bez skrytých side-effectů v pořadí ostatních otázek; UI může organizátorovi vrátit jasnou chybu při duplicitě pořadí.
+
+### D-046 — Ve formuláři ručního vložení je `Pořadí otázky` první pole
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Pole `Pořadí otázky` je v `OrganizerQuizDetail` přesunuto nad `Typ otázky` na první pozici formuláře ručního vložení/úpravy.
+- **Důvod:** Uživatel explicitně požadoval prioritu zadání pořadí před ostatními vlastnostmi otázky.
+- **Dopad:** UX lépe odpovídá workflow organizátora při plánování pořadí otázek.
+
+### D-047 — Formulář `Ruční vložení otázky` je explicitně sbalitelný
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Sekce ručního vložení/úpravy otázky v `OrganizerQuizDetail` byla upravena na rozbalovací formulář s malým toggle tlačítkem vpravo v řádku nadpisu.
+- **Důvod:** Uživatel explicitně požadoval možnost celý formulář schovat a rozbalit kliknutím na malé tlačítko u textu `Ruční vložení otázky`.
+- **Dopad:** Stránka detailu kvízu je přehlednější; organizátor může formulář držet sbalený a rozbalit ho jen při potřebě vkládání/editace.
+
+### D-048 — Směr toggle šipky odpovídá stavu formuláře
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Ikona v toggle tlačítku formuláře `Ruční vložení otázky` používá `▼` pro sbalený stav a `▲` pro rozbalený stav.
+- **Důvod:** Uživatel explicitně požadoval intuitivní indikaci směru rozbalení/sbalení podle stavu formuláře.
+- **Dopad:** Lepší čitelnost a konzistentní UX chování rozbalovací sekce.
+
+### D-049 — Položky otázek v `Otázky kvízu` mají jemný kontrastní podklad
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Jednotlivé položky seznamu otázek v `OrganizerQuizDetail` používají vlastní CSS třídu `quiz-question-item` s jemně odlišnou barvou pozadí oproti card background.
+- **Důvod:** Uživatel explicitně požadoval lehké podbarvení jednotlivých otázek pro lepší vizuální oddělení.
+- **Dopad:** Lepší přehlednost dlouhého seznamu otázek bez zásadní změny designu.
+
+### D-050 — Podbarvení `quiz-question-item` je zesílené pro jasnou viditelnost
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Styl `quiz-question-item` používá výraznější, ale stále jemný kontrast (`#eef4ff` + světle modrý border a `inset` linku).
+- **Důvod:** Původní podbarvení bylo v praxi příliš subtilní a uživatel hlásil, že změna není viditelná.
+- **Dopad:** Rozdíl mezi pozadím sekce a jednotlivými question kartami je okamžitě rozpoznatelný.
+
+### D-051 — Styling otázek přesunut do `OrganizerQuizDetail.razor.css`
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Styly pro `quiz-question-item` jsou definovány v komponentním souboru `QuizApp.Client/Pages/OrganizerQuizDetail.razor.css` místo globálního `app.css`.
+- **Důvod:** Uživatel hlásil, že globální CSS úprava se neprojevuje; komponentní CSS isolation zajistí cílenou aplikaci stylu přímo na stránce detailu.
+- **Dopad:** Podbarvení otázek je navázané na konkrétní komponentu a je spolehlivěji viditelné.
+
+### D-052 — Finální fallback: podbarvení question card řešeno inline stylem
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** V `OrganizerQuizDetail.razor` je podbarvení question card a transparentní pozadí option řádků nastaveno přímo přes inline `style` atribut.
+- **Důvod:** Uživatel opakovaně hlásil, že změna se neprojevuje; inline styl eliminuje vliv cache/bundlingu/priority selektorů.
+- **Dopad:** Vizuální odlišení otázek je deterministické a okamžitě aplikované bez závislosti na externích CSS souborech.
+
+### D-053 — Badge `Správná` používá zelený text místo bílého
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Badge u správné odpovědi v `OrganizerQuizDetail` používá styl `bg-light text-success border border-success` namísto `text-bg-success`.
+- **Důvod:** Uživatel požadoval, aby text `Správná` byl zelený stejně jako zvýraznění správné odpovědi v řádku.
+- **Dopad:** Vizuální význam je konzistentní: správná odpověď i její badge používají stejnou zelenou barvu textu.
+
+### D-054 — `Otázky kvízu` mají pevné pořadí metadat a `Upravit` v pravém horním rohu
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** V každé question card je nahoře řádek `Otázka číslo:` + akce `Upravit` vpravo; pod tím následuje text otázky, `Typ otázky:` a `Čas na odpověď:` v přesně daném pořadí.
+- **Důvod:** Uživatel explicitně požadoval konkrétní strukturu informací v kartě otázky a umístění tlačítka `Upravit` do pravého horního rohu.
+- **Dopad:** Konzistentní a rychle čitelný layout napříč všemi otázkami bez změny business logiky.
+
+### D-055 — Text o heslu v `Otázky kvízu` se zobrazuje jen pokud kvíz má otázky
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Informační text „Otázky i správné odpovědi se zobrazí až po zadání Administrátorského hesla kvízu.“ je podmíněně renderován jen když `QuestionCount > 0`.
+- **Důvod:** Uživatel požadoval, aby se tento text nezobrazoval u prázdného kvízu, kde je primární flow ruční přidání první otázky.
+- **Dopad:** Méně rušivé UI v prázdném stavu kvízu a konzistentnější první zkušenost s ručním vložením otázky.
+
+### D-056 — `Import otázek CSV` je umístěn pod sekci `Otázky kvízu`
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** Na stránce `OrganizerQuizDetail` je sekce `Import otázek CSV` přesunuta za sekci `Otázky kvízu`.
+- **Důvod:** Uživatel explicitně požadoval pořadí formulářů s prioritou ruční správy otázek nad CSV importem.
+- **Dopad:** Struktura stránky lépe odpovídá požadovanému workflow organizátora.
+
+### D-057 — Spuštění kvízu vyžaduje kompletní pořadí otázek bez mezer
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 backend validation
+- **Rozhodnutí:** `CreateSessionAsync` před vytvořením session validuje, že `OrderIndex` otázek tvoří souvislou sekvenci `0..N-1`; pokud ne, vrací `ValidationFailed` s uživatelskou hláškou o nekompletním pořadí.
+- **Důvod:** Uživatel explicitně požadoval zablokovat spuštění kvízu, když pořadí otázek není kompletní.
+- **Dopad:** Organizátor nemůže spustit session nad nekonzistentním pořadím otázek; chyba je vrácena okamžitě při pokusu o spuštění.
+
+### D-058 — Frontend validace ručního formuláře otázek je explicitně per pole
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI validation
+- **Rozhodnutí:** `OrganizerQuizDetail` validuje formulář ručního vložení/úpravy otázky na klientu ještě před HTTP requestem; chyby se zobrazují krátce a konkrétně pod příslušným polem.
+- **Důvod:** Uživatel explicitně požadoval „řádné frontendové validace“ se stručnými, ale vysvětlujícími chybovými informacemi.
+- **Dopad:** Rychlejší oprava vstupu bez zbytečných round-tripů na backend a čitelnější UX při vyplňování formuláře.
+
+### D-059 — `Pořadí otázky` se po uložení nastavuje na nejnižší volnou hodnotu
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** V `OrganizerQuizDetail` se pro předvyplnění `Pořadí otázky` používá helper, který hledá nejnižší volné pořadí; při načteném seznamu vychází ze skutečných `OrderIndex` otázek.
+- **Důvod:** Uživatel explicitně požadoval po ručním přidání otázky automatický posun na „nejbližší nejnižší volnou hodnotu“.
+- **Dopad:** Formulář po přidání lépe navádí na další validní pořadí i při mezerách v pořadí.
+
+### D-060 — CSV import sjednocen na delimiter `;` + podpora Excel `sep=;`
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UX/API tweak
+- **Rozhodnutí:** CSV parser používá jako oddělovač středník (`;`) a navíc akceptuje volitelný první řádek `sep=;` pro přímé otevření souboru v Excelu.
+- **Důvod:** Uživatel explicitně požadoval, aby import i předpis fungoval v Excelu tak, že se hodnoty rozdělí do samostatných buněk.
+- **Dopad:** Šablona i importní backend jsou konzistentní s českým Excel workflow; data lze otevřít/importovat bez ručního přepínání oddělovače.
+
+### D-061 — Smazání otázky při editaci otázky v organizátorském UI
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI/API tweak
+- **Rozhodnutí:** Do flow úpravy otázky je doplněna samostatná akce mazání (`DELETE /api/quizzes/{quizId}/questions/{questionId}`), která po smazání otázky automaticky přepočítá pořadí zbývajících otázek (`OrderIndex`) tak, aby zůstalo souvislé od nuly.
+- **Důvod:** Uživatel explicitně požadoval možnost smazat aktuálně upravovanou otázku přímo v edit formuláři.
+- **Dopad:** Organizátor může otázku odstranit bez ručního zásahu do databáze; kvíz po mazání nezůstane v nekonzistentním pořadí, takže lze dál bez překážek upravovat otázky i spouštět session.
+
+### D-062 — Po CSV importu se otázky načtou automaticky do sekce `Otázky kvízu`
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UX tweak
+- **Rozhodnutí:** Po úspěšném `ImportCsvAsync` klient automaticky volá `LoadQuestionsAsync` (pokud se skutečně importovala alespoň jedna otázka), aby se nové otázky zobrazily ihned bez manuálního kroku `Zobrazit otázky`.
+- **Důvod:** Uživatel explicitně požadoval okamžité zobrazení nahraných otázek po CSV importu.
+- **Dopad:** Kratší a plynulejší organizátorský workflow; po importu je stav kvízu okamžitě viditelný v otázkové sekci.
+
+### D-063 — CSV upload v klientu má fallback dekódování pro české ANSI/Excel soubory
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 bugfix
+- **Rozhodnutí:** `OrganizerQuizDetail` při načítání CSV souboru dekóduje obsah nejprve jako UTF-8 s `throwOnInvalidBytes=true`; pokud dekódování selže, použije fallback Windows-1250 (`CP1250`).
+- **Důvod:** Uživatel nahlásil rozpad české diakritiky (`Kolik stup�� je prav� �hel?`) po importu CSV exportovaného mimo UTF-8 (typicky Excel/ANSI).
+- **Dopad:** Import zůstává kompatibilní s UTF-8 i běžnými českými Windows exporty a texty otázek se na frontendu zobrazují korektně.
+
+### D-064 — Po smazání otázky se edit formulář automaticky sbalí
+- **Datum/čas (UTC):** 2026-03-31T00:00:00Z
+- **Krok:** Post-S21 UI tweak
+- **Rozhodnutí:** V `OrganizerQuizDetail` se po úspěšném `DeleteEditedQuestionAsync` nastaví `isManualQuestionFormExpanded = false`, takže se formulář `Ruční vložení otázky` po smazání otázky automaticky sbalí.
+- **Důvod:** Uživatel explicitně požadoval automatické sbalení formuláře po akci `Smazat otázku`.
+- **Dopad:** Po smazání je obrazovka přehlednější a organizátor se vrací k seznamu otázek bez ručního klikání na toggle formuláře.

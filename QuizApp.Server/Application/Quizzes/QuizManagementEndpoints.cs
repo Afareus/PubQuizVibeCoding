@@ -16,6 +16,12 @@ public static class QuizManagementEndpoints
             .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/sessions", CreateSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
+        group.MapPost("/{quizId:guid}/questions", AddQuestionAsync)
+            .RequireRateLimiting("OrganizerMutations");
+        group.MapPut("/{quizId:guid}/questions/{questionId:guid}", UpdateQuestionAsync)
+            .RequireRateLimiting("OrganizerMutations");
+        group.MapDelete("/{quizId:guid}/questions/{questionId:guid}", DeleteQuestionAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/import-csv", ImportQuizCsvAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapGet("/{quizId:guid}", GetQuizDetailAsync);
@@ -58,6 +64,25 @@ public static class QuizManagementEndpoints
         return TypedResults.Ok(result.Response!);
     }
 
+    private static async Task<IResult> DeleteQuestionAsync(
+        Guid quizId,
+        Guid questionId,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.DeleteQuestionAsync(quizId, questionId, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.NoContent();
+    }
+
     private static async Task<IResult> CreateSessionAsync(
         Guid quizId,
         CreateSessionRequest request,
@@ -75,6 +100,45 @@ public static class QuizManagementEndpoints
         }
 
         return TypedResults.Created($"/api/sessions/{result.Response!.SessionId}", result.Response);
+    }
+
+    private static async Task<IResult> AddQuestionAsync(
+        Guid quizId,
+        AddQuizQuestionRequest request,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.AddQuestionAsync(quizId, request, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Created($"/api/quizzes/{quizId}", result.Response!);
+    }
+
+    private static async Task<IResult> UpdateQuestionAsync(
+        Guid quizId,
+        Guid questionId,
+        UpdateQuizQuestionRequest request,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.UpdateQuestionAsync(quizId, questionId, request, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
     }
 
     private static async Task<IResult> GetQuizDetailAsync(

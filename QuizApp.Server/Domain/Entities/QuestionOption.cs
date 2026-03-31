@@ -40,4 +40,9 @@ public sealed class QuestionOption
     {
         return new QuestionOption(questionOptionId, questionId, optionKey, text);
     }
+
+    public void UpdateText(string text)
+    {
+        Text = EntityGuards.Required(text, nameof(text), "Question option text is required.");
+    }
 }

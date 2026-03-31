@@ -17,6 +17,12 @@ public interface IQuizManagementService
 
     Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, CreateSessionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
+    Task<AddQuizQuestionOperationResult> AddQuestionAsync(Guid quizId, AddQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<AddQuizQuestionOperationResult> UpdateQuestionAsync(Guid quizId, Guid questionId, UpdateQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<DeleteQuizQuestionOperationResult> DeleteQuestionAsync(Guid quizId, Guid questionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken);
 
     Task<QuizDetailOperationResult> GetQuizDetailAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -32,6 +38,8 @@ public sealed class QuizManagementService : IQuizManagementService
     private const int PasswordHashBytes = 32;
     private const int PasswordHashIterations = 100_000;
     private const int MaxQuizNameLength = 200;
+    private const int MaxQuestionTextLength = 1500;
+    private const int MaxQuestionOptionLength = 500;
 
     private readonly QuizAppDbContext _dbContext;
     private readonly IQuizCsvParser _quizCsvParser;
@@ -104,13 +112,18 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (quiz.Questions.Count == 0)
         {
-            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Session lze založit jen nad kvízem, který obsahuje alespoň jednu otázku."));
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Nelze spustit kvíz, který neobsahuje žádné otázky."));
+        }
+
+        if (!HasCompleteQuestionOrder(quiz.Questions))
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Kvíz není možné spustit, protože neobsahuje kompletní pořadí otázek."));
         }
 
         var joinCodeAlreadyUsed = await _dbContext.Sessions.AnyAsync(x => x.JoinCode == normalizedJoinCode, cancellationToken);
         if (joinCodeAlreadyUsed)
         {
-            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join code už je použitý v jiné session."));
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join kód už je použitý v jiné spuštěné hře."));
         }
 
         var nowUtc = DateTime.UtcNow;
@@ -131,10 +144,235 @@ public sealed class QuizManagementService : IQuizManagementService
         }
         catch (DbUpdateException)
         {
-            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join code už je použitý v jiné session."));
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Zadaný join kód už je použitý v jiné spuštěné hře."));
         }
 
         return CreateSessionOperationResult.Success(new CreateSessionResponse(session.SessionId, session.JoinCode, session.Status));
+    }
+
+    public async Task<AddQuizQuestionOperationResult> AddQuestionAsync(Guid quizId, AddQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var validationErrors = ValidateAddQuestionRequest(request);
+        if (validationErrors is not null)
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Vstupní data nejsou validní.", validationErrors));
+        }
+
+        var quiz = await _dbContext.Quizzes
+            .Include(x => x.Questions)
+            .Include(x => x.Sessions)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return AddQuizQuestionOperationResult.Fail(authError!);
+        }
+
+        if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní hru."));
+        }
+
+        var desiredOrder = request.Order ?? (quiz.Questions.Count + 1);
+        var desiredOrderIndex = desiredOrder - 1;
+
+        if (quiz.Questions.Any(question => question.OrderIndex == desiredOrderIndex))
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Otázka se zadaným pořadím už existuje."));
+        }
+
+        var questionId = Guid.NewGuid();
+        var nowUtc = DateTime.UtcNow;
+        var sanitizedText = TextInputSanitizer.SanitizeSingleLine(request.Text);
+
+        var question = Question.Create(
+            questionId,
+            quiz.QuizId,
+            desiredOrderIndex,
+            sanitizedText,
+            request.TimeLimitSec,
+            request.QuestionType,
+            request.CorrectOption,
+            request.CorrectNumericValue);
+
+        _dbContext.Questions.Add(question);
+
+        if (request.QuestionType == QuestionType.MultipleChoice)
+        {
+            _dbContext.QuestionOptions.AddRange(
+                QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.A, TextInputSanitizer.SanitizeSingleLine(request.OptionA)),
+                QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.B, TextInputSanitizer.SanitizeSingleLine(request.OptionB)),
+                QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.C, TextInputSanitizer.SanitizeSingleLine(request.OptionC)),
+                QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.D, TextInputSanitizer.SanitizeSingleLine(request.OptionD)));
+        }
+
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "QUESTION_ADDED",
+            quiz.QuizId,
+            null,
+            JsonSerializer.Serialize(new QuestionAddedAuditPayload(quiz.QuizId, question.QuestionId, question.OrderIndex, question.QuestionType))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return AddQuizQuestionOperationResult.Success(new AddQuizQuestionResponse(question.QuestionId, question.OrderIndex, question.QuestionType));
+    }
+
+    public async Task<DeleteQuizQuestionOperationResult> DeleteQuestionAsync(Guid quizId, Guid questionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var quiz = await _dbContext.Quizzes
+            .Include(x => x.Questions)
+            .Include(x => x.Sessions)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return DeleteQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return DeleteQuizQuestionOperationResult.Fail(authError!);
+        }
+
+        if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
+        {
+            return DeleteQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní hru."));
+        }
+
+        var question = quiz.Questions.SingleOrDefault(x => x.QuestionId == questionId);
+        if (question is null)
+        {
+            return DeleteQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Otázka nebyla nalezena."));
+        }
+
+        var deletedOrderIndex = question.OrderIndex;
+        _dbContext.Questions.Remove(question);
+
+        foreach (var nextQuestion in quiz.Questions.Where(x => x.QuestionId != questionId && x.OrderIndex > deletedOrderIndex))
+        {
+            nextQuestion.Update(
+                nextQuestion.OrderIndex - 1,
+                nextQuestion.Text,
+                nextQuestion.TimeLimitSec,
+                nextQuestion.QuestionType,
+                nextQuestion.CorrectOption,
+                nextQuestion.CorrectNumericValue);
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "QUESTION_DELETED",
+            quiz.QuizId,
+            null,
+            JsonSerializer.Serialize(new QuestionDeletedAuditPayload(quiz.QuizId, question.QuestionId, deletedOrderIndex))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return DeleteQuizQuestionOperationResult.Success();
+    }
+
+    public async Task<AddQuizQuestionOperationResult> UpdateQuestionAsync(Guid quizId, Guid questionId, UpdateQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var validationErrors = ValidateUpdateQuestionRequest(request);
+        if (validationErrors is not null)
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Vstupní data nejsou validní.", validationErrors));
+        }
+
+        var quiz = await _dbContext.Quizzes
+            .Include(x => x.Questions)
+            .ThenInclude(x => x.Options)
+            .Include(x => x.Sessions)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return AddQuizQuestionOperationResult.Fail(authError!);
+        }
+
+        if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Otázky nelze upravovat, protože kvíz má aktivní hru."));
+        }
+
+        var question = quiz.Questions.SingleOrDefault(x => x.QuestionId == questionId);
+        if (question is null)
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Otázka nebyla nalezena."));
+        }
+
+        var desiredOrderIndex = request.Order - 1;
+        if (quiz.Questions.Any(existingQuestion => existingQuestion.QuestionId != questionId && existingQuestion.OrderIndex == desiredOrderIndex))
+        {
+            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Otázka se zadaným pořadím už existuje."));
+        }
+
+        var sanitizedText = TextInputSanitizer.SanitizeSingleLine(request.Text);
+        question.Update(
+            desiredOrderIndex,
+            sanitizedText,
+            request.TimeLimitSec,
+            request.QuestionType,
+            request.CorrectOption,
+            request.CorrectNumericValue);
+
+        if (request.QuestionType == QuestionType.MultipleChoice)
+        {
+            var sanitizedOptions = new Dictionary<OptionKey, string>
+            {
+                [OptionKey.A] = TextInputSanitizer.SanitizeSingleLine(request.OptionA),
+                [OptionKey.B] = TextInputSanitizer.SanitizeSingleLine(request.OptionB),
+                [OptionKey.C] = TextInputSanitizer.SanitizeSingleLine(request.OptionC),
+                [OptionKey.D] = TextInputSanitizer.SanitizeSingleLine(request.OptionD)
+            };
+
+            var existingOptions = question.Options.ToDictionary(x => x.OptionKey);
+            foreach (var (optionKey, optionText) in sanitizedOptions)
+            {
+                if (existingOptions.TryGetValue(optionKey, out var option))
+                {
+                    option.UpdateText(optionText);
+                }
+                else
+                {
+                    _dbContext.QuestionOptions.Add(QuestionOption.Create(Guid.NewGuid(), question.QuestionId, optionKey, optionText));
+                }
+            }
+        }
+        else
+        {
+            if (question.Options.Count > 0)
+            {
+                _dbContext.QuestionOptions.RemoveRange(question.Options);
+            }
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "QUESTION_UPDATED",
+            quiz.QuizId,
+            null,
+            JsonSerializer.Serialize(new QuestionUpdatedAuditPayload(quiz.QuizId, question.QuestionId, question.OrderIndex, question.QuestionType))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return AddQuizQuestionOperationResult.Success(new AddQuizQuestionResponse(question.QuestionId, question.OrderIndex, question.QuestionType));
     }
 
     public async Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken)
@@ -189,12 +427,17 @@ public sealed class QuizManagementService : IQuizManagementService
                 index,
                 parsedQuestion.QuestionText,
                 parsedQuestion.TimeLimitSec,
-                parsedQuestion.CorrectOption));
+                parsedQuestion.QuestionType,
+                parsedQuestion.CorrectOption,
+                parsedQuestion.CorrectNumericValue));
 
-            options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.A, parsedQuestion.OptionA));
-            options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.B, parsedQuestion.OptionB));
-            options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.C, parsedQuestion.OptionC));
-            options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.D, parsedQuestion.OptionD));
+            if (parsedQuestion.QuestionType == QuestionType.MultipleChoice)
+            {
+                options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.A, parsedQuestion.OptionA));
+                options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.B, parsedQuestion.OptionB));
+                options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.C, parsedQuestion.OptionC));
+                options.Add(QuestionOption.Create(Guid.NewGuid(), questionId, OptionKey.D, parsedQuestion.OptionD));
+            }
         }
 
         _dbContext.Questions.AddRange(questions);
@@ -237,7 +480,9 @@ public sealed class QuizManagementService : IQuizManagementService
                 question.OrderIndex,
                 question.Text,
                 question.TimeLimitSec,
+                question.QuestionType,
                 question.CorrectOption,
+                question.CorrectNumericValue,
                 question.Options
                     .OrderBy(option => option.OptionKey)
                     .Select(option => new QuizDetailQuestionOptionDto(option.OptionKey, option.Text))
@@ -321,6 +566,174 @@ public sealed class QuizManagementService : IQuizManagementService
         return errors.Count == 0 ? null : errors;
     }
 
+    private static bool HasCompleteQuestionOrder(IReadOnlyCollection<Question> questions)
+    {
+        if (questions.Count == 0)
+        {
+            return false;
+        }
+
+        var orderedIndexes = questions
+            .Select(question => question.OrderIndex)
+            .OrderBy(index => index)
+            .ToArray();
+
+        for (var expectedIndex = 0; expectedIndex < orderedIndexes.Length; expectedIndex++)
+        {
+            if (orderedIndexes[expectedIndex] != expectedIndex)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static IReadOnlyDictionary<string, string[]>? ValidateAddQuestionRequest(AddQuizQuestionRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        ValidateQuestionFields(
+            request.Text,
+            request.TimeLimitSec,
+            request.QuestionType,
+            request.CorrectOption,
+            request.CorrectNumericValue,
+            request.OptionA,
+            request.OptionB,
+            request.OptionC,
+            request.OptionD,
+            errors,
+            nameof(AddQuizQuestionRequest.Text),
+            nameof(AddQuizQuestionRequest.TimeLimitSec),
+            nameof(AddQuizQuestionRequest.QuestionType),
+            nameof(AddQuizQuestionRequest.CorrectOption),
+            nameof(AddQuizQuestionRequest.CorrectNumericValue),
+            nameof(AddQuizQuestionRequest.OptionA),
+            nameof(AddQuizQuestionRequest.OptionB),
+            nameof(AddQuizQuestionRequest.OptionC),
+            nameof(AddQuizQuestionRequest.OptionD));
+
+        if (request.Order.HasValue && request.Order.Value < 1)
+        {
+            errors[nameof(AddQuizQuestionRequest.Order)] = ["Pořadí otázky musí být alespoň 1."];
+        }
+
+        return errors.Count == 0 ? null : errors;
+    }
+
+    private static IReadOnlyDictionary<string, string[]>? ValidateUpdateQuestionRequest(UpdateQuizQuestionRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        ValidateQuestionFields(
+            request.Text,
+            request.TimeLimitSec,
+            request.QuestionType,
+            request.CorrectOption,
+            request.CorrectNumericValue,
+            request.OptionA,
+            request.OptionB,
+            request.OptionC,
+            request.OptionD,
+            errors,
+            nameof(UpdateQuizQuestionRequest.Text),
+            nameof(UpdateQuizQuestionRequest.TimeLimitSec),
+            nameof(UpdateQuizQuestionRequest.QuestionType),
+            nameof(UpdateQuizQuestionRequest.CorrectOption),
+            nameof(UpdateQuizQuestionRequest.CorrectNumericValue),
+            nameof(UpdateQuizQuestionRequest.OptionA),
+            nameof(UpdateQuizQuestionRequest.OptionB),
+            nameof(UpdateQuizQuestionRequest.OptionC),
+            nameof(UpdateQuizQuestionRequest.OptionD));
+
+        if (request.Order < 1)
+        {
+            errors[nameof(UpdateQuizQuestionRequest.Order)] = ["Pořadí otázky musí být alespoň 1."];
+        }
+
+        return errors.Count == 0 ? null : errors;
+    }
+
+    private static void ValidateQuestionFields(
+        string text,
+        int timeLimitSec,
+        QuestionType questionType,
+        OptionKey? correctOption,
+        decimal? correctNumericValue,
+        string? optionA,
+        string? optionB,
+        string? optionC,
+        string? optionD,
+        IDictionary<string, string[]> errors,
+        string textFieldName,
+        string timeLimitFieldName,
+        string questionTypeFieldName,
+        string correctOptionFieldName,
+        string correctNumericValueFieldName,
+        string optionAFieldName,
+        string optionBFieldName,
+        string optionCFieldName,
+        string optionDFieldName)
+    {
+        var sanitizedQuestionText = TextInputSanitizer.SanitizeSingleLine(text);
+
+        if (string.IsNullOrWhiteSpace(sanitizedQuestionText))
+        {
+            errors[textFieldName] = ["Text otázky je povinný."];
+        }
+        else if (sanitizedQuestionText.Length > MaxQuestionTextLength)
+        {
+            errors[textFieldName] = [$"Text otázky může mít maximálně {MaxQuestionTextLength} znaků."];
+        }
+
+        if (timeLimitSec is < 10 or > 300)
+        {
+            errors[timeLimitFieldName] = ["Časový limit otázky musí být v rozsahu 10 až 300 sekund."];
+        }
+
+        if (questionType == QuestionType.MultipleChoice)
+        {
+            ValidateQuestionOption(optionA, optionAFieldName, "Odpověď A je povinná.", errors);
+            ValidateQuestionOption(optionB, optionBFieldName, "Odpověď B je povinná.", errors);
+            ValidateQuestionOption(optionC, optionCFieldName, "Odpověď C je povinná.", errors);
+            ValidateQuestionOption(optionD, optionDFieldName, "Odpověď D je povinná.", errors);
+
+            if (correctOption is null)
+            {
+                errors[correctOptionFieldName] = ["Správná odpověď je povinná pro typ otázky Výběr A-D."];
+            }
+        }
+        else if (questionType == QuestionType.NumericClosest)
+        {
+            if (correctNumericValue is null)
+            {
+                errors[correctNumericValueFieldName] = ["Správná číselná hodnota je povinná pro číselný typ otázky."];
+            }
+        }
+        else
+        {
+            errors[questionTypeFieldName] = ["Neplatný typ otázky."];
+        }
+    }
+
+    private static void ValidateQuestionOption(
+        string? optionValue,
+        string optionName,
+        string requiredErrorMessage,
+        IDictionary<string, string[]> errors)
+    {
+        var sanitizedValue = TextInputSanitizer.SanitizeSingleLine(optionValue);
+        if (string.IsNullOrWhiteSpace(sanitizedValue))
+        {
+            errors[optionName] = [requiredErrorMessage];
+            return;
+        }
+
+        if (sanitizedValue.Length > MaxQuestionOptionLength)
+        {
+            errors[optionName] = [$"Text odpovědi může mít maximálně {MaxQuestionOptionLength} znaků."];
+        }
+    }
+
     private static IReadOnlyDictionary<string, string[]>? ValidateCreateSessionRequest(CreateSessionRequest request)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
@@ -328,13 +741,13 @@ public sealed class QuizManagementService : IQuizManagementService
 
         if (string.IsNullOrWhiteSpace(normalizedJoinCode))
         {
-            errors[nameof(CreateSessionRequest.JoinCode)] = ["Join code je povinný."];
+            errors[nameof(CreateSessionRequest.JoinCode)] = ["Join kód je povinný."];
         }
         else
         {
             if (normalizedJoinCode.Length < MinJoinCodeLength)
             {
-                errors[nameof(CreateSessionRequest.JoinCode)] = [$"Join code musí mít alespoň {MinJoinCodeLength} znaky."];
+                errors[nameof(CreateSessionRequest.JoinCode)] = [$"Join kód musí mít alespoň {MinJoinCodeLength} znaky."];
             }
         }
 
@@ -469,6 +882,12 @@ public sealed class QuizManagementService : IQuizManagementService
 
     private sealed record SessionCreatedAuditPayload(Guid SessionId, Guid QuizId, string JoinCode);
 
+    private sealed record QuestionAddedAuditPayload(Guid QuizId, Guid QuestionId, int OrderIndex, QuestionType QuestionType);
+
+    private sealed record QuestionUpdatedAuditPayload(Guid QuizId, Guid QuestionId, int OrderIndex, QuestionType QuestionType);
+
+    private sealed record QuestionDeletedAuditPayload(Guid QuizId, Guid QuestionId, int OrderIndex);
+
     private sealed record QuizDeletedAuditPayload(Guid QuizId);
 }
 
@@ -505,6 +924,17 @@ public sealed record CreateSessionOperationResult(
     public static CreateSessionOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }
 
+public sealed record AddQuizQuestionOperationResult(
+    AddQuizQuestionResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static AddQuizQuestionOperationResult Success(AddQuizQuestionResponse response) => new(response, null);
+
+    public static AddQuizQuestionOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
 public sealed record QuizDetailOperationResult(
     QuizDetailResponse? Response,
     ApiErrorResponse? Error)
@@ -514,6 +944,15 @@ public sealed record QuizDetailOperationResult(
     public static QuizDetailOperationResult Success(QuizDetailResponse response) => new(response, null);
 
     public static QuizDetailOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record DeleteQuizQuestionOperationResult(
+    bool IsSuccess,
+    ApiErrorResponse? Error)
+{
+    public static DeleteQuizQuestionOperationResult Success() => new(true, null);
+
+    public static DeleteQuizQuestionOperationResult Fail(ApiErrorResponse error) => new(false, error);
 }
 
 public sealed record DeleteQuizOperationResult(

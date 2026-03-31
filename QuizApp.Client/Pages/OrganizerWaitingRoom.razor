@@ -41,14 +41,21 @@
                     <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
                 }
 
-                <div class="d-grid gap-2 mb-3">
-                    @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
-                    {
-                        <button class="btn btn-outline-primary text-start" type="button" disabled>
-                            <strong>@option.OptionKey</strong> — @option.Text
-                        </button>
-                    }
-                </div>
+                @if (snapshot.CurrentQuestion.QuestionType == QuestionType.MultipleChoice)
+                {
+                    <div class="d-grid gap-2 mb-3">
+                        @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
+                        {
+                            <button class="btn btn-outline-primary text-start" type="button" disabled>
+                                <strong>@option.OptionKey</strong> — @option.Text
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="mb-3 text-muted">Typ otázky: číselný tip (bod získá nejbližší odpověď).</p>
+                }
 
                 <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="TogglePauseAsync">@PauseButtonText</button>
             </div>

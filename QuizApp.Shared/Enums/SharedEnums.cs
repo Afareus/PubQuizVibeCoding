@@ -17,6 +17,12 @@ public enum OptionKey
     D = 3
 }
 
+public enum QuestionType
+{
+    MultipleChoice = 0,
+    NumericClosest = 1
+}
+
 public enum ApiErrorCode
 {
     ValidationFailed = 0,

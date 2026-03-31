@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using QuizApp.Client;
 using QuizApp.Client.Organizer;
 using QuizApp.Client.Team;
+using System.Text;
+
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");

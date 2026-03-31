@@ -50,18 +50,17 @@ public sealed class TeamSessionLocalStore
         await SaveAsync(AnswersStorageKey, answers);
     }
 
-    public async Task<OptionKey?> FindSubmittedAnswerAsync(Guid sessionId, Guid teamId, Guid questionId)
+    public async Task<StoredTeamAnswer?> FindSubmittedAnswerAsync(Guid sessionId, Guid teamId, Guid questionId)
     {
         var answers = await GetAnswersAsync();
-        var submitted = answers.FirstOrDefault(answer => answer.SessionId == sessionId && answer.TeamId == teamId && answer.QuestionId == questionId);
-        return submitted?.SelectedOption;
+        return answers.FirstOrDefault(answer => answer.SessionId == sessionId && answer.TeamId == teamId && answer.QuestionId == questionId);
     }
 
-    public async Task SaveSubmittedAnswerAsync(Guid sessionId, Guid teamId, Guid questionId, OptionKey selectedOption)
+    public async Task SaveSubmittedAnswerAsync(Guid sessionId, Guid teamId, Guid questionId, OptionKey? selectedOption = null, decimal? numericValue = null)
     {
         var answers = (await GetAnswersAsync()).ToList();
         answers.RemoveAll(answer => answer.SessionId == sessionId && answer.TeamId == teamId && answer.QuestionId == questionId);
-        answers.Add(new StoredTeamAnswer(sessionId, teamId, questionId, selectedOption, DateTimeOffset.UtcNow));
+        answers.Add(new StoredTeamAnswer(sessionId, teamId, questionId, DateTimeOffset.UtcNow, selectedOption, numericValue));
 
         await SaveAsync(AnswersStorageKey, answers);
     }
@@ -112,5 +111,6 @@ public sealed record StoredTeamAnswer(
     Guid SessionId,
     Guid TeamId,
     Guid QuestionId,
-    OptionKey SelectedOption,
-    DateTimeOffset SubmittedAtUtc);
+    DateTimeOffset SubmittedAtUtc,
+    OptionKey? SelectedOption = null,
+    decimal? NumericValue = null);

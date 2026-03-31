@@ -35,9 +35,18 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- S21 — Testy a release readiness (doplněny API integrační testy + finální checklist, ověřeno build + testy).
+- Post-S21 UI tweak — po smazání otázky tlačítkem `Smazat otázku` se v `OrganizerQuizDetail` automaticky sbalí formulář `Ruční vložení otázky`.
 
 ## Aktuální poznámky
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po úspěšném `DeleteEditedQuestionAsync` formulář `Ruční vložení otázky` automaticky sbalí (`isManualQuestionFormExpanded = false`).
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se CSV soubor při uploadu čte jako raw bytes a dekóduje přes UTF-8 (strict) s fallbackem na CP1250, aby se správně načetla čeština i u ne-UTF8 exportů.
+- V `QuizApp.Client/Program.cs` je registrován `CodePagesEncodingProvider`, aby byl fallback dekodér CP1250 dostupný i ve WASM klientu.
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` po úspěšném `ImportCsvAsync` automaticky proběhne `LoadQuestionsAsync`, takže importované otázky jsou vidět ihned bez dalšího klikání.
+- `LoadQuestionsAsync` nyní pro načtení otázek akceptuje nejen `X-Quiz-Password`, ale i uložený `X-Organizer-Token`.
+- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `DeleteQuestionAsync` (autorizace `X-Organizer-Token`/`X-Quiz-Password`, blokace při aktivní session, audit `QUESTION_DELETED`, reindex pořadí zbývajících otázek).
+- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `DELETE /api/quizzes/{quizId}/questions/{questionId}` (rate limit `OrganizerMutations`).
+- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` má formulář úpravy otázky nové tlačítko `Smazat otázku`, které volá API mazání a po úspěchu obnoví seznam otázek.
+- V `QuizApp.Tests/QuizManagementServiceTests.cs` a `QuizApp.Tests/ApiIntegrationTests.cs` přibyly testy pro mazání otázky a přepočet `OrderIndex`.
 - V `QuizApp.Server/Program.cs` je doplněn rate limiting middleware s politikami `JoinPerIp` (10/min), `SubmitPerTeam` (20/min) a `OrganizerMutations` (10/min), plus `UseForwardedHeaders` a `UseHsts` mimo development pro TLS-ready provoz.
 - V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` a `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou mutační endpointy napojeny na odpovídající rate limit policy.
 - V `QuizApp.Server/Application/Common/TextInputSanitizer.cs` vznikla centralizovaná sanitizace textových vstupů; je použita v `QuizManagementService` (název kvízu) a `SessionParticipationService` (název týmu) včetně délkových validací dle EF limitů.
@@ -114,12 +123,48 @@ Po každém kroku jej aktualizuj.
 - Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` po otevření s `SessionId` automaticky načte snapshot, takže po přechodu z detailu kvízu odpadá ruční mezikrok `Načíst snapshot`.
 - Post-S21 backend úprava: `POST /api/quizzes/{quizId}/sessions` nyní přijímá `CreateSessionRequest.JoinCode`, kontroluje unikátnost a validačně vyžaduje pouze minimální délku 4 znaky.
 - Post-S21 bugfix: pro join kód při startu session byla zrušena formátová omezení (abeceda/pevná délka); v UI i backendu zůstává jen pravidlo „alespoň 4 znaky“.
+- Post-S21 feature: zaveden `QuestionType` (`MultipleChoice`, `NumericClosest`) a rozšířeny kontrakty (`QuizDetailQuestionDto`, `SnapshotQuestionDto`, `SubmitAnswerRequest/Response`, `CorrectAnswerDto`) o numerické odpovědi.
+- Post-S21 feature: CSV parser podporuje rozšířenou hlavičku s `question_type` a `correct_numeric_value` (stará hlavička zůstává kompatibilní jako multiple-choice).
+- Post-S21 feature: `SessionParticipationService` přijímá submit A-D i numerický tip podle typu otázky; při výpočtu výsledků u `NumericClosest` bodují všechny týmy s minimální absolutní odchylkou od správné hodnoty.
+- Post-S21 feature: klientské stránky `TeamQuestion`, `SessionResults`, `OrganizerSessionResults`, `OrganizerQuizDetail`, `OrganizerWaitingRoom` zobrazují a obsluhují numerické otázky.
+- Post-S21 bugfix: byla vytvořena EF migrace `QuizApp.Server/Persistence/Migrations/20260331190153_AddNumericClosestQuestionFields.cs` (sloupce `Questions.CorrectNumericValue`, `Questions.QuestionType`, `TeamAnswers.NumericValue` + nullable `CorrectOption`/`SelectedOption`) a úspěšně aplikována přes `dotnet ef database update`.
+- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `AddQuestionAsync` s autorizací (`X-Organizer-Token` nebo `X-Quiz-Password`), validacemi pro oba typy otázek, blokací úprav při aktivní session (`WAITING`/`RUNNING`) a auditem `QUESTION_ADDED`.
+- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `POST /api/quizzes/{quizId}/questions` (rate limit `OrganizerMutations`), sdílené kontrakty byly rozšířeny o `AddQuizQuestionRequest/Response`.
+- Post-S21 feature: `QuizApp.Client/Pages/OrganizerQuizDetail.razor` v sekci „Otázky kvízu“ obsahuje formulář pro ruční vložení otázky (výběr typu, A-D nebo numerická hodnota, časový limit), odeslání na API a automatický refresh seznamu otázek.
+- Post-S21 feature: v testech přibyly scénáře pro ruční vložení otázky (`QuizManagementServiceTests`: multiple-choice, numeric, blokace při aktivní session; `ApiIntegrationTests`: HTTP endpoint přes `X-Quiz-Password`).
+- Post-S21 feature: ruční formulář v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` podporuje zadání `Pořadí otázky` a editaci již vložených otázek (tlačítko `Upravit` + uložení přes `PUT`).
+- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `UpdateQuestionAsync` a validace kolize pořadí (při `POST` i `PUT` vrací chybu, pokud požadované pořadí už používá jiná otázka).
+- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl doplněn endpoint `PUT /api/quizzes/{quizId}/questions/{questionId}`; kontrakty v `QuizApp.Shared/Contracts/QuizContracts.cs` byly rozšířeny o `AddQuizQuestionRequest.Order` a `UpdateQuizQuestionRequest`.
+- Post-S21 testy: v `QuizApp.Tests/QuizManagementServiceTests.cs` a `QuizApp.Tests/ApiIntegrationTests.cs` přibyly scénáře pro validaci duplicitního pořadí a editaci otázky.
+- Post-S21 UI bugfix: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor`, `QuizApp.Client/Pages/OrganizerSessionResults.razor`, `QuizApp.Client/Pages/SessionResults.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` je sjednoceno zobrazení desetinných hodnot (`0.############################`) bez ne-relevantních nul; totéž platí pro zobrazení času ve výsledcích (bez pevného `F3/F0` s nulovým paddingem).
+- Post-S21 backend bugfix: v `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` je výpočet `CorrectCount` pro `NumericClosest` upraven tak, že se zvyšuje pouze při přesné shodě (`NumericValue == CorrectNumericValue`), zatímco `Score` za nejbližší tip zůstává beze změny.
+- Post-S21 testy: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyl test `NumericClosest_NearestButNotExact_GivesScoreButNotCorrectCount` ověřující nové pravidlo pro sloupec `Správně`.
+- Post-S21 UI text tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor`, `QuizApp.Client/Pages/OrganizerSessionResults.razor` a `QuizApp.Client/Pages/SessionResults.razor` byl popisek numerické správné odpovědi změněn na `Správná odpověď:`.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se v sekci `Otázky kvízu` při nulovém počtu otázek zobrazuje formulář `Ruční vložení otázky` okamžitě; pokud už kvíz otázky má, zůstává původní flow se zadáním hesla a tlačítkem `Zobrazit otázky`.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` po přidání první ruční otázky zůstává v aktuálním otevření stránky povolené další ruční přidávání bez hesla; při novém otevření detailu se režim resetuje a opět platí flow se zadáním hesla.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je ve formuláři ručního vkládání pole `Pořadí otázky` umístěno jako první, před výběrem `Typ otázky`.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je celý formulář `Ruční vložení otázky` skrytelný; nadpis má vpravo malé toggle tlačítko pro rozbalení/sbalení.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` toggle šipka formuláře nyní odpovídá stavu (`▼` sbaleno, `▲` rozbaleno).
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` mají jednotlivé question card v sekci `Otázky kvízu` jemné podbarvení přes třídu `quiz-question-item`; styly jsou v `QuizApp.Client/wwwroot/css/app.css`.
+- Post-S21 UI tweak: v `QuizApp.Client/wwwroot/css/app.css` bylo podbarvení `quiz-question-item` zesíleno (`background-color`, `border-color`, jemný `inset`), aby se vizuálně jasně odlišilo od pozadí.
+- Post-S21 UI tweak: styly `quiz-question-item` byly přesunuty do `QuizApp.Client/Pages/OrganizerQuizDetail.razor.css` (CSS isolation), protože globální umístění v `app.css` se neprojevovalo konzistentně.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je nyní podbarvení question card i transparentní pozadí option řádků nastavené inline (`style=...`), aby se vizuální změna projevila i při potížích s načtením CSS.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je badge `Správná` upraven na `badge bg-light text-success border border-success`, takže text badge je zelený stejně jako zvýraznění správné odpovědi.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` mají jednotlivé question card nové pořadí metadat (`Otázka číslo` -> text otázky -> `Typ otázky` -> `Čas na odpověď`) a tlačítko `Upravit` je zarovnáno do pravého horního rohu.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je text „Otázky i správné odpovědi se zobrazí až po zadání Administrátorského hesla kvízu.“ podmíněný jen pro kvízy s alespoň jednou otázkou.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je formulář `Import otázek CSV` přesunut pod sekci `Otázky kvízu` (nad `Smazání kvízu`).
+- Post-S21 backend validation: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` je v `CreateSessionAsync` doplněna kontrola kompletního pořadí (`OrderIndex` musí být souvislý od 0 bez mezer); jinak vrací `ValidationFailed` s hláškou „Kvíz není možné spustit, protože neobsahuje kompletní pořadí otázek.“.
+- Post-S21 testy: v `QuizApp.Tests/QuizManagementServiceTests.cs` přibyl test `CreateSessionAsync_IncompleteQuestionOrder_ReturnsValidationFailed`.
+- Post-S21 UI validation: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je před odesláním formuláře ruční otázky klientská validace (`Pořadí`, `Text otázky`, `Časový limit`, odpovědi A-D / správná odpověď / správná číselná hodnota) a chybové hlášky se vykreslují přímo pod konkrétními poli.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je doplněna logika `GetNextAvailableManualOrder()`, která po přidání/načtení otázek nastavuje `Pořadí otázky` na nejnižší volné pořadí (při načteném seznamu podle skutečných `OrderIndex`).
+- Post-S21 UX tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je v sekci `Import otázek CSV` odkaz na stažení šablony `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv`.
+- Post-S21 UX/API tweak: `QuizApp.Server/Application/QuizImport/QuizCsvParser.cs` používá delimiter `;` a akceptuje volitelný první řádek `sep=;`; šablona `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv` je upravena na semicolon formát a v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je zobrazena informace o oddělovači `;`.
 
 ## Rizika / dluh
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`)tut
-- Testy: úspěšné (`run_tests` pro projekt `QuizApp.Tests`; 64/64 passed)
-- Database update: úspěšný (`dotnet dotnet-ef database update` pro `QuizApp.Server` v `Development`)
+- Build: úspěšný (`run_build`)
+- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 85/85 passed)
+- Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)
