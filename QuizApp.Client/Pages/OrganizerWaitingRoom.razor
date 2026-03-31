@@ -73,13 +73,6 @@
                     </button>
                 }
 
-                @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
-                {
-                    <button class="btn btn-outline-danger" type="button" disabled="@isLoading" @onclick="CancelSessionAsync">
-                        @(isLoading ? "Provádím..." : "Zrušit hru")
-                    </button>
-                }
-
                 @if (snapshot.Status == SessionStatus.Finished)
                 {
                     <a class="btn btn-primary" href="@($"/organizator/session/vysledky/{snapshot.SessionId}?quizId={snapshot.QuizId}")">
@@ -102,6 +95,15 @@
                         <li>@team.TeamName</li>
                     }
                 </ul>
+            }
+
+            @if (snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
+            {
+                <div class="mt-3">
+                    <button class="btn btn-outline-danger" type="button" disabled="@isLoading" @onclick="CancelSessionAsync">
+                        @(isLoading ? "Provádím..." : "Zrušit hru")
+                    </button>
+                </div>
             }
 
         </div>

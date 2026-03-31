@@ -2,9 +2,9 @@
 @inject HttpClient HttpClient
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
 
-<PageTitle>Výsledky session — Organizátor</PageTitle>
+<PageTitle>Výsledky hry</PageTitle>
 
-<h1>Výsledky session — Organizátor</h1>
+<h1>Výsledky hry</h1>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -16,30 +16,33 @@
     <div class="alert alert-danger" role="alert">@apiError.Message</div>
 }
 
-<section class="card mb-4">
-    <div class="card-body">
-        <h2 class="h5">Autentizace</h2>
+@if (results is null)
+{
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Autentizace</h2>
 
-        <div class="mb-3">
-            <label class="form-label" for="quizId">Quiz ID (pro načtení uloženého tokenu)</label>
-            <InputText id="quizId" class="form-control" @bind-Value="quizIdInput" />
+            <div class="mb-3">
+                <label class="form-label" for="quizId">Quiz ID (pro načtení uloženého tokenu)</label>
+                <InputText id="quizId" class="form-control" @bind-Value="quizIdInput" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="authPassword">Administrátorké heslo kvízu (volitelné)</label>
+                <InputText id="authPassword" class="form-control" type="password" @bind-Value="organizerPasswordForAuth" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+            {
+                <p class="mb-3">Lokální organizer token: <code>@storedOrganizerToken</code></p>
+            }
+
+            <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="LoadAllAsync">
+                @(isLoading ? "Načítám..." : "Načíst výsledky a správné odpovědi")
+            </button>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="authPassword">Administrátorké heslo kvízu (volitelné)</label>
-            <InputText id="authPassword" class="form-control" type="password" @bind-Value="organizerPasswordForAuth" />
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
-        {
-            <p class="mb-3">Lokální organizer token: <code>@storedOrganizerToken</code></p>
-        }
-
-        <button class="btn btn-primary" type="button" disabled="@isLoading" @onclick="LoadAllAsync">
-            @(isLoading ? "Načítám..." : "Načíst výsledky a správné odpovědi")
-        </button>
-    </div>
-</section>
+    </section>
+}
 
 @if (results is not null)
 {
@@ -61,7 +64,7 @@
                                 <th>Tým</th>
                                 <th>Body</th>
                                 <th>Správně</th>
-                                <th>Celkový čas (ms)</th>
+                                <th>Celkový čas (s)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -72,7 +75,7 @@
                                     <td>@r.TeamName</td>
                                     <td>@r.Score</td>
                                     <td>@r.CorrectCount</td>
-                                    <td>@r.TotalCorrectResponseTimeMs</td>
+                                    <td>@FormatTimeSeconds(r.TotalCorrectResponseTimeMs)</td>
                                 </tr>
                             }
                         </tbody>
@@ -116,7 +119,7 @@
     </section>
 }
 
-<a class="btn btn-outline-primary" href="/organizator">Zpět na dashboard</a>
+<a class="btn btn-outline-primary" href="/organizator">Zpět na úvod</a>
 
 @code {
     [Parameter]
@@ -170,11 +173,6 @@
         if (apiError is null)
         {
             await LoadCorrectAnswersAsync();
-        }
-
-        if (apiError is null)
-        {
-            infoMessage = "Výsledky a správné odpovědi byly načteny.";
         }
 
         isLoading = false;
@@ -236,6 +234,22 @@
         {
             request.Headers.Add("X-Quiz-Password", organizerPasswordForAuth.Trim());
         }
+    }
+
+    private string FormatTimeSeconds(long totalMs)
+    {
+        var seconds = totalMs / 1000.0;
+        if (results is not null && HasDuplicateWholeSeconds(results.Results))
+        {
+            return seconds.ToString("F3");
+        }
+        return seconds.ToString("F0");
+    }
+
+    private static bool HasDuplicateWholeSeconds(IReadOnlyList<SessionResultDto> items)
+    {
+        var wholeSeconds = items.Select(r => (long)(r.TotalCorrectResponseTimeMs / 1000.0));
+        return wholeSeconds.Count() != wholeSeconds.Distinct().Count();
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)

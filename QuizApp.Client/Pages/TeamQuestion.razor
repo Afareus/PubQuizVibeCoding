@@ -10,7 +10,10 @@
 
 <h1>@PageHeading</h1>
 
-<p class="text-muted">Odpověď lze během otázky odeslat pouze jednou.</p>
+@if (snapshot?.Status is SessionStatus.Running or SessionStatus.Paused && snapshot.CurrentQuestion is not null)
+{
+    <p class="text-muted">Odpověď lze během otázky odeslat pouze jednou.</p>
+}
 <p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
@@ -164,7 +167,6 @@ else
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
             await ReloadSubmittedAnswerAsync();
-            infoMessage = "Stav otázky byl načten.";
         }
         else
         {
@@ -281,8 +283,8 @@ else
                 .Build();
 
             hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
-            hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla ukončena."));
-            hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Session byla zrušena."));
+            hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla ukončena."));
+            hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));
 
             hubConnection.Reconnecting += _ =>

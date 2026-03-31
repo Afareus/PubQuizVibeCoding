@@ -3,9 +3,9 @@
 @inject HttpClient HttpClient
 @inject TeamSessionLocalStore TeamSessionLocalStore
 
-<PageTitle>Výsledky</PageTitle>
+<PageTitle>Výsledky hry</PageTitle>
 
-<h1>Výsledky session</h1>
+<h1>Výsledky hry</h1>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -54,7 +54,7 @@ else
                                 <th>Tým</th>
                                 <th>Body</th>
                                 <th>Správně</th>
-                                <th>Celkový čas (ms)</th>
+                                <th>Celkový čas (s)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -66,7 +66,7 @@ else
                                     <td>@r.TeamName @(isMyTeam ? "⭐" : "")</td>
                                     <td>@r.Score</td>
                                     <td>@r.CorrectCount</td>
-                                    <td>@r.TotalCorrectResponseTimeMs</td>
+                                    <td>@FormatTimeSeconds(r.TotalCorrectResponseTimeMs)</td>
                                 </tr>
                             }
                         </tbody>
@@ -128,7 +128,6 @@ else
         if (response.IsSuccessStatusCode)
         {
             results = await response.Content.ReadFromJsonAsync<SessionResultsResponse>();
-            infoMessage = "Výsledky byly načteny.";
         }
         else
         {
@@ -137,6 +136,22 @@ else
         }
 
         isLoading = false;
+    }
+
+    private string FormatTimeSeconds(long totalMs)
+    {
+        var seconds = totalMs / 1000.0;
+        if (results is not null && HasDuplicateWholeSeconds(results.Results))
+        {
+            return seconds.ToString("F3");
+        }
+        return seconds.ToString("F0");
+    }
+
+    private static bool HasDuplicateWholeSeconds(IReadOnlyList<SessionResultDto> items)
+    {
+        var wholeSeconds = items.Select(r => (long)(r.TotalCorrectResponseTimeMs / 1000.0));
+        return wholeSeconds.Count() != wholeSeconds.Distinct().Count();
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
