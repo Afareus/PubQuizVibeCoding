@@ -94,7 +94,7 @@ public class SessionParticipationServiceTests
 
         Assert.True(leaveResult.IsSuccess);
         Assert.DoesNotContain(await dbContext.Teams.ToListAsync(), x => x.TeamId == joinResult.Response.TeamId);
-        Assert.Contains(realtimePublisher.Events, x => x.SessionId == session.SessionId && x.EventName == RealtimeEventName.TeamJoined);
+        Assert.Contains(realtimePublisher.Events, x => x.SessionId == session.SessionId && x.EventName == RealtimeEventName.TeamLeft);
     }
 
     [Fact]

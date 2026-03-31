@@ -5,6 +5,7 @@
 @inject HttpClient HttpClient
 @inject TeamSessionLocalStore TeamSessionLocalStore
 @inject NavigationManager NavigationManager
+@inject ActiveSessionState ActiveSessionState
 
 <PageTitle>Čekárna týmu</PageTitle>
 
@@ -138,12 +139,14 @@ else
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+            UpdateActiveSessionState();
             TryNavigateToQuestionScreen();
         }
         else
         {
             snapshot = null;
             apiError = await ReadApiErrorAsync(response);
+            UpdateActiveSessionState();
         }
 
         isLoading = false;
@@ -159,6 +162,7 @@ else
                 .Build();
 
             hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync());
+            hubConnection.On(RealtimeEventName.TeamLeft.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync());
             hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla spuštěna."));
             hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Došlo ke změně otázky."));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla zrušena."));
@@ -292,6 +296,7 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        ActiveSessionState.Clear();
         await DisposeRealtimeConnectionAsync();
     }
 
@@ -311,5 +316,28 @@ else
         hubConnection = null;
         realtimeSessionId = null;
         isRealtimeConnected = false;
+    }
+
+    private void UpdateActiveSessionState()
+    {
+        if (identity is not null && snapshot is not null && snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
+        {
+            var capturedIdentity = identity;
+            ActiveSessionState.Set("Opravdu chcete opustit hru? Váš tým bude odhlášen ze session.", async () =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/sessions/{capturedIdentity.SessionId}/teams/{capturedIdentity.TeamId}");
+                request.Headers.Add("X-Team-Reconnect-Token", capturedIdentity.TeamReconnectToken);
+
+                using var response = await HttpClient.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    await TeamSessionLocalStore.RemoveIdentityAsync(capturedIdentity.SessionId, capturedIdentity.TeamId);
+                }
+            });
+        }
+        else
+        {
+            ActiveSessionState.Clear();
+        }
     }
 }

@@ -168,9 +168,9 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        if (session.Status != SessionStatus.Waiting)
+        if (session.Status is SessionStatus.Finished or SessionStatus.Cancelled)
         {
-            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze opustit pouze ve stavu WAITING."));
+            return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Terminální session nelze opustit."));
         }
 
         var team = session.Teams.SingleOrDefault(x => x.TeamId == teamId);
@@ -195,7 +195,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return LeaveSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
         }
 
-        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.TeamJoined, cancellationToken);
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.TeamLeft, cancellationToken);
 
         return LeaveSessionOperationResult.Success();
     }

@@ -5,6 +5,7 @@
 @inject HttpClient HttpClient
 @inject TeamSessionLocalStore TeamSessionLocalStore
 @inject NavigationManager NavigationManager
+@inject ActiveSessionState ActiveSessionState
 
 <PageTitle>@PageHeading</PageTitle>
 
@@ -47,7 +48,7 @@ else if (snapshot.Status == SessionStatus.Waiting)
 }
 else if (snapshot.Status is SessionStatus.Cancelled)
 {
-    <div class="alert alert-secondary" role="alert">Session byla zrušena.</div>
+    <div class="alert alert-secondary" role="alert">Hra byla zrušena.</div>
     <a class="btn btn-outline-primary" href="/">Zpět na úvod</a>
 }
 else if (snapshot.Status is SessionStatus.Finished)
@@ -167,12 +168,14 @@ else
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
             await ReloadSubmittedAnswerAsync();
+            UpdateActiveSessionState();
         }
         else
         {
             snapshot = null;
             submittedOption = null;
             apiError = await ReadApiErrorAsync(response);
+            UpdateActiveSessionState();
         }
 
         isLoading = false;
@@ -357,6 +360,8 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        ActiveSessionState.Clear();
+
         countdownTimer?.Dispose();
         countdownTimer = null;
 
@@ -371,5 +376,28 @@ else
         }
 
         await hubConnection.DisposeAsync();
+    }
+
+    private void UpdateActiveSessionState()
+    {
+        if (identity is not null && snapshot is not null && snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
+        {
+            var capturedIdentity = identity;
+            ActiveSessionState.Set("Opravdu chcete opustit hru? Váš tým bude odhlášen ze session.", async () =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/sessions/{capturedIdentity.SessionId}/teams/{capturedIdentity.TeamId}");
+                request.Headers.Add("X-Team-Reconnect-Token", capturedIdentity.TeamReconnectToken);
+
+                using var response = await HttpClient.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    await TeamSessionLocalStore.RemoveIdentityAsync(capturedIdentity.SessionId, capturedIdentity.TeamId);
+                }
+            });
+        }
+        else
+        {
+            ActiveSessionState.Clear();
+        }
     }
 }

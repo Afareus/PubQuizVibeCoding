@@ -5,6 +5,7 @@
 @inject HttpClient HttpClient
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
 @inject IJSRuntime JSRuntime
+@inject ActiveSessionState ActiveSessionState
 
 <PageTitle>@PageHeading</PageTitle>
 
@@ -191,6 +192,7 @@
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             await EnsureRealtimeConnectionAsync(sessionId.Value);
             RestartCountdownTimer();
+            UpdateActiveSessionState();
         }
         else
         {
@@ -239,6 +241,7 @@
                 ? "Session pokračuje."
                 : "Session byla pozastavena.";
             RestartCountdownTimer();
+            UpdateActiveSessionState();
         }
         else
         {
@@ -258,6 +261,7 @@
                 .Build();
 
             hubConnection.On(RealtimeEventName.TeamJoined.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
+            hubConnection.On(RealtimeEventName.TeamLeft.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionStarted.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla spuštěna."));
             hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla zrušena."));
@@ -331,6 +335,7 @@
                 infoMessage = message;
                 apiError = null;
                 RestartCountdownTimer();
+                UpdateActiveSessionState();
             }
 
             StateHasChanged();
@@ -339,6 +344,8 @@
 
     public async ValueTask DisposeAsync()
     {
+        ActiveSessionState.Clear();
+
         if (hubConnection is null)
         {
             return;
@@ -378,6 +385,7 @@
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             infoMessage = "Session byla spuštěna.";
             RestartCountdownTimer();
+            UpdateActiveSessionState();
         }
         else
         {
@@ -421,6 +429,7 @@
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
             infoMessage = "Session byla zrušena.";
             RestartCountdownTimer();
+            UpdateActiveSessionState();
         }
         else
         {
@@ -493,5 +502,32 @@
         }
 
         return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Operace selhala.");
+    }
+
+    private void UpdateActiveSessionState()
+    {
+        if (snapshot is not null && snapshot.Status is SessionStatus.Waiting or SessionStatus.Running or SessionStatus.Paused)
+        {
+            ActiveSessionState.Set("Opravdu chcete opustit hru? Aktivní kvíz bude zrušen.", async () =>
+            {
+                var sessionId = ParseSessionId();
+                if (!sessionId.HasValue)
+                {
+                    return;
+                }
+
+                using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/cancel")
+                {
+                    Content = JsonContent.Create(new CancelSessionRequest(true))
+                };
+                ApplyOrganizerAuth(request);
+
+                using var response = await HttpClient.SendAsync(request);
+            });
+        }
+        else
+        {
+            ActiveSessionState.Clear();
+        }
     }
 }

@@ -13,6 +13,7 @@ var apiBaseAddress = ResolveApiBaseAddress(builder);
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = apiBaseAddress });
 builder.Services.AddScoped<OrganizerQuizLocalStore>();
 builder.Services.AddScoped<TeamSessionLocalStore>();
+builder.Services.AddScoped<ActiveSessionState>();
 
 await builder.Build().RunAsync();
 

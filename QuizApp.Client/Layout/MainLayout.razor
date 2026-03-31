@@ -1,11 +1,44 @@
 ﻿@inherits LayoutComponentBase
+@inject ActiveSessionState ActiveSessionState
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
 <div class="app-top-bar">
-    <NavLink class="app-home-link" href="" Match="NavLinkMatch.All">
+    <a class="app-home-link" href="" @onclick="OnHomeClickAsync" @onclick:preventDefault>
         <span aria-hidden="true">🏠</span> Domů
-    </NavLink>
+    </a>
 </div>
 
 <div class="app-page-content">
     @Body
 </div>
+
+@code {
+    private async Task OnHomeClickAsync()
+    {
+        if (ActiveSessionState.IsActive)
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", ActiveSessionState.ConfirmMessage);
+            if (!confirmed)
+            {
+                return;
+            }
+
+            if (ActiveSessionState.LeaveAction is not null)
+            {
+                try
+                {
+                    await ActiveSessionState.LeaveAction();
+                }
+                catch
+                {
+                    // Best effort – navigate home regardless
+                }
+            }
+
+            ActiveSessionState.Clear();
+        }
+
+        NavigationManager.NavigateTo("/");
+    }
+}

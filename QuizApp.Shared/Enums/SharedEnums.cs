@@ -41,7 +41,8 @@ public enum RealtimeEventName
     QuestionChanged = 3,
     SessionFinished = 4,
     SessionCancelled = 5,
-    ResultsReady = 6
+    ResultsReady = 6,
+    TeamLeft = 7
 }
 
 public static class RealtimeEventNameExtensions
@@ -57,6 +58,7 @@ public static class RealtimeEventNameExtensions
             RealtimeEventName.SessionFinished => "session.finished",
             RealtimeEventName.SessionCancelled => "session.cancelled",
             RealtimeEventName.ResultsReady => "results.ready",
+            RealtimeEventName.TeamLeft => "team.left",
             _ => throw new ArgumentOutOfRangeException(nameof(eventName), eventName, "Unknown realtime event name.")
         };
     }
