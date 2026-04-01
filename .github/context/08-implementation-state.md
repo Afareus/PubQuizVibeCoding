@@ -35,9 +35,15 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Post-S21 UI tweak — po smazání otázky tlačítkem `Smazat otázku` se v `OrganizerQuizDetail` automaticky sbalí formulář `Ruční vložení otázky`.
+- Post-S21 UI tweak — v `OrganizerDashboard` se ve gridu `Dostupné kvízy` datum zobrazuje ve formátu `dd.MM.yyyy`.
 
 ## Aktuální poznámky
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` je v sekci `Dostupné kvízy` fulltext filtr podle názvu kvízu (`oninput`) integrován přímo do hlavičky gridu a stránkování (`Předchozí`/`Další`) má limit 10 záznamů na stránku.
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` přibyl druhý fulltext filtr v hlavičce gridu pro sloupec `Datum založení`; oba filtry (`Název kvízu`, `Datum založení`) se aplikují kombinovaně a aktualizují se po každém stisku klávesy.
+- V `QuizApp.Client/Pages/OrganizerDashboard.razor` je filtr `Datum založení` realizován jako `input type="datetime-local"`; aplikace filtruje záznamy podle zvoleného lokálního data a času na minuty.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerDashboard.razor` je filtr `Datum založení` změněn z `datetime-local` na `date` a sloupec zobrazuje pouze datum bez času.
+- Post-S21 UI tweak: zobrazení data ve sloupci `Datum založení` je formátováno jako `dd.MM.yyyy`.
+- Post-S21 UI bugfix: v `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo filtrování v gridu opraveno tak, aby reagovalo po každém stisku klávesy (`oninput`), a grid zůstává zobrazen i při 0 výsledcích (zobrazí informační řádek místo skrytí tabulky).
 - V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po úspěšném `DeleteEditedQuestionAsync` formulář `Ruční vložení otázky` automaticky sbalí (`isManualQuestionFormExpanded = false`).
 - V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se CSV soubor při uploadu čte jako raw bytes a dekóduje přes UTF-8 (strict) s fallbackem na CP1250, aby se správně načetla čeština i u ne-UTF8 exportů.
 - V `QuizApp.Client/Program.cs` je registrován `CodePagesEncodingProvider`, aby byl fallback dekodér CP1250 dostupný i ve WASM klientu.

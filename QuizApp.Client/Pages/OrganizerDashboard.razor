@@ -36,21 +36,69 @@
                             <th>Datum založení</th>
                             <th></th>
                         </tr>
+                        <tr>
+                            <th>
+                                <input id="quizSearch"
+                                       class="form-control form-control-sm"
+                                       placeholder="Hledat podle názvu"
+                                       value="@QuizSearchTerm"
+                                       @oninput="OnQuizSearchInput" />
+                            </th>
+                            <th>
+                                <input id="quizCreatedAtSearch"
+                                       type="date"
+                                       class="form-control form-control-sm"
+                                       value="@QuizCreatedAtFilter"
+                                       @oninput="OnQuizCreatedAtSearchInput" />
+                            </th>
+                            <th></th>
+                        </tr>
                     </thead>
                     <tbody>
-                        @foreach (var quiz in storedQuizzes.OrderByDescending(x => x.CreatedAtUtc ?? DateTimeOffset.MinValue))
+                        @if (PagedQuizzes.Count == 0)
                         {
                             <tr>
-                                <td>@GetQuizName(quiz)</td>
-                                <td>@GetQuizCreatedAt(quiz)</td>
-                                <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
-                                </td>
+                                <td colspan="3" class="text-muted">Pro zadaný filtr nebyl nalezen žádný kvíz.</td>
                             </tr>
+                        }
+                        else
+                        {
+                            @foreach (var quiz in PagedQuizzes)
+                            {
+                                <tr>
+                                    <td>@GetQuizName(quiz)</td>
+                                    <td>@GetQuizCreatedAt(quiz)</td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
             </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                    <span class="text-muted small">Stránka @currentPage z @TotalPages</span>
+                    <div class="btn-group" role="group" aria-label="Stránkování kvízů">
+                        <button class="btn btn-sm btn-outline-secondary"
+                                type="button"
+                                disabled="@(currentPage <= 1)"
+                                @onclick="PreviousPage">
+                            Předchozí
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary"
+                                type="button"
+                                disabled="@(currentPage >= TotalPages)"
+                                @onclick="NextPage">
+                            Další
+                        </button>
+                    </div>
+                </div>
+            }
+
         }
     </div>
 </section>
@@ -84,8 +132,71 @@
     private ApiErrorResponse? createError;
     private string? createSuccessMessage;
     private bool isCreatingQuiz;
+    private string quizSearchTerm = string.Empty;
+    private string quizCreatedAtFilter = string.Empty;
+    private int currentPage = 1;
+    private const int PageSize = 10;
 
     private string CreateButtonText => isCreatingQuiz ? "Vytvářím..." : "Vytvořit kvíz";
+
+    private string QuizSearchTerm
+    {
+        get => quizSearchTerm;
+        set
+        {
+            if (quizSearchTerm == value)
+            {
+                return;
+            }
+
+            quizSearchTerm = value;
+            currentPage = 1;
+        }
+    }
+
+    private string QuizCreatedAtFilter
+    {
+        get => quizCreatedAtFilter;
+        set
+        {
+            if (quizCreatedAtFilter == value)
+            {
+                return;
+            }
+
+            quizCreatedAtFilter = value;
+            currentPage = 1;
+        }
+    }
+
+    private IReadOnlyList<StoredOrganizerQuiz> PagedQuizzes
+    {
+        get
+        {
+            var filtered = GetFilteredQuizzes();
+            var skip = (currentPage - 1) * PageSize;
+            return filtered.Skip(skip).Take(PageSize).ToList();
+        }
+    }
+
+    private int TotalPages
+    {
+        get
+        {
+            var count = GetFilteredQuizzes().Count;
+            return count == 0 ? 1 : (int)Math.Ceiling(count / (double)PageSize);
+        }
+    }
+
+    private void OnQuizSearchInput(ChangeEventArgs args)
+    {
+        QuizSearchTerm = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private void OnQuizCreatedAtSearchInput(ChangeEventArgs args)
+    {
+        QuizCreatedAtFilter = args.Value?.ToString() ?? string.Empty;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,6 +257,61 @@
         storedQuizzes = needsRefresh
             ? (await OrganizerQuizLocalStore.GetAllAsync()).ToList()
             : storedItems;
+
+        NormalizeCurrentPage();
+    }
+
+    private List<StoredOrganizerQuiz> GetFilteredQuizzes()
+    {
+        IEnumerable<StoredOrganizerQuiz> filtered = storedQuizzes
+            .OrderByDescending(x => x.CreatedAtUtc ?? DateTimeOffset.MinValue);
+
+        if (!string.IsNullOrWhiteSpace(QuizSearchTerm))
+        {
+            filtered = filtered.Where(x => GetQuizName(x).Contains(QuizSearchTerm.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(QuizCreatedAtFilter))
+        {
+            filtered = filtered.Where(x => x.CreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd") == QuizCreatedAtFilter);
+        }
+
+        return filtered.ToList();
+    }
+
+    private void PreviousPage()
+    {
+        if (currentPage <= 1)
+        {
+            return;
+        }
+
+        currentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (currentPage >= TotalPages)
+        {
+            return;
+        }
+
+        currentPage++;
+    }
+
+    private void NormalizeCurrentPage()
+    {
+        if (currentPage < 1)
+        {
+            currentPage = 1;
+            return;
+        }
+
+        var maxPage = TotalPages;
+        if (currentPage > maxPage)
+        {
+            currentPage = maxPage;
+        }
     }
 
     private async Task<QuizDetailResponse?> TryGetQuizDetailAsync(Guid quizId, string organizerToken)
@@ -169,7 +335,7 @@
 
     private static string GetQuizCreatedAt(StoredOrganizerQuiz quiz)
     {
-        return quiz.CreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
+        return quiz.CreatedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy") ?? "-";
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
