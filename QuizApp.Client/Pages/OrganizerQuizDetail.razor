@@ -198,7 +198,7 @@
     <div class="card-body text-start">
         <h2 class="h5">Import otázek CSV</h2>
         <p class="mb-2">
-            <a class="link-primary" href="templates/quiz-question-import-template.csv" download>Stáhnout CSV předpis (šablonu)</a>
+            <a class="link-primary" href="@($"templates/quiz-question-import-template.csv?v={CsvTemplateVersion}")" download>Stáhnout CSV předpis (šablonu)</a>
         </p>
         <p class="form-text mt-0">CSV import používá oddělovač <strong>středník (;)</strong>.</p>
 
@@ -262,6 +262,8 @@
 @code {
     [Parameter]
     public Guid? QuizId { get; set; }
+
+    private const string CsvTemplateVersion = "20260402";
 
     private string deletePassword = string.Empty;
     private string joinCode = string.Empty;
@@ -972,7 +974,7 @@
                 TimeLimitSec = x.TimeLimitSec,
                 QuestionType = x.QuestionType,
                 CorrectOption = x.CorrectOption,
-                CorrectNumericValue = x.CorrectNumericValue,
+                CorrectNumericValue = NormalizeDecimalForUi(x.CorrectNumericValue),
                 OptionA = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.A)?.Text ?? string.Empty,
                 OptionB = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.B)?.Text ?? string.Empty,
                 OptionC = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.C)?.Text ?? string.Empty,
@@ -1076,6 +1078,17 @@
         {
             errors[fieldName] = ["Text odpovědi je příliš dlouhý (max. 500 znaků)."];
         }
+    }
+
+    private static decimal? NormalizeDecimalForUi(decimal? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        var normalized = value.Value.ToString("0.#############################", System.Globalization.CultureInfo.InvariantCulture);
+        return decimal.Parse(normalized, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private sealed class QuestionEditorModel
