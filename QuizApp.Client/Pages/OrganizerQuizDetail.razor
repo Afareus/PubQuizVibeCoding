@@ -26,7 +26,10 @@
 
         <div class="mb-3">
             <label class="form-label" for="joinCode">Join kód pro hráče</label>
-            <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
+            <div class="input-group">
+                <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
+                <button class="btn btn-outline-secondary" type="button" disabled="@(isGeneratingJoinCode || isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="GenerateJoinCodeAsync">@(isGeneratingJoinCode ? "Generuji..." : "Vygenerovat kód")</button>
+            </div>
             <div class="form-text">Join kód musí mít alespoň 4 znaky.</div>
         </div>
 
@@ -275,6 +278,7 @@
     private string? questionInfoMessage;
     private bool isLoadingDetail;
     private bool isImporting;
+    private bool isGeneratingJoinCode;
     private bool isCreatingSession;
     private bool isDeleting;
     private bool isLoadingQuestions;
@@ -882,6 +886,46 @@
         }
 
         isCreatingSession = false;
+    }
+
+    private async Task GenerateJoinCodeAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        isGeneratingJoinCode = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isGeneratingJoinCode = false;
+            return;
+        }
+
+        await LoadStoredTokenAsync(quizId.Value);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId.Value}/sessions/generate-join-code");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var payload = await response.Content.ReadFromJsonAsync<GenerateJoinCodeResponse>();
+            if (payload is null || string.IsNullOrWhiteSpace(payload.JoinCode))
+            {
+                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se vygenerovat volný join kód.");
+            }
+            else
+            {
+                joinCode = payload.JoinCode;
+            }
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isGeneratingJoinCode = false;
     }
 
     private void RemoveUnsavedDraftQuestionsBeforeStart()

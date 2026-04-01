@@ -17,6 +17,8 @@ public interface IQuizManagementService
 
     Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, CreateSessionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
+    Task<GenerateJoinCodeOperationResult> GenerateJoinCodeAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<AddQuizQuestionOperationResult> AddQuestionAsync(Guid quizId, AddQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task<AddQuizQuestionOperationResult> UpdateQuestionAsync(Guid quizId, Guid questionId, UpdateQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -34,6 +36,8 @@ public sealed class QuizManagementService : IQuizManagementService
 {
     private const int OrganizerTokenEntropyBytes = 32;
     private const int MinJoinCodeLength = 4;
+    private const int GeneratedJoinCodeLength = 6;
+    private const int GenerateJoinCodeMaxAttempts = 100;
     private const int PasswordSaltBytes = 16;
     private const int PasswordHashBytes = 32;
     private const int PasswordHashIterations = 100_000;
@@ -148,6 +152,34 @@ public sealed class QuizManagementService : IQuizManagementService
         }
 
         return CreateSessionOperationResult.Success(new CreateSessionResponse(session.SessionId, session.JoinCode, session.Status));
+    }
+
+    public async Task<GenerateJoinCodeOperationResult> GenerateJoinCodeAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var quiz = await _dbContext.Quizzes
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return GenerateJoinCodeOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return GenerateJoinCodeOperationResult.Fail(authError!);
+        }
+
+        for (var attempt = 0; attempt < GenerateJoinCodeMaxAttempts; attempt++)
+        {
+            var candidateJoinCode = GenerateNumericJoinCode(GeneratedJoinCodeLength);
+            var joinCodeAlreadyUsed = await _dbContext.Sessions.AnyAsync(x => x.JoinCode == candidateJoinCode, cancellationToken);
+            if (!joinCodeAlreadyUsed)
+            {
+                return GenerateJoinCodeOperationResult.Success(new GenerateJoinCodeResponse(candidateJoinCode));
+            }
+        }
+
+        return GenerateJoinCodeOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se vygenerovat volný join kód. Zkuste to prosím znovu."));
     }
 
     public async Task<AddQuizQuestionOperationResult> AddQuestionAsync(Guid quizId, AddQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
@@ -566,6 +598,17 @@ public sealed class QuizManagementService : IQuizManagementService
         return errors.Count == 0 ? null : errors;
     }
 
+    private static string GenerateNumericJoinCode(int length)
+    {
+        Span<char> buffer = stackalloc char[length];
+        for (var i = 0; i < buffer.Length; i++)
+        {
+            buffer[i] = (char)('0' + RandomNumberGenerator.GetInt32(0, 10));
+        }
+
+        return new string(buffer);
+    }
+
     private static bool HasCompleteQuestionOrder(IReadOnlyCollection<Question> questions)
     {
         if (questions.Count == 0)
@@ -922,6 +965,17 @@ public sealed record CreateSessionOperationResult(
     public static CreateSessionOperationResult Success(CreateSessionResponse response) => new(response, null);
 
     public static CreateSessionOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record GenerateJoinCodeOperationResult(
+    GenerateJoinCodeResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static GenerateJoinCodeOperationResult Success(GenerateJoinCodeResponse response) => new(response, null);
+
+    public static GenerateJoinCodeOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }
 
 public sealed record AddQuizQuestionOperationResult(

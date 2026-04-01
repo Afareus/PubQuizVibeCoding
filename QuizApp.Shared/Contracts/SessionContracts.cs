@@ -10,6 +10,9 @@ public sealed record CreateSessionResponse(
     string JoinCode,
     SessionStatus Status);
 
+public sealed record GenerateJoinCodeResponse(
+    string JoinCode);
+
 public sealed record JoinSessionRequest(
     string JoinCode,
     string TeamName);
