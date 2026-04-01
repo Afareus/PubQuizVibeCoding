@@ -426,9 +426,9 @@
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
+        if (string.IsNullOrWhiteSpace(questionsPassword))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro zobrazení otázek zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro zobrazení otázek zadejte Administrátorské heslo kvízu.");
             isLoadingQuestions = false;
             return;
         }
@@ -438,8 +438,6 @@
         {
             request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
         }
-
-        ApplyOrganizerAuth(request);
 
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
