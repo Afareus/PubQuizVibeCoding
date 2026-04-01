@@ -69,165 +69,127 @@
 
         @if (hasLoadedQuestions || (quizDetail?.QuestionCount ?? 0) == 0 || allowManualAddWithoutPassword)
         {
-            <div class="border rounded p-3 mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="h6 mb-0">Ruční vložení otázky</h3>
-                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" type="button" @onclick="ToggleManualQuestionForm">@(isManualQuestionFormExpanded ? "▲" : "▼")</button>
-                </div>
-
-                @if (isManualQuestionFormExpanded)
+            <div class="d-flex flex-column gap-3 mb-3">
+                @foreach (var question in questionEditors.OrderBy(x => x.Order))
                 {
-                    <div class="mb-3">
-                        <label class="form-label" for="manualOrder">Pořadí otázky</label>
-                        <InputNumber id="manualOrder" class="form-control" @bind-Value="manualOrder" />
-                        @if (TryGetManualValidationMessage(nameof(manualOrder), out var orderError))
-                        {
-                            <div class="text-danger small mt-1">@orderError</div>
-                        }
-                    </div>
+                    var canMoveUp = question.Order > 1;
+                    var canMoveDown = question.Order < questionEditors.Count;
 
-                    <div class="mb-3">
-                        <label class="form-label" for="manualQuestionType">Typ otázky</label>
-                        <InputSelect id="manualQuestionType" class="form-select" @bind-Value="manualQuestionType">
-                            <option value="@QuestionType.MultipleChoice">Výběr A-D</option>
-                            <option value="@QuestionType.NumericClosest">Číselný tip</option>
-                        </InputSelect>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label" for="manualQuestionText">Text otázky</label>
-                        <InputText id="manualQuestionText" class="form-control" @bind-Value="manualQuestionText" />
-                        @if (TryGetManualValidationMessage(nameof(manualQuestionText), out var textError))
-                        {
-                            <div class="text-danger small mt-1">@textError</div>
-                        }
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label" for="manualTimeLimit">Časový limit (sekundy)</label>
-                        <InputNumber id="manualTimeLimit" class="form-control" @bind-Value="manualTimeLimitSec" />
-                        @if (TryGetManualValidationMessage(nameof(manualTimeLimitSec), out var timeLimitError))
-                        {
-                            <div class="text-danger small mt-1">@timeLimitError</div>
-                        }
-                    </div>
-
-                    @if (manualQuestionType == QuestionType.MultipleChoice)
-                    {
-                        <div class="mb-2">
-                            <label class="form-label" for="manualOptionA">Odpověď A</label>
-                            <InputText id="manualOptionA" class="form-control" @bind-Value="manualOptionA" />
-                            @if (TryGetManualValidationMessage(nameof(manualOptionA), out var optionAError))
-                            {
-                                <div class="text-danger small mt-1">@optionAError</div>
-                            }
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label" for="manualOptionB">Odpověď B</label>
-                            <InputText id="manualOptionB" class="form-control" @bind-Value="manualOptionB" />
-                            @if (TryGetManualValidationMessage(nameof(manualOptionB), out var optionBError))
-                            {
-                                <div class="text-danger small mt-1">@optionBError</div>
-                            }
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label" for="manualOptionC">Odpověď C</label>
-                            <InputText id="manualOptionC" class="form-control" @bind-Value="manualOptionC" />
-                            @if (TryGetManualValidationMessage(nameof(manualOptionC), out var optionCError))
-                            {
-                                <div class="text-danger small mt-1">@optionCError</div>
-                            }
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="manualOptionD">Odpověď D</label>
-                            <InputText id="manualOptionD" class="form-control" @bind-Value="manualOptionD" />
-                            @if (TryGetManualValidationMessage(nameof(manualOptionD), out var optionDError))
-                            {
-                                <div class="text-danger small mt-1">@optionDError</div>
-                            }
+                    <article class="border rounded p-3 quiz-question-item">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h3 class="h5 fw-normal mb-0">Otázka číslo: <span class="quiz-order-number">@question.Order</span></h3>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveUp || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionUpAsync(question)">↑</button>
+                                <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveDown || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionDownAsync(question)">↓</button>
+                            </div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" for="manualCorrectOption">Správná odpověď</label>
-                            <InputSelect id="manualCorrectOption" class="form-select" @bind-Value="manualCorrectOption">
-                                <option value="">Vyberte správnou odpověď</option>
-                                <option value="@OptionKey.A">A</option>
-                                <option value="@OptionKey.B">B</option>
-                                <option value="@OptionKey.C">C</option>
-                                <option value="@OptionKey.D">D</option>
-                            </InputSelect>
-                            @if (TryGetManualValidationMessage(nameof(manualCorrectOption), out var correctOptionError))
+                            <label class="form-label mb-1">Text otázky</label>
+                            <InputText class="form-control quiz-question-live-text" @bind-Value="question.Text" placeholder="Doplňte text otázky" />
+                            @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.Text), out var textError))
                             {
-                                <div class="text-danger small mt-1">@correctOptionError</div>
+                                <div class="text-danger small mt-1">@textError</div>
                             }
                         </div>
-                    }
-                    else
-                    {
-                        <div class="mb-3">
-                            <label class="form-label" for="manualCorrectNumeric">Správná číselná hodnota</label>
-                            <InputNumber id="manualCorrectNumeric" class="form-control" @bind-Value="manualCorrectNumericValue" />
-                            @if (TryGetManualValidationMessage(nameof(manualCorrectNumericValue), out var correctNumericError))
-                            {
-                                <div class="text-danger small mt-1">@correctNumericError</div>
-                            }
-                        </div>
-                    }
 
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-primary" type="button" disabled="@(isAddingQuestion || isDeletingQuestion)" @onclick="SaveManualQuestionAsync">@(isAddingQuestion ? "Ukládám otázku..." : (editingQuestionId.HasValue ? "Uložit změny" : "Přidat otázku"))</button>
-                        @if (editingQuestionId.HasValue)
+                        @if (question.QuestionType == QuestionType.MultipleChoice)
                         {
-                            <button class="btn btn-outline-danger" type="button" disabled="@(isAddingQuestion || isDeletingQuestion)" @onclick="DeleteEditedQuestionAsync">@(isDeletingQuestion ? "Mažu otázku..." : "Smazat otázku")</button>
-                            <button class="btn btn-outline-secondary" type="button" disabled="@(isAddingQuestion || isDeletingQuestion)" @onclick="CancelQuestionEdit">Zrušit úpravu</button>
+                            <div class="d-grid gap-2 mb-3">
+                                <div class="quiz-option-live-edit">
+                                    <span class="quiz-option-live-key">A</span>
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionA" placeholder="Odpověď A" />
+                                </div>
+                                @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionA), out var optionAError))
+                                {
+                                    <div class="text-danger small mt-1">@optionAError</div>
+                                }
+
+                                <div class="quiz-option-live-edit">
+                                    <span class="quiz-option-live-key">B</span>
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionB" placeholder="Odpověď B" />
+                                </div>
+                                @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionB), out var optionBError))
+                                {
+                                    <div class="text-danger small mt-1">@optionBError</div>
+                                }
+
+                                <div class="quiz-option-live-edit">
+                                    <span class="quiz-option-live-key">C</span>
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionC" placeholder="Odpověď C" />
+                                </div>
+                                @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionC), out var optionCError))
+                                {
+                                    <div class="text-danger small mt-1">@optionCError</div>
+                                }
+
+                                <div class="quiz-option-live-edit">
+                                    <span class="quiz-option-live-key">D</span>
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionD" placeholder="Odpověď D" />
+                                </div>
+                                @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionD), out var optionDError))
+                                {
+                                    <div class="text-danger small mt-1">@optionDError</div>
+                                }
+                            </div>
                         }
-                    </div>
+                        else
+                        {
+                            <div class="mb-3">
+                                <p class="mb-2 text-muted">Bod získá nejbližší odpověď.</p>
+                                <label class="form-label">Správná odpověď:</label>
+                                <InputNumber class="form-control" @bind-Value="question.CorrectNumericValue" />
+                                @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.CorrectNumericValue), out var correctNumericError))
+                                {
+                                    <div class="text-danger small mt-1">@correctNumericError</div>
+                                }
+                            </div>
+                        }
+
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Typ otázky</label>
+                                <InputSelect class="form-select" @bind-Value="question.QuestionType" @bind-Value:after="() => OnQuestionTypeChanged(question)">
+                                    <option value="@QuestionType.MultipleChoice">Výběr A-D</option>
+                                    <option value="@QuestionType.NumericClosest">Číselný tip</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Časový limit (sekundy)</label>
+                                <InputNumber class="form-control" @bind-Value="question.TimeLimitSec" />
+                                @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.TimeLimitSec), out var timeLimitError))
+                                {
+                                    <div class="text-danger small mt-1">@timeLimitError</div>
+                                }
+                            </div>
+                            @if (question.QuestionType == QuestionType.MultipleChoice)
+                            {
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label">Správná odpověď</label>
+                                    <InputSelect class="form-select" @bind-Value="question.CorrectOption">
+                                        <option value="">Vyberte správnou odpověď</option>
+                                        <option value="@OptionKey.A">A</option>
+                                        <option value="@OptionKey.B">B</option>
+                                        <option value="@OptionKey.C">C</option>
+                                        <option value="@OptionKey.D">D</option>
+                                    </InputSelect>
+                                    @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.CorrectOption), out var correctOptionError))
+                                    {
+                                        <div class="text-danger small mt-1">@correctOptionError</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button class="btn btn-outline-danger" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="() => DeleteQuestionAsync(question)">@(isSavingQuestionId == question.ClientId && isDeletingQuestionAction ? "Mažu..." : "Smazat")</button>
+                            <button class="btn btn-outline-primary" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="() => SaveQuestionAsync(question)">@(isSavingQuestionId == question.ClientId ? "Ukládám..." : "Uložit")</button>
+                        </div>
+                    </article>
                 }
             </div>
 
-            @if (revealedQuestions.Count == 0)
-            {
-                <p class="mb-0">Kvíz zatím neobsahuje žádné otázky.</p>
-            }
-            else
-            {
-                <div class="d-flex flex-column gap-3">
-                    @foreach (var question in revealedQuestions.OrderBy(x => x.OrderIndex))
-                    {
-                        <article class="border rounded p-3 quiz-question-item" style="background-color:#eef4ff;border:1px solid #d8e4ff;box-shadow:inset 0 0 0 1px #e4edff;">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <p class="mb-0"><strong>Otázka číslo:</strong> @(question.OrderIndex + 1)</p>
-                                <button class="btn btn-sm btn-outline-primary" type="button" @onclick="() => StartEditQuestion(question)">Upravit</button>
-                            </div>
-                            <p class="mb-2">@question.Text</p>
-                            <p class="mb-2"><strong>Typ otázky:</strong> @(question.QuestionType == QuestionType.MultipleChoice ? "Výběr A-D" : "Číselný tip")</p>
-                            <p class="mb-3"><strong>Čas na odpověď:</strong> @question.TimeLimitSec s</p>
-
-                            @if (question.QuestionType == QuestionType.MultipleChoice)
-                            {
-                                <ul class="list-group list-group-flush">
-                                    @foreach (var option in question.Options.OrderBy(x => x.OptionKey))
-                                    {
-                                        var isCorrectOption = option.OptionKey == question.CorrectOption;
-                                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 @(isCorrectOption ? "text-success fw-semibold" : string.Empty)" style="background-color:transparent;">
-                                            <span>@option.OptionKey) @option.Text</span>
-
-                                            @if (isCorrectOption)
-                                            {
-                                                <span class="badge bg-light text-success border border-success">Správná</span>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                            else
-                            {
-                                <p class="mb-0"><strong>Správná odpověď:</strong> @FormatDecimal(question.CorrectNumericValue)</p>
-                            }
-                        </article>
-                    }
-                </div>
-            }
+            <button class="btn btn-outline-primary quiz-add-question-button" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="AddEmptyQuestion">+</button>
         }
     </div>
 </section>
@@ -314,30 +276,19 @@
     private bool isCreatingSession;
     private bool isDeleting;
     private bool isLoadingQuestions;
-    private bool isAddingQuestion;
-    private bool isDeletingQuestion;
+    private bool isSavingQuestion;
+    private bool isDeletingQuestionAction;
     private bool isQuizTimerEnabled;
     private bool hasLoadedQuestions;
-    private bool isManualQuestionFormExpanded;
     private bool allowManualAddWithoutPassword;
-    private Guid? editingQuestionId;
-    private string manualQuestionText = string.Empty;
-    private int manualTimeLimitSec = 30;
-    private int manualOrder = 1;
-    private QuestionType manualQuestionType = QuestionType.MultipleChoice;
-    private OptionKey? manualCorrectOption;
-    private decimal? manualCorrectNumericValue;
-    private string manualOptionA = string.Empty;
-    private string manualOptionB = string.Empty;
-    private string manualOptionC = string.Empty;
-    private string manualOptionD = string.Empty;
-    private Dictionary<string, string[]>? manualQuestionValidationErrors;
+    private Guid? isSavingQuestionId;
 
     private ApiErrorResponse? apiError;
     private ApiErrorResponse? questionApiError;
     private QuizDetailResponse? quizDetail;
     private ImportQuizCsvResponse? importResult;
     private IReadOnlyList<QuizDetailQuestionDto> revealedQuestions = [];
+    private List<QuestionEditorModel> questionEditors = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -493,13 +444,9 @@
         {
             var detail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
             revealedQuestions = detail?.Questions ?? [];
+            SyncQuestionEditorsFromRevealedQuestions();
             hasLoadedQuestions = true;
             questionInfoMessage = $"Načteno otázek: {revealedQuestions.Count}.";
-
-            if (!editingQuestionId.HasValue)
-            {
-                manualOrder = GetNextAvailableManualOrder();
-            }
         }
         else
         {
@@ -511,53 +458,58 @@
         isLoadingQuestions = false;
     }
 
-    private async Task SaveManualQuestionAsync()
+    private async Task SaveQuestionAsync(QuestionEditorModel question)
     {
         questionApiError = null;
         questionInfoMessage = null;
-        manualQuestionValidationErrors = null;
-        isAddingQuestion = true;
+        question.ValidationErrors = null;
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
             questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
-            isAddingQuestion = false;
             return;
         }
 
-        manualQuestionValidationErrors = ValidateManualQuestionForm();
-        if (manualQuestionValidationErrors is not null)
+        question.ValidationErrors = ValidateQuestionEditor(question);
+        if (question.ValidationErrors is not null)
         {
             questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Formulář obsahuje chyby. Opravte prosím zvýrazněná pole.");
-            isAddingQuestion = false;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro ruční vložení otázky zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
-            isAddingQuestion = false;
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro úpravu otázky zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
             return;
         }
 
-        HttpRequestMessage request;
+        var wasEditing = question.QuestionId.HasValue;
+        var normalizedText = question.Text.Trim();
+        var normalizedOptionA = question.OptionA.Trim();
+        var normalizedOptionB = question.OptionB.Trim();
+        var normalizedOptionC = question.OptionC.Trim();
+        var normalizedOptionD = question.OptionD.Trim();
+        isSavingQuestion = true;
+        isDeletingQuestionAction = false;
+        isSavingQuestionId = question.ClientId;
 
-        if (editingQuestionId.HasValue)
+        HttpRequestMessage request;
+        if (question.QuestionId.HasValue)
         {
             var updatePayload = new UpdateQuizQuestionRequest(
-                manualQuestionText,
-                manualTimeLimitSec,
-                manualQuestionType,
-                manualQuestionType == QuestionType.MultipleChoice ? manualCorrectOption : null,
-                manualQuestionType == QuestionType.NumericClosest ? manualCorrectNumericValue : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionA : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionB : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionC : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionD : null,
-                manualOrder);
+                normalizedText,
+                question.TimeLimitSec!.Value,
+                question.QuestionType,
+                question.QuestionType == QuestionType.MultipleChoice ? question.CorrectOption : null,
+                question.QuestionType == QuestionType.NumericClosest ? question.CorrectNumericValue : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionA : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionB : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionC : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionD : null,
+                question.Order);
 
-            request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{editingQuestionId.Value}")
+            request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{question.QuestionId.Value}")
             {
                 Content = JsonContent.Create(updatePayload)
             };
@@ -565,16 +517,16 @@
         else
         {
             var addPayload = new AddQuizQuestionRequest(
-                manualQuestionText,
-                manualTimeLimitSec,
-                manualQuestionType,
-                manualQuestionType == QuestionType.MultipleChoice ? manualCorrectOption : null,
-                manualQuestionType == QuestionType.NumericClosest ? manualCorrectNumericValue : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionA : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionB : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionC : null,
-                manualQuestionType == QuestionType.MultipleChoice ? manualOptionD : null,
-                manualOrder);
+                normalizedText,
+                question.TimeLimitSec!.Value,
+                question.QuestionType,
+                question.QuestionType == QuestionType.MultipleChoice ? question.CorrectOption : null,
+                question.QuestionType == QuestionType.NumericClosest ? question.CorrectNumericValue : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionA : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionB : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionC : null,
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionD : null,
+                question.Order);
 
             request = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId.Value}/questions")
             {
@@ -600,18 +552,21 @@
             else if (quizDetail is not null)
             {
                 allowManualAddWithoutPassword = true;
-                if (!editingQuestionId.HasValue)
+                if (!question.QuestionId.HasValue)
                 {
                     quizDetail = quizDetail with { QuestionCount = quizDetail.QuestionCount + 1 };
+                    var createdQuestion = await response.Content.ReadFromJsonAsync<AddQuizQuestionResponse>();
+                    question.QuestionId = createdQuestion?.QuestionId;
+                    if (createdQuestion is not null)
+                    {
+                        question.Order = createdQuestion.OrderIndex + 1;
+                    }
+                    question.IsNew = false;
                 }
-                revealedQuestions = [];
-                hasLoadedQuestions = false;
             }
 
             if (questionApiError is null)
             {
-                var wasEditing = editingQuestionId.HasValue;
-                ResetManualQuestionForm();
                 questionInfoMessage = wasEditing ? "Otázka byla úspěšně upravena." : "Otázka byla úspěšně přidána.";
             }
         }
@@ -620,48 +575,27 @@
             questionApiError = await ReadApiErrorAsync(response);
         }
 
-        isAddingQuestion = false;
+        isSavingQuestionId = null;
+        isDeletingQuestionAction = false;
+        isSavingQuestion = false;
     }
 
-    private void StartEditQuestion(QuizDetailQuestionDto question)
-    {
-        manualQuestionValidationErrors = null;
-        isManualQuestionFormExpanded = true;
-        editingQuestionId = question.QuestionId;
-        manualQuestionType = question.QuestionType;
-        manualQuestionText = question.Text;
-        manualTimeLimitSec = question.TimeLimitSec;
-        manualOrder = question.OrderIndex + 1;
-        manualCorrectOption = question.CorrectOption;
-        manualCorrectNumericValue = question.CorrectNumericValue;
-        manualOptionA = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.A)?.Text ?? string.Empty;
-        manualOptionB = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.B)?.Text ?? string.Empty;
-        manualOptionC = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.C)?.Text ?? string.Empty;
-        manualOptionD = question.Options.FirstOrDefault(x => x.OptionKey == OptionKey.D)?.Text ?? string.Empty;
-    }
-
-    private void CancelQuestionEdit()
-    {
-        ResetManualQuestionForm();
-        questionApiError = null;
-        questionInfoMessage = null;
-    }
-
-    private async Task DeleteEditedQuestionAsync()
+    private async Task DeleteQuestionAsync(QuestionEditorModel question)
     {
         questionApiError = null;
         questionInfoMessage = null;
+
+        if (!question.QuestionId.HasValue)
+        {
+            questionEditors.Remove(question);
+            NormalizeQuestionOrders();
+            return;
+        }
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
             questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
-            return;
-        }
-
-        if (!editingQuestionId.HasValue)
-        {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nejprve vyberte otázku k úpravě.");
             return;
         }
 
@@ -671,9 +605,11 @@
             return;
         }
 
-        isDeletingQuestion = true;
+        isSavingQuestion = true;
+        isDeletingQuestionAction = true;
+        isSavingQuestionId = question.ClientId;
 
-        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/quizzes/{quizId.Value}/questions/{editingQuestionId.Value}");
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/quizzes/{quizId.Value}/questions/{question.QuestionId.Value}");
         if (!string.IsNullOrWhiteSpace(questionsPassword))
         {
             request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
@@ -684,24 +620,211 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            await LoadQuestionsAsync();
-            if (questionApiError is null)
+            if (hasLoadedQuestions || !string.IsNullOrWhiteSpace(questionsPassword))
             {
-                ResetManualQuestionForm();
-                isManualQuestionFormExpanded = false;
-                questionInfoMessage = "Otázka byla úspěšně smazána.";
+                await LoadQuestionsAsync();
             }
+            else
+            {
+                questionEditors.Remove(question);
+                NormalizeQuestionOrders();
+                if (quizDetail is not null && quizDetail.QuestionCount > 0)
+                {
+                    quizDetail = quizDetail with { QuestionCount = quizDetail.QuestionCount - 1 };
+                }
+            }
+
+            questionInfoMessage = "Otázka byla úspěšně smazána.";
         }
         else
         {
             questionApiError = await ReadApiErrorAsync(response);
         }
 
-        isDeletingQuestion = false;
+        isSavingQuestionId = null;
+        isDeletingQuestionAction = false;
+        isSavingQuestion = false;
+    }
+
+    private void AddEmptyQuestion()
+    {
+        questionApiError = null;
+        questionInfoMessage = null;
+
+        NormalizeQuestionOrders();
+        var nextOrder = GetNextAvailableQuestionOrder();
+
+        questionEditors.Add(new QuestionEditorModel
+        {
+            Order = nextOrder,
+            QuestionType = QuestionType.MultipleChoice,
+            IsNew = true
+        });
+
+        NormalizeQuestionOrders();
+    }
+
+    private Task MoveQuestionUpAsync(QuestionEditorModel question)
+    {
+        return MoveQuestionAsync(question, -1);
+    }
+
+    private Task MoveQuestionDownAsync(QuestionEditorModel question)
+    {
+        return MoveQuestionAsync(question, 1);
+    }
+
+    private async Task MoveQuestionAsync(QuestionEditorModel question, int step)
+    {
+        questionApiError = null;
+        questionInfoMessage = null;
+
+        var ordered = questionEditors.OrderBy(x => x.Order).ToList();
+        var currentIndex = ordered.FindIndex(x => x.ClientId == question.ClientId);
+        if (currentIndex < 0)
+        {
+            return;
+        }
+
+        var targetIndex = currentIndex + step;
+        if (targetIndex < 0 || targetIndex >= ordered.Count)
+        {
+            return;
+        }
+
+        (ordered[currentIndex], ordered[targetIndex]) = (ordered[targetIndex], ordered[currentIndex]);
+        questionEditors = ordered;
+        NormalizeQuestionOrders();
+
+        await SaveQuestionOrderAsync();
+    }
+
+    private async Task SaveQuestionOrderAsync()
+    {
+        questionApiError = null;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro úpravu pořadí otázek zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            return;
+        }
+
+        isSavingQuestion = true;
+        isDeletingQuestionAction = false;
+        isSavingQuestionId = null;
+
+        var persistedEditors = questionEditors
+            .Where(x => x.QuestionId.HasValue)
+            .OrderBy(x => x.Order)
+            .ToList();
+
+        for (var index = 0; index < persistedEditors.Count; index++)
+        {
+            var editor = persistedEditors[index];
+            var temporaryOrder = persistedEditors.Count + index + 1;
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{editor.QuestionId!.Value}")
+            {
+                Content = JsonContent.Create(new UpdateQuizQuestionRequest(
+                    editor.Text.Trim(),
+                    editor.TimeLimitSec ?? 30,
+                    editor.QuestionType,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.CorrectOption : null,
+                    editor.QuestionType == QuestionType.NumericClosest ? editor.CorrectNumericValue : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionA.Trim() : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionB.Trim() : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionC.Trim() : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionD.Trim() : null,
+                    temporaryOrder))
+            };
+
+            if (!string.IsNullOrWhiteSpace(questionsPassword))
+            {
+                request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+            }
+
+            ApplyOrganizerAuth(request);
+
+            using var response = await HttpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                questionApiError = await ReadApiErrorAsync(response);
+                isSavingQuestionId = null;
+                isDeletingQuestionAction = false;
+                isSavingQuestion = false;
+                return;
+            }
+        }
+
+        for (var index = 0; index < persistedEditors.Count; index++)
+        {
+            var editor = persistedEditors[index];
+            var finalOrder = index + 1;
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{editor.QuestionId!.Value}")
+            {
+                Content = JsonContent.Create(new UpdateQuizQuestionRequest(
+                    editor.Text.Trim(),
+                    editor.TimeLimitSec ?? 30,
+                    editor.QuestionType,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.CorrectOption : null,
+                    editor.QuestionType == QuestionType.NumericClosest ? editor.CorrectNumericValue : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionA.Trim() : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionB.Trim() : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionC.Trim() : null,
+                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionD.Trim() : null,
+                    finalOrder))
+            };
+
+            if (!string.IsNullOrWhiteSpace(questionsPassword))
+            {
+                request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+            }
+
+            ApplyOrganizerAuth(request);
+
+            using var response = await HttpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                questionApiError = await ReadApiErrorAsync(response);
+                isSavingQuestionId = null;
+                isDeletingQuestionAction = false;
+                isSavingQuestion = false;
+                return;
+            }
+        }
+
+        questionInfoMessage = "Pořadí otázek bylo uloženo.";
+        isSavingQuestionId = null;
+        isDeletingQuestionAction = false;
+        isSavingQuestion = false;
+    }
+
+    private static void OnQuestionTypeChanged(QuestionEditorModel question)
+    {
+        question.ValidationErrors = null;
+
+        if (question.QuestionType == QuestionType.MultipleChoice)
+        {
+            question.CorrectNumericValue = null;
+        }
+        else
+        {
+            question.CorrectOption = null;
+        }
     }
 
     private async Task StartQuizAsync()
     {
+        RemoveUnsavedDraftQuestionsBeforeStart();
+
         apiError = null;
         infoMessage = null;
         isCreatingSession = true;
@@ -761,6 +884,20 @@
         isCreatingSession = false;
     }
 
+    private void RemoveUnsavedDraftQuestionsBeforeStart()
+    {
+        var removedCount = questionEditors.RemoveAll(x => !x.QuestionId.HasValue);
+        if (removedCount == 0)
+        {
+            return;
+        }
+
+        NormalizeQuestionOrders();
+        questionInfoMessage = removedCount == 1
+            ? "Neuložená nová otázka byla před spuštěním kvízu odebrána."
+            : "Neuložené nové otázky byly před spuštěním kvízu odebrány.";
+    }
+
     private async Task DeleteQuizAsync()
     {
         apiError = null;
@@ -812,11 +949,6 @@
 
     private Guid? GetQuizId() => QuizId;
 
-    private void ToggleManualQuestionForm()
-    {
-        isManualQuestionFormExpanded = !isManualQuestionFormExpanded;
-    }
-
     private void ResetRevealedQuestionsState()
     {
         questionsPassword = string.Empty;
@@ -824,53 +956,63 @@
         questionApiError = null;
         hasLoadedQuestions = false;
         allowManualAddWithoutPassword = false;
-        editingQuestionId = null;
         revealedQuestions = [];
-        ResetManualQuestionForm();
+        questionEditors = [];
     }
 
-    private void ResetManualQuestionForm()
+    private void SyncQuestionEditorsFromRevealedQuestions()
     {
-        manualQuestionValidationErrors = null;
-        editingQuestionId = null;
-        manualQuestionText = string.Empty;
-        manualTimeLimitSec = 30;
-        manualQuestionType = QuestionType.MultipleChoice;
-        manualOrder = GetNextAvailableManualOrder();
-        manualCorrectOption = null;
-        manualCorrectNumericValue = null;
-        manualOptionA = string.Empty;
-        manualOptionB = string.Empty;
-        manualOptionC = string.Empty;
-        manualOptionD = string.Empty;
-    }
-
-    private int GetNextAvailableManualOrder()
-    {
-        if (revealedQuestions.Count > 0)
-        {
-            var usedOrders = revealedQuestions
-                .Select(x => x.OrderIndex + 1)
-                .ToHashSet();
-
-            var nextOrder = 1;
-            while (usedOrders.Contains(nextOrder))
+        questionEditors = revealedQuestions
+            .OrderBy(x => x.OrderIndex)
+            .Select(x => new QuestionEditorModel
             {
-                nextOrder++;
-            }
+                QuestionId = x.QuestionId,
+                Order = x.OrderIndex + 1,
+                Text = x.Text,
+                TimeLimitSec = x.TimeLimitSec,
+                QuestionType = x.QuestionType,
+                CorrectOption = x.CorrectOption,
+                CorrectNumericValue = x.CorrectNumericValue,
+                OptionA = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.A)?.Text ?? string.Empty,
+                OptionB = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.B)?.Text ?? string.Empty,
+                OptionC = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.C)?.Text ?? string.Empty,
+                OptionD = x.Options.FirstOrDefault(o => o.OptionKey == OptionKey.D)?.Text ?? string.Empty,
+                IsNew = false
+            })
+            .ToList();
 
-            return nextOrder;
+        NormalizeQuestionOrders();
+    }
+
+    private int GetNextAvailableQuestionOrder()
+    {
+        var usedOrders = questionEditors
+            .Select(x => x.Order)
+            .Where(x => x > 0)
+            .ToHashSet();
+
+        var nextOrder = 1;
+        while (usedOrders.Contains(nextOrder))
+        {
+            nextOrder++;
         }
 
-        var knownQuestionCount = quizDetail?.QuestionCount ?? 0;
-        return knownQuestionCount + 1;
+        return nextOrder;
     }
 
-    private bool TryGetManualValidationMessage(string fieldName, out string message)
+    private void NormalizeQuestionOrders()
+    {
+        for (var i = 0; i < questionEditors.Count; i++)
+        {
+            questionEditors[i].Order = i + 1;
+        }
+    }
+
+    private static bool TryGetQuestionValidationMessage(QuestionEditorModel question, string fieldName, out string message)
     {
         message = string.Empty;
 
-        if (manualQuestionValidationErrors is null || !manualQuestionValidationErrors.TryGetValue(fieldName, out var messages) || messages.Length == 0)
+        if (question.ValidationErrors is null || !question.ValidationErrors.TryGetValue(fieldName, out var messages) || messages.Length == 0)
         {
             return false;
         }
@@ -879,50 +1021,50 @@
         return true;
     }
 
-    private Dictionary<string, string[]>? ValidateManualQuestionForm()
+    private static Dictionary<string, string[]>? ValidateQuestionEditor(QuestionEditorModel question)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
-        if (manualOrder < 1)
+        if (question.Order < 1)
         {
-            errors[nameof(manualOrder)] = ["Pořadí otázky musí být alespoň 1."];
+            errors[nameof(QuestionEditorModel.Order)] = ["Pořadí otázky musí být alespoň 1."];
         }
 
-        if (string.IsNullOrWhiteSpace(manualQuestionText))
+        if (string.IsNullOrWhiteSpace(question.Text))
         {
-            errors[nameof(manualQuestionText)] = ["Zadejte text otázky."];
+            errors[nameof(QuestionEditorModel.Text)] = ["Zadejte text otázky."];
         }
-        else if (manualQuestionText.Trim().Length > 1500)
+        else if (question.Text.Trim().Length > 1500)
         {
-            errors[nameof(manualQuestionText)] = ["Text otázky je příliš dlouhý (max. 1500 znaků)."];
-        }
-
-        if (manualTimeLimitSec < 10 || manualTimeLimitSec > 300)
-        {
-            errors[nameof(manualTimeLimitSec)] = ["Časový limit musí být mezi 10 a 300 sekundami."];
+            errors[nameof(QuestionEditorModel.Text)] = ["Text otázky je příliš dlouhý (max. 1500 znaků)."];
         }
 
-        if (manualQuestionType == QuestionType.MultipleChoice)
+        if (!question.TimeLimitSec.HasValue || question.TimeLimitSec.Value < 10 || question.TimeLimitSec.Value > 300)
         {
-            ValidateManualOption(manualOptionA, nameof(manualOptionA), "Vyplňte odpověď A.", errors);
-            ValidateManualOption(manualOptionB, nameof(manualOptionB), "Vyplňte odpověď B.", errors);
-            ValidateManualOption(manualOptionC, nameof(manualOptionC), "Vyplňte odpověď C.", errors);
-            ValidateManualOption(manualOptionD, nameof(manualOptionD), "Vyplňte odpověď D.", errors);
+            errors[nameof(QuestionEditorModel.TimeLimitSec)] = ["Časový limit musí být mezi 10 a 300 sekundami."];
+        }
 
-            if (!manualCorrectOption.HasValue)
+        if (question.QuestionType == QuestionType.MultipleChoice)
+        {
+            ValidateOption(question.OptionA, nameof(QuestionEditorModel.OptionA), "Vyplňte odpověď A.", errors);
+            ValidateOption(question.OptionB, nameof(QuestionEditorModel.OptionB), "Vyplňte odpověď B.", errors);
+            ValidateOption(question.OptionC, nameof(QuestionEditorModel.OptionC), "Vyplňte odpověď C.", errors);
+            ValidateOption(question.OptionD, nameof(QuestionEditorModel.OptionD), "Vyplňte odpověď D.", errors);
+
+            if (!question.CorrectOption.HasValue)
             {
-                errors[nameof(manualCorrectOption)] = ["Vyberte správnou odpověď."];
+                errors[nameof(QuestionEditorModel.CorrectOption)] = ["Vyberte správnou odpověď."];
             }
         }
-        else if (!manualCorrectNumericValue.HasValue)
+        else if (!question.CorrectNumericValue.HasValue)
         {
-            errors[nameof(manualCorrectNumericValue)] = ["Zadejte správnou číselnou hodnotu."];
+            errors[nameof(QuestionEditorModel.CorrectNumericValue)] = ["Zadejte správnou číselnou hodnotu."];
         }
 
         return errors.Count == 0 ? null : errors;
     }
 
-    private static void ValidateManualOption(string? optionValue, string fieldName, string requiredMessage, IDictionary<string, string[]> errors)
+    private static void ValidateOption(string? optionValue, string fieldName, string requiredMessage, IDictionary<string, string[]> errors)
     {
         if (string.IsNullOrWhiteSpace(optionValue))
         {
@@ -936,14 +1078,22 @@
         }
     }
 
-    private static string FormatDecimal(decimal? value)
+    private sealed class QuestionEditorModel
     {
-        if (!value.HasValue)
-        {
-            return "-";
-        }
-
-        return value.Value.ToString("0.############################", System.Globalization.CultureInfo.CurrentCulture);
+        public Guid ClientId { get; init; } = Guid.NewGuid();
+        public Guid? QuestionId { get; set; }
+        public int Order { get; set; }
+        public string Text { get; set; } = string.Empty;
+        public int? TimeLimitSec { get; set; }
+        public QuestionType QuestionType { get; set; }
+        public OptionKey? CorrectOption { get; set; }
+        public decimal? CorrectNumericValue { get; set; }
+        public string OptionA { get; set; } = string.Empty;
+        public string OptionB { get; set; } = string.Empty;
+        public string OptionC { get; set; } = string.Empty;
+        public string OptionD { get; set; } = string.Empty;
+        public bool IsNew { get; set; }
+        public Dictionary<string, string[]>? ValidationErrors { get; set; }
     }
 
     private static string DecodeCsvContent(byte[] csvBytes)

@@ -115,3 +115,5 @@ Ptej se jen tehdy, pokud by dvě různé varianty vedly k zásadně odlišné ar
 - Tlačítko 'Zobrazit výsledky' na týmové obrazovce po konci hry zůstane viditelné a bude do zveřejnění výsledků organizátorem pouze disablované, nikoli skryté.
 - Na týmové obrazovce po konci kvízu bude hláška 'Výsledky zatím nebyly zveřejněny organizátorem.' umístěna nad tlačítkem 'Zobrazit výsledky'.
 - Po smazání otázky tlačítkem 'Smazat otázku' na stránce OrganizerQuizDetail má být formulář 'Ruční vložení otázky' automaticky sbalen.
+- V editoru otázek, popis `Otázka číslo:` bude umístěn nad textboxem pořadí a popis `Otázka:` nad textboxem textu otázky.
+- Uživatel preferuje v editoru otázek needitovatelné číslo otázky a změnu pořadí přes šipky nahoru/dolů, přičemž pořadí všech otázek má po posunu vždy tvořit souvislou řadu 1..N.
