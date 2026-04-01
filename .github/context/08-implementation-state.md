@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Post-S21 UI tweak — v `OrganizerDashboard` se ve gridu `Dostupné kvízy` datum zobrazuje ve formátu `dd.MM.yyyy`.
+- Post-S21 UI tweak — v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po vygenerování join kódu už nezobrazuje informační hláška „Byl vygenerován volný join kód.“.
 
 ## Aktuální poznámky
 - V `QuizApp.Client/Pages/OrganizerDashboard.razor` je v sekci `Dostupné kvízy` fulltext filtr podle názvu kvízu (`oninput`) integrován přímo do hlavičky gridu a stránkování (`Předchozí`/`Další`) má limit 10 záznamů na stránku.
@@ -165,6 +165,7 @@ Po každém kroku jej aktualizuj.
 - Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je doplněna logika `GetNextAvailableManualOrder()`, která po přidání/načtení otázek nastavuje `Pořadí otázky` na nejnižší volné pořadí (při načteném seznamu podle skutečných `OrderIndex`).
 - Post-S21 UX tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je v sekci `Import otázek CSV` odkaz na stažení šablony `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv`.
 - Post-S21 UX/API tweak: `QuizApp.Server/Application/QuizImport/QuizCsvParser.cs` používá delimiter `;` a akceptuje volitelný první řádek `sep=;`; šablona `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv` je upravena na semicolon formát a v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je zobrazena informace o oddělovači `;`.
+- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po kliknutí na `Vygenerovat kód` už nezobrazuje info hláška „Byl vygenerován volný join kód.“; vygenerovaná hodnota se pouze vyplní do pole join kódu.
 
 ## Rizika / dluh
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.

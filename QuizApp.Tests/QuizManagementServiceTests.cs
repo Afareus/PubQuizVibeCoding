@@ -225,6 +225,40 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
+    public async Task GenerateJoinCodeAsync_ValidPassword_ReturnsUnusedSixDigitCode()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Generování", "heslo123"), CancellationToken.None);
+
+        dbContext.Sessions.Add(QuizApp.Server.Domain.Entities.QuizSession.Create(Guid.NewGuid(), createResult.Response!.QuizId, "123456", DateTime.UtcNow));
+        await dbContext.SaveChangesAsync();
+
+        var generateResult = await service.GenerateJoinCodeAsync(createResult.Response.QuizId, null, "heslo123", CancellationToken.None);
+
+        Assert.True(generateResult.IsSuccess);
+        Assert.NotNull(generateResult.Response);
+        Assert.NotNull(generateResult.Response!.JoinCode);
+        Assert.Equal(6, generateResult.Response.JoinCode.Length);
+        Assert.Matches("^[0-9]{6}$", generateResult.Response.JoinCode);
+        Assert.NotEqual("123456", generateResult.Response.JoinCode);
+    }
+
+    [Fact]
+    public async Task GenerateJoinCodeAsync_MissingAuthorization_ReturnsMissingAuthToken()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Generování", "heslo123"), CancellationToken.None);
+
+        var generateResult = await service.GenerateJoinCodeAsync(createResult.Response!.QuizId, null, null, CancellationToken.None);
+
+        Assert.False(generateResult.IsSuccess);
+        Assert.NotNull(generateResult.Error);
+        Assert.Equal(ApiErrorCode.MissingAuthToken, generateResult.Error!.Code);
+    }
+
+    [Fact]
     public async Task CreateSessionAsync_IncompleteQuestionOrder_ReturnsValidationFailed()
     {
         await using var dbContext = CreateDbContext();

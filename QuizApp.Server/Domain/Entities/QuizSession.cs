@@ -130,7 +130,7 @@ public sealed class QuizSession
         RefreshConcurrencyToken();
     }
 
-    public void SetCurrentQuestion(int currentQuestionIndex, DateTime currentQuestionStartedAtUtc, DateTime questionDeadlineUtc)
+    public void SetCurrentQuestion(int currentQuestionIndex, DateTime currentQuestionStartedAtUtc, DateTime? questionDeadlineUtc)
     {
         if (Status != SessionStatus.Running)
         {
@@ -139,7 +139,9 @@ public sealed class QuizSession
 
         CurrentQuestionIndex = EntityGuards.Range(currentQuestionIndex, 0, int.MaxValue, nameof(currentQuestionIndex), "Current question index must be non-negative.");
         CurrentQuestionStartedAtUtc = EntityGuards.Utc(currentQuestionStartedAtUtc, nameof(currentQuestionStartedAtUtc));
-        QuestionDeadlineUtc = EntityGuards.Utc(questionDeadlineUtc, nameof(questionDeadlineUtc));
+        QuestionDeadlineUtc = questionDeadlineUtc.HasValue
+            ? EntityGuards.Utc(questionDeadlineUtc.Value, nameof(questionDeadlineUtc))
+            : null;
         RefreshConcurrencyToken();
     }
 

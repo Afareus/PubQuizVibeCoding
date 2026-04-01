@@ -10,6 +10,9 @@ public sealed record CreateSessionResponse(
     string JoinCode,
     SessionStatus Status);
 
+public sealed record GenerateJoinCodeResponse(
+    string JoinCode);
+
 public sealed record JoinSessionRequest(
     string JoinCode,
     string TeamName);
@@ -46,7 +49,8 @@ public sealed record SessionStateSnapshotResponse(
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
     IReadOnlyList<SnapshotTeamDto> Teams,
-    bool ResultsPublished);
+    bool ResultsPublished,
+    bool IsCurrentQuestionAnsweringClosed);
 
 public sealed record OrganizerSessionSnapshotResponse(
     Guid SessionId,
@@ -57,6 +61,7 @@ public sealed record OrganizerSessionSnapshotResponse(
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? EndedAtUtc,
     int? CurrentQuestionIndex,
+    int TotalQuestionCount,
     DateTimeOffset? CurrentQuestionStartedAtUtc,
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
@@ -94,6 +99,13 @@ public sealed record SessionResultDto(
 public sealed record CorrectAnswersResponse(
     Guid SessionId,
     IReadOnlyList<CorrectAnswerDto> CorrectAnswers);
+
+public sealed record CurrentQuestionCorrectAnswerResponse(
+    Guid SessionId,
+    Guid QuestionId,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue);
 
 public sealed record CorrectAnswerDto(
     Guid QuestionId,
