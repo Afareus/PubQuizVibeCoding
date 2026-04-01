@@ -57,6 +57,7 @@ public sealed record OrganizerSessionSnapshotResponse(
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? EndedAtUtc,
     int? CurrentQuestionIndex,
+    int TotalQuestionCount,
     DateTimeOffset? CurrentQuestionStartedAtUtc,
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
@@ -94,6 +95,13 @@ public sealed record SessionResultDto(
 public sealed record CorrectAnswersResponse(
     Guid SessionId,
     IReadOnlyList<CorrectAnswerDto> CorrectAnswers);
+
+public sealed record CurrentQuestionCorrectAnswerResponse(
+    Guid SessionId,
+    Guid QuestionId,
+    QuestionType QuestionType,
+    OptionKey? CorrectOption,
+    decimal? CorrectNumericValue);
 
 public sealed record CorrectAnswerDto(
     Guid QuestionId,

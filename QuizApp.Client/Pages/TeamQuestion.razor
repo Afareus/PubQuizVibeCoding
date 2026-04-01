@@ -76,13 +76,16 @@ else
             {
                 <p class="mb-1 text-warning"><strong>Hra je pozastavena organizátorem.</strong></p>
             }
-            @if (remainingSeconds > 0)
+            @if (snapshot.QuestionDeadlineUtc.HasValue)
             {
-                <p class="mb-0 fs-4"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
-            }
-            else
-            {
-                <p class="mb-0 fs-4 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                @if (remainingSeconds > 0)
+                {
+                    <p class="mb-0 fs-4"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
+                }
+                else
+                {
+                    <p class="mb-0 fs-4 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                }
             }
         </div>
     </section>
@@ -114,10 +117,14 @@ else
     }
     else
     {
-        <div class="row g-2 align-items-end">
+        <div class="row g-2 align-items-end justify-content-center">
             <div class="col-sm-8 col-md-6">
                 <label class="form-label" for="numericTip">Zadejte číselný tip</label>
-                <InputNumber id="numericTip" class="form-control" @bind-Value="numericTip" disabled="@(!CanSubmitAnswer)" />
+                <input id="numericTip"
+                       class="form-control"
+                       value="@numericTipInput"
+                       @oninput="OnNumericTipInput"
+                       disabled="@(!CanSubmitAnswer)" />
             </div>
             <div class="col-sm-4 col-md-3">
                 <button class="btn btn-primary w-100" type="button" disabled="@(!CanSubmitAnswer || !numericTip.HasValue)" @onclick="SubmitNumericAnswerAsync">
@@ -140,6 +147,7 @@ else
     private OptionKey? submittedOption;
     private decimal? submittedNumericValue;
     private decimal? numericTip;
+    private string numericTipInput = string.Empty;
     private ApiErrorResponse? apiError;
     private string? infoMessage;
     private bool isLoading;
@@ -305,6 +313,27 @@ else
         submittedOption = submittedAnswer?.SelectedOption;
         submittedNumericValue = submittedAnswer?.NumericValue;
         numericTip = submittedNumericValue;
+        numericTipInput = FormatDecimal(submittedNumericValue) == "-" ? string.Empty : FormatDecimal(submittedNumericValue);
+    }
+
+    private void OnNumericTipInput(ChangeEventArgs args)
+    {
+        numericTipInput = args.Value?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(numericTipInput))
+        {
+            numericTip = null;
+            return;
+        }
+
+        if (decimal.TryParse(numericTipInput, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out var parsedCurrentCulture)
+            || decimal.TryParse(numericTipInput, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out parsedCurrentCulture))
+        {
+            numericTip = parsedCurrentCulture;
+            return;
+        }
+
+        numericTip = null;
     }
 
     private void GoToResults()

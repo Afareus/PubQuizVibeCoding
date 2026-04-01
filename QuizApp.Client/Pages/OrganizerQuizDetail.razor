@@ -30,6 +30,11 @@
             <div class="form-text">Join kód musí mít alespoň 4 znaky.</div>
         </div>
 
+        <div class="form-check mb-3">
+            <InputCheckbox id="quizWithTimer" class="form-check-input" @bind-Value="isQuizTimerEnabled" />
+            <label class="form-check-label" for="quizWithTimer">Kvíz s časomírou</label>
+        </div>
+
         <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
     </div>
 </section>
@@ -311,6 +316,7 @@
     private bool isLoadingQuestions;
     private bool isAddingQuestion;
     private bool isDeletingQuestion;
+    private bool isQuizTimerEnabled;
     private bool hasLoadedQuestions;
     private bool isManualQuestionFormExpanded;
     private bool allowManualAddWithoutPassword;
@@ -743,7 +749,8 @@
                 return;
             }
 
-            NavigationManager.NavigateTo($"/organizator/session/cekarna/{createdSession.SessionId}?quizId={quizId.Value}");
+            var startModeQuery = isQuizTimerEnabled ? string.Empty : "&startMode=without-timer";
+            NavigationManager.NavigateTo($"/organizator/session/cekarna/{createdSession.SessionId}?quizId={quizId.Value}{startModeQuery}");
             return;
         }
         else

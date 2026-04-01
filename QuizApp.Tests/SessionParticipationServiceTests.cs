@@ -305,6 +305,140 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task StartSessionAsync_WithoutTimer_StartsWithQuestionWithoutDeadline()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Bez času"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: false);
+
+        Assert.True(startResult.IsSuccess);
+        Assert.NotNull(startResult.Response);
+        Assert.Equal(SessionStatus.Running, startResult.Response!.Status);
+        Assert.Null(startResult.Response.QuestionDeadlineUtc);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Running, session.Status);
+        Assert.NotNull(session.CurrentQuestionStartedAtUtc);
+        Assert.Null(session.QuestionDeadlineUtc);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_WithoutTimerMode_AllowsAnswerSubmission()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Odpověď"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: false);
+        Assert.True(startResult.IsSuccess);
+
+        var snapshotResult = await sessionService.GetSessionStateAsync(
+            created.SessionId,
+            joinResult.Response!.TeamId,
+            joinResult.Response.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Response?.CurrentQuestion);
+
+        var submitResult = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(joinResult.Response.TeamId, snapshotResult.Response!.CurrentQuestion!.QuestionId, OptionKey.B, null),
+            joinResult.Response.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(submitResult.IsSuccess);
+    }
+
+    [Fact]
+    public async Task GetCurrentCorrectAnswerAsync_WithoutTimerRunningSession_ReturnsCorrectAnswer()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Ověření"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: false);
+        Assert.True(startResult.IsSuccess);
+
+        var correctAnswerResult = await sessionService.GetCurrentCorrectAnswerAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+
+        Assert.True(correctAnswerResult.IsSuccess);
+        Assert.NotNull(correctAnswerResult.Response);
+        Assert.Equal(QuestionType.MultipleChoice, correctAnswerResult.Response!.QuestionType);
+        Assert.Equal(OptionKey.B, correctAnswerResult.Response.CorrectOption);
+    }
+
+    [Fact]
+    public async Task GetCurrentCorrectAnswerAsync_TimerMode_ReturnsSessionStateChanged()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Timer"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: true);
+        Assert.True(startResult.IsSuccess);
+
+        var correctAnswerResult = await sessionService.GetCurrentCorrectAnswerAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+
+        Assert.False(correctAnswerResult.IsSuccess);
+        Assert.NotNull(correctAnswerResult.Error);
+        Assert.Equal(ApiErrorCode.SessionStateChanged, correctAnswerResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task AdvanceSessionAsync_WithoutTimer_AdvancesAndFinishesOnLastQuestion()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithTwoQuestionsAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Ruční postup"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: false);
+        Assert.True(startResult.IsSuccess);
+        Assert.NotNull(startResult.Response);
+        Assert.Equal(0, startResult.Response!.CurrentQuestionIndex);
+        Assert.Equal(2, startResult.Response.TotalQuestionCount);
+        Assert.Null(startResult.Response.QuestionDeadlineUtc);
+
+        var advanceToSecond = await sessionService.AdvanceSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(advanceToSecond.IsSuccess);
+        Assert.NotNull(advanceToSecond.Response);
+        Assert.Equal(SessionStatus.Running, advanceToSecond.Response!.Status);
+        Assert.Equal(1, advanceToSecond.Response.CurrentQuestionIndex);
+        Assert.Null(advanceToSecond.Response.QuestionDeadlineUtc);
+
+        var finishResult = await sessionService.AdvanceSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(finishResult.IsSuccess);
+        Assert.NotNull(finishResult.Response);
+        Assert.Equal(SessionStatus.Finished, finishResult.Response!.Status);
+
+        var finishedSession = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        Assert.Equal(SessionStatus.Finished, finishedSession.Status);
+        Assert.NotNull(finishedSession.FinishedAtUtc);
+    }
+
+    [Fact]
     public async Task PauseAndResumeSessionAsync_ShiftsQuestionTimingAndStatus()
     {
         await using var dbContext = CreateDbContext();

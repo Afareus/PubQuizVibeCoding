@@ -22,7 +22,9 @@ public interface ISessionParticipationService
 
     Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
-    Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+    Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken, bool useQuestionTimer = true);
+
+    Task<OrganizerSessionStateOperationResult> AdvanceSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task<OrganizerSessionStateOperationResult> PauseSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
@@ -35,6 +37,8 @@ public interface ISessionParticipationService
     Task<SessionResultsOperationResult> GetSessionResultsAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task<CorrectAnswersOperationResult> GetCorrectAnswersAsync(Guid sessionId, Guid? teamId, string? teamReconnectToken, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
+    Task<CurrentQuestionCorrectAnswerOperationResult> GetCurrentCorrectAnswerAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
     Task ProgressDueSessionsAsync(CancellationToken cancellationToken);
 }
@@ -312,7 +316,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Odpovědi lze odesílat pouze v RUNNING session."));
         }
 
-        if (!session.CurrentQuestionIndex.HasValue || !session.CurrentQuestionStartedAtUtc.HasValue || !session.QuestionDeadlineUtc.HasValue)
+        if (!session.CurrentQuestionIndex.HasValue || !session.CurrentQuestionStartedAtUtc.HasValue)
         {
             return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Aktuální otázka není dostupná."));
         }
@@ -326,7 +330,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         var nowUtc = DateTime.UtcNow;
-        if (nowUtc > session.QuestionDeadlineUtc.Value)
+        if (session.QuestionDeadlineUtc.HasValue && nowUtc > session.QuestionDeadlineUtc.Value)
         {
             return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Čas pro odeslání odpovědi vypršel."));
         }
@@ -417,7 +421,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return OrganizerSessionStateOperationResult.Success(response);
     }
 
-    public async Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    public async Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken, bool useQuestionTimer = true)
     {
         var session = await _dbContext.Sessions
             .Include(x => x.Quiz)
@@ -455,10 +459,14 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         if (firstQuestion is not null)
         {
+            var questionDeadlineUtc = useQuestionTimer
+                ? nowUtc.AddSeconds(firstQuestion.TimeLimitSec)
+                : (DateTime?)null;
+
             session.SetCurrentQuestion(
                 firstQuestion.OrderIndex,
                 nowUtc,
-                nowUtc.AddSeconds(firstQuestion.TimeLimitSec));
+                questionDeadlineUtc);
         }
 
         _dbContext.AuditLogs.Add(AuditLog.Create(
@@ -508,6 +516,11 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze pozastavit pouze ve stavu RUNNING."));
         }
 
+        if (!session.QuestionDeadlineUtc.HasValue)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session v režimu bez časomíry nelze pozastavit."));
+        }
+
         var nowUtc = DateTime.UtcNow;
         session.Pause(nowUtc);
 
@@ -549,6 +562,11 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze znovu spustit pouze ze stavu PAUSED."));
         }
 
+        if (!session.QuestionDeadlineUtc.HasValue)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session v režimu bez časomíry nelze obnovit."));
+        }
+
         var nowUtc = DateTime.UtcNow;
         session.Resume(nowUtc);
 
@@ -562,6 +580,73 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.QuestionChanged, cancellationToken);
+
+        return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
+    }
+
+    public async Task<OrganizerSessionStateOperationResult> AdvanceSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz)
+                .ThenInclude(x => x!.Questions)
+                .ThenInclude(x => x.Options)
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return OrganizerSessionStateOperationResult.Fail(authError!);
+        }
+
+        if (session.Status != SessionStatus.Running)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze v režimu bez časomíry posunout pouze ve stavu RUNNING."));
+        }
+
+        if (!session.CurrentQuestionIndex.HasValue || !session.CurrentQuestionStartedAtUtc.HasValue)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Aktuální otázka není dostupná."));
+        }
+
+        if (session.QuestionDeadlineUtc.HasValue)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Ruční posun otázky je dostupný pouze v režimu bez časomíry."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var nextQuestion = session.Quiz!.Questions
+            .OrderBy(x => x.OrderIndex)
+            .FirstOrDefault(x => x.OrderIndex > session.CurrentQuestionIndex.Value);
+
+        RealtimeEventName emittedEvent;
+
+        if (nextQuestion is null)
+        {
+            session.Finish(nowUtc);
+            await ComputeSessionResultsAsync(session, cancellationToken);
+            emittedEvent = RealtimeEventName.SessionFinished;
+        }
+        else
+        {
+            session.SetCurrentQuestion(nextQuestion.OrderIndex, nowUtc, null);
+            emittedEvent = RealtimeEventName.QuestionChanged;
+        }
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session byla mezitím změněna. Obnovte stav a zkuste to znovu."));
+        }
+
+        await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, emittedEvent, cancellationToken);
 
         return OrganizerSessionStateOperationResult.Success(ToOrganizerSnapshot(session));
     }
@@ -724,6 +809,53 @@ public sealed class SessionParticipationService : ISessionParticipationService
             .ToList();
 
         return CorrectAnswersOperationResult.Success(new CorrectAnswersResponse(session.SessionId, correctAnswers));
+    }
+
+    public async Task<CurrentQuestionCorrectAnswerOperationResult> GetCurrentCorrectAnswerAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .AsNoTracking()
+            .Include(x => x.Quiz!)
+                .ThenInclude(x => x.Questions)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return CurrentQuestionCorrectAnswerOperationResult.Fail(authError!);
+        }
+
+        if (session.Status is not SessionStatus.Running and not SessionStatus.Paused)
+        {
+            return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Správnou odpověď lze zobrazit pouze během aktivní otázky."));
+        }
+
+        if (session.QuestionDeadlineUtc.HasValue)
+        {
+            return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Správnou odpověď lze během hry zobrazit pouze v režimu bez časomíry."));
+        }
+
+        if (!session.CurrentQuestionIndex.HasValue)
+        {
+            return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Aktuální otázka není dostupná."));
+        }
+
+        var question = session.Quiz!.Questions.SingleOrDefault(x => x.OrderIndex == session.CurrentQuestionIndex.Value);
+        if (question is null)
+        {
+            return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Aktuální otázka není dostupná."));
+        }
+
+        return CurrentQuestionCorrectAnswerOperationResult.Success(new CurrentQuestionCorrectAnswerResponse(
+            session.SessionId,
+            question.QuestionId,
+            question.QuestionType,
+            question.CorrectOption,
+            question.CorrectNumericValue));
     }
 
     public async Task ProgressDueSessionsAsync(CancellationToken cancellationToken)
@@ -976,6 +1108,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             ToUtcOffset(session.StartedAtUtc),
             ToUtcOffset(session.EndedAtUtc),
             session.CurrentQuestionIndex,
+            session.Quiz?.Questions.Count ?? 0,
             ToUtcOffset(session.CurrentQuestionStartedAtUtc),
             ToUtcOffset(session.QuestionDeadlineUtc),
             BuildCurrentQuestion(session),
@@ -1288,4 +1421,15 @@ public sealed record CorrectAnswersOperationResult(
     public static CorrectAnswersOperationResult Success(CorrectAnswersResponse response) => new(response, null);
 
     public static CorrectAnswersOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record CurrentQuestionCorrectAnswerOperationResult(
+    CurrentQuestionCorrectAnswerResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static CurrentQuestionCorrectAnswerOperationResult Success(CurrentQuestionCorrectAnswerResponse response) => new(response, null);
+
+    public static CurrentQuestionCorrectAnswerOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }
