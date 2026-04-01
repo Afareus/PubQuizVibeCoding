@@ -23,14 +23,19 @@ public static class SessionParticipationEndpoints
             .RequireRateLimiting("SubmitPerTeam");
         group.MapPost("/{sessionId:guid}/start", StartSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
+        group.MapPost("/{sessionId:guid}/start-without-timer", StartSessionWithoutTimerAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{sessionId:guid}/pause", PauseSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{sessionId:guid}/resume", ResumeSessionAsync)
+            .RequireRateLimiting("OrganizerMutations");
+        group.MapPost("/{sessionId:guid}/advance", AdvanceSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{sessionId:guid}/cancel", CancelSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapGet("/{sessionId:guid}/results", GetSessionResultsAsync);
         group.MapGet("/{sessionId:guid}/correct-answers", GetCorrectAnswersAsync);
+        group.MapGet("/{sessionId:guid}/current-correct-answer", GetCurrentCorrectAnswerAsync);
 
         return endpoints;
     }
@@ -41,6 +46,24 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var result = await sessionParticipationService.JoinSessionAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> GetCurrentCorrectAnswerAsync(
+        Guid sessionId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.GetCurrentCorrectAnswerAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
@@ -129,6 +152,42 @@ public static class SessionParticipationEndpoints
         var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.StartSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> StartSessionWithoutTimerAsync(
+        Guid sessionId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.StartSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken, useQuestionTimer: false);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> AdvanceSessionAsync(
+        Guid sessionId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.AdvanceSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));

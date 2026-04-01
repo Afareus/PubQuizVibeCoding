@@ -16,6 +16,8 @@ public static class QuizManagementEndpoints
             .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/sessions", CreateSessionAsync)
             .RequireRateLimiting("OrganizerMutations");
+        group.MapGet("/{quizId:guid}/sessions/generate-join-code", GenerateJoinCodeAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/questions", AddQuestionAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapPut("/{quizId:guid}/questions/{questionId:guid}", UpdateQuestionAsync)
@@ -100,6 +102,24 @@ public static class QuizManagementEndpoints
         }
 
         return TypedResults.Created($"/api/sessions/{result.Response!.SessionId}", result.Response);
+    }
+
+    private static async Task<IResult> GenerateJoinCodeAsync(
+        Guid quizId,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.GenerateJoinCodeAsync(quizId, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
     }
 
     private static async Task<IResult> AddQuestionAsync(

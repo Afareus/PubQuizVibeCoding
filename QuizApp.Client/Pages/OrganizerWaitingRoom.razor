@@ -32,13 +32,16 @@
                 <h2 class="h5 fw-normal mb-2">Otázka číslo: @((snapshot.CurrentQuestionIndex ?? 0) + 1)</h2>
                 <p class="mb-2"><strong>@snapshot.CurrentQuestion.Text</strong></p>
 
-                @if (remainingSeconds > 0)
+                @if (UsesQuestionTimer)
                 {
-                    <p class="mb-2 fs-5"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
-                }
-                else
-                {
-                    <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                    @if (remainingSeconds > 0)
+                    {
+                        <p class="mb-2 fs-5"><strong>⏱ Zbývá:</strong> @remainingSeconds s</p>
+                    }
+                    else
+                    {
+                        <p class="mb-2 fs-5 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                    }
                 }
 
                 @if (snapshot.CurrentQuestion.QuestionType == QuestionType.MultipleChoice)
@@ -46,7 +49,11 @@
                     <div class="d-grid gap-2 mb-3">
                         @foreach (var option in snapshot.CurrentQuestion.Options.OrderBy(option => option.OptionKey))
                         {
-                            <button class="btn btn-outline-primary text-start" type="button" disabled>
+                            var isCorrectOptionRevealed = IsCurrentQuestionAnswerRevealed
+                                && revealedCorrectOption.HasValue
+                                && option.OptionKey == revealedCorrectOption.Value;
+
+                            <button class="btn @(isCorrectOptionRevealed ? "btn-success" : "btn-outline-primary") text-start" type="button" disabled>
                                 <strong>@option.OptionKey</strong> — @option.Text
                             </button>
                         }
@@ -54,10 +61,25 @@
                 }
                 else
                 {
-                    <p class="mb-3 text-muted">Typ otázky: číselný tip (bod získá nejbližší odpověď).</p>
+                    <p class="mb-3 text-muted">Bod získá nejbližší odpověď.</p>
+
+                    @if (IsCurrentQuestionAnswerRevealed)
+                    {
+                        <p class="mb-3 text-success fw-semibold"><strong>Správná odpověď:</strong> @FormatDecimal(revealedCorrectNumericValue)</p>
+                    }
                 }
 
-                <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="TogglePauseAsync">@PauseButtonText</button>
+                @if (UsesQuestionTimer)
+                {
+                    <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="TogglePauseAsync">@PauseButtonText</button>
+                }
+                else
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-info" type="button" disabled="@isLoading" @onclick="ShowCorrectAnswerAsync">Zobrazit správnou odpověď</button>
+                        <button class="btn btn-warning" type="button" disabled="@isLoading" @onclick="AdvanceSessionAsync">@AdvanceButtonText</button>
+                    </div>
+                }
             </div>
         </section>
     }
@@ -78,8 +100,8 @@
             <div class="d-flex gap-2 mb-3">
                 @if (snapshot.Status == SessionStatus.Waiting)
                 {
-                    <button class="btn btn-success" type="button" disabled="@isLoading" @onclick="StartSessionAsync">
-                        @(isLoading ? "Provádím..." : "Spustit hru")
+                    <button class="btn btn-success" type="button" disabled="@isLoading" @onclick="StartSessionInSelectedModeAsync">
+                        @(isLoading ? "Provádím..." : StartButtonText)
                     </button>
                 }
 
@@ -127,6 +149,9 @@
     [SupplyParameterFromQuery]
     public Guid? QuizId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "startMode")]
+    public string? StartMode { get; set; }
+
     private string sessionIdInput = string.Empty;
     private string? storedOrganizerToken;
     private string? storedQuizName;
@@ -141,10 +166,20 @@
     private Guid? autoLoadedSessionId;
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
+    private Guid? revealedQuestionId;
+    private OptionKey? revealedCorrectOption;
+    private decimal? revealedCorrectNumericValue;
+    private bool PreferWithoutTimerStart => string.Equals(StartMode, "without-timer", StringComparison.OrdinalIgnoreCase);
+    private bool IsCurrentQuestionAnswerRevealed => snapshot?.CurrentQuestion is not null && revealedQuestionId == snapshot.CurrentQuestion.QuestionId;
 
     private bool IsSessionRunning => snapshot?.Status == SessionStatus.Running;
     private bool IsSessionPaused => snapshot?.Status == SessionStatus.Paused;
     private bool IsSessionActive => IsSessionRunning || IsSessionPaused;
+    private bool UsesQuestionTimer => snapshot?.QuestionDeadlineUtc is not null;
+    private bool IsLastQuestion => snapshot is not null
+        && snapshot.CurrentQuestionIndex.HasValue
+        && snapshot.TotalQuestionCount > 0
+        && snapshot.CurrentQuestionIndex.Value >= snapshot.TotalQuestionCount - 1;
     private string PageHeading => snapshot?.Status switch
     {
         SessionStatus.Running or SessionStatus.Paused => "Probíhající hra",
@@ -152,6 +187,15 @@
         _ => "Čekárna"
     };
     private string PauseButtonText => IsSessionPaused ? "Start hry" : "Pauza hry";
+    private string AdvanceButtonText => IsLastQuestion ? "Ukončit kvíz" : "Pokračovat k další otázce";
+    private const string StartButtonText = "Spustit kvíz";
+
+    private Task StartSessionInSelectedModeAsync()
+    {
+        return PreferWithoutTimerStart
+            ? StartSessionWithoutTimerAsync()
+            : StartSessionAsync();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -213,6 +257,179 @@
         isLoading = false;
     }
 
+    private async Task ShowCorrectAnswerAsync()
+    {
+        if (snapshot is null || snapshot.CurrentQuestion is null)
+        {
+            return;
+        }
+
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{sessionId.Value}/current-correct-answer");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            var correctAnswer = await response.Content.ReadFromJsonAsync<CurrentQuestionCorrectAnswerResponse>();
+            if (correctAnswer is null)
+            {
+                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Správnou odpověď se nepodařilo načíst.");
+                isLoading = false;
+                return;
+            }
+
+            revealedQuestionId = correctAnswer.QuestionId;
+            revealedCorrectOption = correctAnswer.CorrectOption;
+            revealedCorrectNumericValue = correctAnswer.CorrectNumericValue;
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private string BuildCorrectAnswerMessage(CurrentQuestionCorrectAnswerResponse correctAnswer)
+    {
+        if (correctAnswer.QuestionType == QuestionType.MultipleChoice)
+        {
+            var option = correctAnswer.CorrectOption;
+            if (!option.HasValue)
+            {
+                return "Správná odpověď není dostupná.";
+            }
+
+            var optionText = snapshot?.CurrentQuestion?.Options
+                .FirstOrDefault(x => x.OptionKey == option.Value)?.Text;
+
+            return string.IsNullOrWhiteSpace(optionText)
+                ? $"Správná odpověď: {option.Value}"
+                : $"Správná odpověď: {option.Value} — {optionText}";
+        }
+
+        return $"Správná odpověď: {FormatDecimal(correctAnswer.CorrectNumericValue)}";
+    }
+
+    private static string FormatDecimal(decimal? value)
+    {
+        if (!value.HasValue)
+        {
+            return "-";
+        }
+
+        return value.Value.ToString("0.############################", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private void ResetRevealedCorrectAnswerIfQuestionChanged()
+    {
+        if (snapshot?.CurrentQuestion is null)
+        {
+            revealedQuestionId = null;
+            revealedCorrectOption = null;
+            revealedCorrectNumericValue = null;
+            return;
+        }
+
+        if (revealedQuestionId == snapshot.CurrentQuestion.QuestionId)
+        {
+            return;
+        }
+
+        revealedQuestionId = null;
+        revealedCorrectOption = null;
+        revealedCorrectNumericValue = null;
+    }
+
+    private async Task StartSessionWithoutTimerAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/start-without-timer");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            ResetRevealedCorrectAnswerIfQuestionChanged();
+            infoMessage = "Session byla spuštěna bez časomíry.";
+            RestartCountdownTimer();
+            UpdateActiveSessionState();
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task AdvanceSessionAsync()
+    {
+        if (snapshot is null)
+        {
+            return;
+        }
+
+        var wasLastQuestion = IsLastQuestion;
+
+        apiError = null;
+        infoMessage = null;
+
+        var sessionId = ParseSessionId();
+        if (!sessionId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Session ID není ve validním formátu GUID.");
+            return;
+        }
+
+        isLoading = true;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{sessionId.Value}/advance");
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            ResetRevealedCorrectAnswerIfQuestionChanged();
+            infoMessage = wasLastQuestion
+                ? "Kvíz byl ukončen."
+                : "Přecházím na další otázku.";
+            RestartCountdownTimer();
+            UpdateActiveSessionState();
+        }
+        else
+        {
+            apiError = await ReadApiErrorAsync(response);
+        }
+
+        isLoading = false;
+    }
+
     private async Task TogglePauseAsync()
     {
         if (snapshot is null)
@@ -244,6 +461,7 @@
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = wasPaused
                 ? "Session pokračuje."
                 : "Session byla pozastavena.";
@@ -339,6 +557,7 @@
             if (response.IsSuccessStatusCode)
             {
                 snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+                ResetRevealedCorrectAnswerIfQuestionChanged();
                 infoMessage = message;
                 apiError = null;
                 RestartCountdownTimer();
@@ -390,6 +609,7 @@
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = "Session byla spuštěna.";
             RestartCountdownTimer();
             UpdateActiveSessionState();
@@ -434,6 +654,7 @@
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = "Session byla zrušena.";
             RestartCountdownTimer();
             UpdateActiveSessionState();
