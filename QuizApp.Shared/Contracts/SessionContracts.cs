@@ -46,7 +46,8 @@ public sealed record SessionStateSnapshotResponse(
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
     IReadOnlyList<SnapshotTeamDto> Teams,
-    bool ResultsPublished);
+    bool ResultsPublished,
+    bool IsCurrentQuestionAnsweringClosed);
 
 public sealed record OrganizerSessionSnapshotResponse(
     Guid SessionId,

@@ -383,6 +383,71 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task GetSessionStateAsync_AfterRevealCorrectAnswer_MarksCurrentQuestionAsClosedForTeams()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Uzavření"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: false);
+        Assert.True(startResult.IsSuccess);
+
+        var revealResult = await sessionService.GetCurrentCorrectAnswerAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(revealResult.IsSuccess);
+
+        var stateResult = await sessionService.GetSessionStateAsync(
+            created.SessionId,
+            joinResult.Response!.TeamId,
+            joinResult.Response.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(stateResult.IsSuccess);
+        Assert.NotNull(stateResult.Response);
+        Assert.True(stateResult.Response!.IsCurrentQuestionAnsweringClosed);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_AfterRevealCorrectAnswer_ReturnsQuestionClosed()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Pozdní"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None, useQuestionTimer: false);
+        Assert.True(startResult.IsSuccess);
+
+        var snapshotResult = await sessionService.GetSessionStateAsync(
+            created.SessionId,
+            joinResult.Response!.TeamId,
+            joinResult.Response.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Response?.CurrentQuestion);
+
+        var revealResult = await sessionService.GetCurrentCorrectAnswerAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(revealResult.IsSuccess);
+
+        var submitResult = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(joinResult.Response.TeamId, snapshotResult.Response!.CurrentQuestion!.QuestionId, OptionKey.B, null),
+            joinResult.Response.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.False(submitResult.IsSuccess);
+        Assert.NotNull(submitResult.Error);
+        Assert.Equal(ApiErrorCode.QuestionClosed, submitResult.Error!.Code);
+    }
+
+    [Fact]
     public async Task GetCurrentCorrectAnswerAsync_TimerMode_ReturnsSessionStateChanged()
     {
         await using var dbContext = CreateDbContext();

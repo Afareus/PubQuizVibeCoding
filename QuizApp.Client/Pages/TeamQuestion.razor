@@ -160,7 +160,10 @@ else
 
     private string PageHeading => snapshot?.Status is SessionStatus.Finished ? "Konec kvízu" : "Otázka";
 
-    private bool CanSubmitAnswer => snapshot?.Status == SessionStatus.Running && !submittedOption.HasValue && !submittedNumericValue.HasValue;
+    private bool CanSubmitAnswer => snapshot?.Status == SessionStatus.Running
+        && !snapshot.IsCurrentQuestionAnsweringClosed
+        && !submittedOption.HasValue
+        && !submittedNumericValue.HasValue;
 
     protected override async Task OnParametersSetAsync()
     {

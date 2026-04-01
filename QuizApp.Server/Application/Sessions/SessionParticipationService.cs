@@ -49,6 +49,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private const int MaxTeamsPerSession = 20;
     private const int MaxTeamNameLength = 120;
     private const string SessionResultsPublishedAuditAction = "SESSION_RESULTS_PUBLISHED";
+    private const string CurrentQuestionAnswerRevealedAuditAction = "SESSION_CURRENT_QUESTION_ANSWER_REVEALED";
 
     private readonly QuizAppDbContext _dbContext;
     private readonly ISessionRealtimePublisher _sessionRealtimePublisher;
@@ -258,6 +259,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         var resultsPublished = await IsResultsPublishedAsync(session.SessionId, cancellationToken);
+        var isCurrentQuestionAnsweringClosed = currentQuestion is not null
+            && await IsCurrentQuestionAnsweringClosedAsync(session.SessionId, currentQuestion.QuestionId, cancellationToken);
 
         var response = new SessionStateSnapshotResponse(
             session.SessionId,
@@ -271,7 +274,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 .OrderBy(x => x.JoinedAtUtc)
                 .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
                 .ToList(),
-            resultsPublished);
+            resultsPublished,
+            isCurrentQuestionAnsweringClosed);
 
         return SessionStateOperationResult.Success(response);
     }
@@ -333,6 +337,11 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (session.QuestionDeadlineUtc.HasValue && nowUtc > session.QuestionDeadlineUtc.Value)
         {
             return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Čas pro odeslání odpovědi vypršel."));
+        }
+
+        if (await IsCurrentQuestionAnsweringClosedAsync(sessionId, currentQuestion.QuestionId, cancellationToken))
+        {
+            return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Organizátor už uzavřel odpovídání na tuto otázku."));
         }
 
         var alreadyAnswered = await _dbContext.TeamAnswers.AnyAsync(
@@ -814,7 +823,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
     public async Task<CurrentQuestionCorrectAnswerOperationResult> GetCurrentCorrectAnswerAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
     {
         var session = await _dbContext.Sessions
-            .AsNoTracking()
             .Include(x => x.Quiz!)
                 .ThenInclude(x => x.Questions)
             .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
@@ -848,6 +856,22 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (question is null)
         {
             return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Aktuální otázka není dostupná."));
+        }
+
+        var isAlreadyClosed = await IsCurrentQuestionAnsweringClosedAsync(session.SessionId, question.QuestionId, cancellationToken);
+        if (!isAlreadyClosed)
+        {
+            var nowUtc = DateTime.UtcNow;
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                CurrentQuestionAnswerRevealedAuditAction,
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new CurrentQuestionAnswerRevealedAuditPayload(session.SessionId, session.QuizId, question.QuestionId))));
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _sessionRealtimePublisher.PublishSessionEventAsync(session.SessionId, RealtimeEventName.QuestionChanged, cancellationToken);
         }
 
         return CurrentQuestionCorrectAnswerOperationResult.Success(new CurrentQuestionCorrectAnswerResponse(
@@ -1128,6 +1152,17 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 cancellationToken);
     }
 
+    private Task<bool> IsCurrentQuestionAnsweringClosedAsync(Guid sessionId, Guid questionId, CancellationToken cancellationToken)
+    {
+        return _dbContext.AuditLogs
+            .AsNoTracking()
+            .AnyAsync(
+                x => x.SessionId == sessionId
+                     && x.ActionType == CurrentQuestionAnswerRevealedAuditAction
+                     && EF.Functions.Like(x.PayloadJson, $"%\"QuestionId\":\"{questionId:D}\"%"),
+                cancellationToken);
+    }
+
     private static SnapshotQuestionDto? BuildCurrentQuestion(QuizSession session)
     {
         if (!session.CurrentQuestionIndex.HasValue)
@@ -1345,6 +1380,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private sealed record SessionCancelledOnStartupAuditPayload(Guid SessionId, Guid QuizId);
 
     private sealed record SessionResultsPublishedAuditPayload(Guid SessionId, Guid QuizId);
+
+    private sealed record CurrentQuestionAnswerRevealedAuditPayload(Guid SessionId, Guid QuizId, Guid QuestionId);
 }
 
 public sealed record JoinSessionOperationResult(
