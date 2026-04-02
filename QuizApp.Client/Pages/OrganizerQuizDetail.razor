@@ -260,6 +260,11 @@
             <div class="alert alert-danger" role="alert">@importApiError.Message</div>
         }
 
+        @if (!string.IsNullOrWhiteSpace(importInfoMessage))
+        {
+            <div class="alert alert-info" role="alert">@importInfoMessage</div>
+        }
+
         <InputFile OnChange="ReadCsvFileAsync" accept=".csv,text/csv" />
 
         <button class="btn btn-outline-primary" type="button" disabled="@isImporting" @onclick="ImportCsvAsync">@(isImporting ? "Importuji..." : "Nahrát CSV")</button>
@@ -330,6 +335,7 @@
     private string? storedOrganizerToken;
     private string? csvContent;
     private string? infoMessage;
+    private string? importInfoMessage;
     private string? questionInfoMessage;
     private string? startPermissionPromptErrorMessage;
     private bool isLoadingDetail;
@@ -427,17 +433,11 @@
     private async Task ReadCsvFileAsync(InputFileChangeEventArgs args)
     {
         importApiError = null;
+        importInfoMessage = null;
 
         var file = args.File;
         if (file is null)
         {
-            return;
-        }
-
-        if (quizDetail is not null && !quizDetail.IsStartAllowedForEveryone)
-        {
-            importApiError = new ApiErrorResponse(ApiErrorCode.QuizStartLocked, "Spouštění tohoto kvízu je aktuálně uzamčeno administrátorem.");
-            isCreatingSession = false;
             return;
         }
 
@@ -446,12 +446,13 @@
         await stream.CopyToAsync(memoryStream);
 
         csvContent = DecodeCsvContent(memoryStream.ToArray());
-        infoMessage = "CSV soubor je načtený a připravený k importu.";
+        importInfoMessage = "CSV soubor je načtený a připravený k importu.";
     }
 
     private async Task ImportCsvAsync()
     {
         importApiError = null;
+        importInfoMessage = null;
         infoMessage = null;
         isImporting = true;
 
