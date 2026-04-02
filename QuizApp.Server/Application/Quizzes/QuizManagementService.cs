@@ -909,7 +909,7 @@ public sealed class QuizManagementService : IQuizManagementService
             return true;
         }
 
-        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo Administrátorké heslo kvízu.");
+        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatné Administrátorké heslo kvízu.");
         return false;
     }
 

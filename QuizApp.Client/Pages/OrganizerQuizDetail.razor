@@ -15,14 +15,19 @@
     <div class="alert alert-info" role="alert">@infoMessage</div>
 }
 
-@if (apiError is not null)
-{
-    <div class="alert alert-danger" role="alert">@apiError.Message</div>
-}
-
 <section class="card mb-4">
     <div class="card-body">
         <h2 class="h5 fw-bold mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
+
+        @if (detailApiError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@detailApiError.Message</div>
+        }
+
+        @if (sessionApiError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@sessionApiError.Message</div>
+        }
 
         @if (quizDetail is not null)
         {
@@ -82,7 +87,7 @@
         <h2 class="h5">Otázky kvízu</h2>
         @if ((quizDetail?.QuestionCount ?? 0) > 0)
         {
-            <p class="text-muted">Otázky i správné odpovědi se zobrazí až po zadání Administrátorského hesla kvízu.</p>
+            <p class="text-muted">Otázky je možné editovat až po zadání Administrátorského hesla kvízu.</p>
         }
 
         @if (questionApiError is not null)
@@ -114,6 +119,16 @@
                     var canMoveDown = question.Order < questionEditors.Count;
 
                     <article class="border rounded p-3 quiz-question-item">
+                        @if (!string.IsNullOrWhiteSpace(question.InlineInfoMessage))
+                        {
+                            <div class="alert alert-info" role="alert">@question.InlineInfoMessage</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(question.InlineErrorMessage))
+                        {
+                            <div class="alert alert-danger" role="alert">@question.InlineErrorMessage</div>
+                        }
+
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h3 class="h5 fw-normal mb-0">Otázka číslo: <span class="quiz-order-number">@question.Order</span></h3>
                             <div class="d-flex gap-1">
@@ -240,12 +255,12 @@
         </p>
         <p class="form-text mt-0">CSV import používá oddělovač <strong>středník (;)</strong>.</p>
 
-        <InputFile OnChange="ReadCsvFileAsync" accept=".csv,text/csv" />
-
-        @if (!string.IsNullOrWhiteSpace(selectedFileName))
+        @if (importApiError is not null)
         {
-            <p class="mt-2 mb-2">Vybraný soubor: <strong>@selectedFileName</strong></p>
+            <div class="alert alert-danger" role="alert">@importApiError.Message</div>
         }
+
+        <InputFile OnChange="ReadCsvFileAsync" accept=".csv,text/csv" />
 
         <button class="btn btn-outline-primary" type="button" disabled="@isImporting" @onclick="ImportCsvAsync">@(isImporting ? "Importuji..." : "Nahrát CSV")</button>
 
@@ -288,6 +303,11 @@
         <h2 class="h5 text-danger">Smazání kvízu</h2>
         <p>Zadání správného Administrátorkého hesla kvízu je povinné.</p>
 
+        @if (deleteApiError is not null)
+        {
+            <div class="alert alert-danger" role="alert">@deleteApiError.Message</div>
+        }
+
         <div class="mb-3">
             <label class="form-label" for="deletePassword">Administrátorké heslo kvízu</label>
             <InputText id="deletePassword" class="form-control" type="password" @bind-Value="deletePassword" />
@@ -308,7 +328,6 @@
     private string questionsPassword = string.Empty;
     private string startPermissionPasswordPrompt = string.Empty;
     private string? storedOrganizerToken;
-    private string? selectedFileName;
     private string? csvContent;
     private string? infoMessage;
     private string? questionInfoMessage;
@@ -329,7 +348,10 @@
     private bool allowManualAddWithoutPassword;
     private Guid? isSavingQuestionId;
 
-    private ApiErrorResponse? apiError;
+    private ApiErrorResponse? detailApiError;
+    private ApiErrorResponse? sessionApiError;
+    private ApiErrorResponse? importApiError;
+    private ApiErrorResponse? deleteApiError;
     private ApiErrorResponse? questionApiError;
     private QuizDetailResponse? quizDetail;
     private ImportQuizCsvResponse? importResult;
@@ -347,19 +369,19 @@
         }
 
         quizDetail = null;
-        apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Chybí ID kvízu v URL.");
+        detailApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Chybí ID kvízu v URL.");
     }
 
     private async Task LoadDetailAsync(bool showSuccessMessage)
     {
-        apiError = null;
+        detailApiError = null;
         infoMessage = null;
         isLoadingDetail = true;
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            detailApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
             isLoadingDetail = false;
             return;
         }
@@ -390,9 +412,9 @@
         else
         {
             quizDetail = null;
-            apiError = await ReadApiErrorAsync(response);
+            detailApiError = await ReadApiErrorAsync(response);
 
-            if (apiError.Code == ApiErrorCode.ResourceNotFound)
+            if (detailApiError.Code == ApiErrorCode.ResourceNotFound)
             {
                 await OrganizerQuizLocalStore.RemoveAsync(quizId.Value);
                 infoMessage = "Kvíz nebyl nalezen a byl odebrán z lokálního seznamu. Pravděpodobně byl smazán nebo používáte jinou databázi.";
@@ -404,6 +426,8 @@
 
     private async Task ReadCsvFileAsync(InputFileChangeEventArgs args)
     {
+        importApiError = null;
+
         var file = args.File;
         if (file is null)
         {
@@ -412,7 +436,7 @@
 
         if (quizDetail is not null && !quizDetail.IsStartAllowedForEveryone)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.QuizStartLocked, "Spouštění tohoto kvízu je aktuálně uzamčeno administrátorem.");
+            importApiError = new ApiErrorResponse(ApiErrorCode.QuizStartLocked, "Spouštění tohoto kvízu je aktuálně uzamčeno administrátorem.");
             isCreatingSession = false;
             return;
         }
@@ -422,27 +446,26 @@
         await stream.CopyToAsync(memoryStream);
 
         csvContent = DecodeCsvContent(memoryStream.ToArray());
-        selectedFileName = file.Name;
         infoMessage = "CSV soubor je načtený a připravený k importu.";
     }
 
     private async Task ImportCsvAsync()
     {
-        apiError = null;
+        importApiError = null;
         infoMessage = null;
         isImporting = true;
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            importApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
             isImporting = false;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(csvContent))
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nejprve vyberte CSV soubor.");
+            importApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nejprve vyberte CSV soubor.");
             isImporting = false;
             return;
         }
@@ -468,7 +491,7 @@
         else
         {
             importResult = null;
-            apiError = await ReadApiErrorAsync(response);
+            importApiError = await ReadApiErrorAsync(response);
         }
 
         isImporting = false;
@@ -524,6 +547,7 @@
     {
         questionApiError = null;
         questionInfoMessage = null;
+        ClearQuestionInlineMessages();
         question.ValidationErrors = null;
 
         var quizId = GetQuizId();
@@ -536,7 +560,7 @@
         question.ValidationErrors = ValidateQuestionEditor(question);
         if (question.ValidationErrors is not null)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Formulář obsahuje chyby. Opravte prosím zvýrazněná pole.");
+            question.InlineErrorMessage = "Formulář obsahuje chyby. Opravte prosím zvýrazněná pole.";
             return;
         }
 
@@ -607,6 +631,17 @@
         request.Dispose();
         if (response.IsSuccessStatusCode)
         {
+            AddQuizQuestionResponse? savedQuestionResponse = null;
+            if (!wasEditing)
+            {
+                savedQuestionResponse = await response.Content.ReadFromJsonAsync<AddQuizQuestionResponse>();
+                if (savedQuestionResponse is not null)
+                {
+                    question.QuestionId = savedQuestionResponse.QuestionId;
+                    question.Order = savedQuestionResponse.OrderIndex + 1;
+                }
+            }
+
             if (hasLoadedQuestions || !string.IsNullOrWhiteSpace(questionsPassword))
             {
                 await LoadQuestionsAsync();
@@ -617,19 +652,21 @@
                 if (!question.QuestionId.HasValue)
                 {
                     quizDetail = quizDetail with { QuestionCount = quizDetail.QuestionCount + 1 };
-                    var createdQuestion = await response.Content.ReadFromJsonAsync<AddQuizQuestionResponse>();
-                    question.QuestionId = createdQuestion?.QuestionId;
-                    if (createdQuestion is not null)
-                    {
-                        question.Order = createdQuestion.OrderIndex + 1;
-                    }
+
                     question.IsNew = false;
                 }
             }
 
             if (questionApiError is null)
             {
-                questionInfoMessage = wasEditing ? "Otázka byla úspěšně upravena." : "Otázka byla úspěšně přidána.";
+                if (wasEditing)
+                {
+                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Otázka byla úspěšně upravena.");
+                }
+                else
+                {
+                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Otázka byla úspěšně přidána.");
+                }
             }
         }
         else
@@ -887,21 +924,21 @@
     {
         RemoveUnsavedDraftQuestionsBeforeStart();
 
-        apiError = null;
+        sessionApiError = null;
         infoMessage = null;
         isCreatingSession = true;
 
         var normalizedJoinCode = joinCode.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(normalizedJoinCode))
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuštění zadejte join kód.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuštění zadejte join kód.");
             isCreatingSession = false;
             return;
         }
 
         if (normalizedJoinCode.Length < 4)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kód musí mít alespoň 4 znaky.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kód musí mít alespoň 4 znaky.");
             isCreatingSession = false;
             return;
         }
@@ -909,7 +946,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
             isCreatingSession = false;
             return;
         }
@@ -929,7 +966,7 @@
             var createdSession = await response.Content.ReadFromJsonAsync<CreateSessionResponse>();
             if (createdSession is null)
             {
-                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst založenou session.");
+                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst založenou session.");
                 isCreatingSession = false;
                 return;
             }
@@ -940,7 +977,7 @@
         }
         else
         {
-            apiError = await ReadApiErrorAsync(response);
+            sessionApiError = await ReadApiErrorAsync(response);
         }
 
         isCreatingSession = false;
@@ -948,7 +985,7 @@
 
     private void OnStartPermissionToggleChanged(ChangeEventArgs args)
     {
-        apiError = null;
+        sessionApiError = null;
         infoMessage = null;
         startPermissionPromptErrorMessage = null;
 
@@ -966,7 +1003,6 @@
 
     private async Task ConfirmStartPermissionChangeAsync()
     {
-        apiError = null;
         infoMessage = null;
         startPermissionPromptErrorMessage = null;
         isUpdatingStartPermission = true;
@@ -974,7 +1010,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            startPermissionPromptErrorMessage = "Quiz ID není ve validním formátu GUID.";
             isUpdatingStartPermission = false;
             return;
         }
@@ -1026,14 +1062,14 @@
 
     private async Task GenerateJoinCodeAsync()
     {
-        apiError = null;
+        sessionApiError = null;
         infoMessage = null;
         isGeneratingJoinCode = true;
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
             isGeneratingJoinCode = false;
             return;
         }
@@ -1049,7 +1085,7 @@
             var payload = await response.Content.ReadFromJsonAsync<GenerateJoinCodeResponse>();
             if (payload is null || string.IsNullOrWhiteSpace(payload.JoinCode))
             {
-                apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se vygenerovat volný join kód.");
+                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se vygenerovat volný join kód.");
             }
             else
             {
@@ -1058,7 +1094,7 @@
         }
         else
         {
-            apiError = await ReadApiErrorAsync(response);
+            sessionApiError = await ReadApiErrorAsync(response);
         }
 
         isGeneratingJoinCode = false;
@@ -1080,21 +1116,21 @@
 
     private async Task DeleteQuizAsync()
     {
-        apiError = null;
+        deleteApiError = null;
         infoMessage = null;
         isDeleting = true;
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            deleteApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
             isDeleting = false;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(deletePassword))
         {
-            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání je nutné zadat Administrátorké heslo kvízu.");
+            deleteApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání je nutné zadat Administrátorké heslo kvízu.");
             isDeleting = false;
             return;
         }
@@ -1117,7 +1153,7 @@
             return;
         }
 
-        apiError = await ReadApiErrorAsync(response);
+        deleteApiError = await ReadApiErrorAsync(response);
         isDeleting = false;
     }
 
@@ -1185,6 +1221,30 @@
         for (var i = 0; i < questionEditors.Count; i++)
         {
             questionEditors[i].Order = i + 1;
+        }
+    }
+
+    private void ClearQuestionInlineMessages()
+    {
+        foreach (var editor in questionEditors)
+        {
+            editor.InlineInfoMessage = null;
+            editor.InlineErrorMessage = null;
+        }
+    }
+
+    private void SetInlineInfoMessageForQuestion(Guid? questionId, Guid clientId, int order, string message)
+    {
+        var target = questionId.HasValue
+            ? questionEditors.FirstOrDefault(x => x.QuestionId == questionId.Value)
+            : null;
+
+        target ??= questionEditors.FirstOrDefault(x => x.ClientId == clientId);
+        target ??= questionEditors.FirstOrDefault(x => x.Order == order);
+
+        if (target is not null)
+        {
+            target.InlineInfoMessage = message;
         }
     }
 
@@ -1284,6 +1344,8 @@
         public string OptionC { get; set; } = string.Empty;
         public string OptionD { get; set; } = string.Empty;
         public bool IsNew { get; set; }
+        public string? InlineInfoMessage { get; set; }
+        public string? InlineErrorMessage { get; set; }
         public Dictionary<string, string[]>? ValidationErrors { get; set; }
     }
 
