@@ -22,7 +22,47 @@
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5 mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
+        <h2 class="h5 fw-bold mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
+
+        @if (quizDetail is not null)
+        {
+            <div class="form-check mb-3">
+                <input id="allowStartForEveryone" class="form-check-input" type="checkbox" checked="@isStartAllowedForEveryoneToggle" @onchange="OnStartPermissionToggleChanged" disabled="@(isUpdatingStartPermission || isLoadingDetail)" />
+                <label class="form-check-label" for="allowStartForEveryone">Povolit spuštění kvízu</label>
+            </div>
+        }
+
+        <div class="form-check mb-3">
+            <InputCheckbox id="quizWithTimer" class="form-check-input" @bind-Value="isQuizTimerEnabled" />
+            <label class="form-check-label" for="quizWithTimer">Kvíz s časomírou</label>
+        </div>
+
+        @if (isStartPermissionPromptVisible)
+        {
+            <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Potvrzení změny</h5>
+                        </div>
+                        <div class="modal-body">
+                            @if (!string.IsNullOrWhiteSpace(startPermissionPromptErrorMessage))
+                            {
+                                <div class="alert alert-danger" role="alert">@startPermissionPromptErrorMessage</div>
+                            }
+
+                            <label class="form-label" for="startPermissionPassword">Administrátorské heslo kvízu</label>
+                            <InputText id="startPermissionPassword" class="form-control" type="password" @bind-Value="startPermissionPasswordPrompt" />
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline-primary" type="button" disabled="@isUpdatingStartPermission" @onclick="ConfirmStartPermissionChangeAsync">@(isUpdatingStartPermission ? "Ukládám..." : "Potvrdit")</button>
+                            <button class="btn btn-outline-secondary" type="button" disabled="@isUpdatingStartPermission" @onclick="CancelStartPermissionChange">Zrušit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-backdrop fade show"></div>
+        }
 
         <div class="mb-3">
             <label class="form-label" for="joinCode">Join kód pro hráče</label>
@@ -33,12 +73,7 @@
             <div class="form-text">Join kód musí mít alespoň 4 znaky.</div>
         </div>
 
-        <div class="form-check mb-3">
-            <InputCheckbox id="quizWithTimer" class="form-check-input" @bind-Value="isQuizTimerEnabled" />
-            <label class="form-check-label" for="quizWithTimer">Kvíz s časomírou</label>
-        </div>
-
-        <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
+        <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null || !quizDetail.IsStartAllowedForEveryone)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
     </div>
 </section>
 
@@ -271,11 +306,13 @@
     private string deletePassword = string.Empty;
     private string joinCode = string.Empty;
     private string questionsPassword = string.Empty;
+    private string startPermissionPasswordPrompt = string.Empty;
     private string? storedOrganizerToken;
     private string? selectedFileName;
     private string? csvContent;
     private string? infoMessage;
     private string? questionInfoMessage;
+    private string? startPermissionPromptErrorMessage;
     private bool isLoadingDetail;
     private bool isImporting;
     private bool isGeneratingJoinCode;
@@ -284,7 +321,10 @@
     private bool isLoadingQuestions;
     private bool isSavingQuestion;
     private bool isDeletingQuestionAction;
+    private bool isUpdatingStartPermission;
     private bool isQuizTimerEnabled;
+    private bool isStartAllowedForEveryoneToggle;
+    private bool isStartPermissionPromptVisible;
     private bool hasLoadedQuestions;
     private bool allowManualAddWithoutPassword;
     private Guid? isSavingQuestionId;
@@ -337,6 +377,11 @@
                 ? null
                 : payload with { Questions = [] };
 
+            if (quizDetail is not null)
+            {
+                isStartAllowedForEveryoneToggle = quizDetail.IsStartAllowedForEveryone;
+            }
+
             if (showSuccessMessage)
             {
                 infoMessage = "Detail kvízu byl načten.";
@@ -362,6 +407,13 @@
         var file = args.File;
         if (file is null)
         {
+            return;
+        }
+
+        if (quizDetail is not null && !quizDetail.IsStartAllowedForEveryone)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.QuizStartLocked, "Spouštění tohoto kvízu je aktuálně uzamčeno administrátorem.");
+            isCreatingSession = false;
             return;
         }
 
@@ -892,6 +944,84 @@
         }
 
         isCreatingSession = false;
+    }
+
+    private void OnStartPermissionToggleChanged(ChangeEventArgs args)
+    {
+        apiError = null;
+        infoMessage = null;
+        startPermissionPromptErrorMessage = null;
+
+        var requestedValue = args.Value switch
+        {
+            bool boolValue => boolValue,
+            string stringValue when bool.TryParse(stringValue, out var parsedValue) => parsedValue,
+            _ => isStartAllowedForEveryoneToggle
+        };
+
+        isStartAllowedForEveryoneToggle = requestedValue;
+        isStartPermissionPromptVisible = true;
+        startPermissionPasswordPrompt = string.Empty;
+    }
+
+    private async Task ConfirmStartPermissionChangeAsync()
+    {
+        apiError = null;
+        infoMessage = null;
+        startPermissionPromptErrorMessage = null;
+        isUpdatingStartPermission = true;
+
+        var quizId = GetQuizId();
+        if (!quizId.HasValue)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID není ve validním formátu GUID.");
+            isUpdatingStartPermission = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(startPermissionPasswordPrompt))
+        {
+            startPermissionPromptErrorMessage = "Pro změnu nastavení zadejte Administrátorské heslo kvízu.";
+            isUpdatingStartPermission = false;
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/start-permission")
+        {
+            Content = JsonContent.Create(new UpdateQuizStartPermissionRequest(isStartAllowedForEveryoneToggle))
+        };
+        request.Headers.Add("X-Quiz-Password", startPermissionPasswordPrompt.Trim());
+
+        using var response = await HttpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await ReadApiErrorAsync(response);
+            startPermissionPromptErrorMessage = error.Message;
+            isUpdatingStartPermission = false;
+            return;
+        }
+
+        var updated = await response.Content.ReadFromJsonAsync<UpdateQuizStartPermissionResponse>();
+        if (quizDetail is not null)
+        {
+            var isAllowed = updated?.IsStartAllowedForEveryone ?? isStartAllowedForEveryoneToggle;
+            quizDetail = quizDetail with { IsStartAllowedForEveryone = isAllowed };
+            isStartAllowedForEveryoneToggle = isAllowed;
+        }
+
+        infoMessage = "Nastavení spouštění kvízu bylo změněno.";
+        isStartPermissionPromptVisible = false;
+        startPermissionPasswordPrompt = string.Empty;
+        startPermissionPromptErrorMessage = null;
+        isUpdatingStartPermission = false;
+    }
+
+    private void CancelStartPermissionChange()
+    {
+        isStartPermissionPromptVisible = false;
+        startPermissionPasswordPrompt = string.Empty;
+        startPermissionPromptErrorMessage = null;
+        isStartAllowedForEveryoneToggle = quizDetail?.IsStartAllowedForEveryone ?? false;
     }
 
     private async Task GenerateJoinCodeAsync()

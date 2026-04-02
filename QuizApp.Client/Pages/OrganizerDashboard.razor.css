@@ -1,0 +1,55 @@
+.dashboard-grid-title {
+    color: #003876;
+    font-weight: 700;
+}
+
+.dashboard-grid-wrap {
+    border: 1px solid #d7e3f4;
+    border-radius: 0.2rem;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    overflow: hidden;
+}
+
+.dashboard-grid-table {
+    margin-bottom: 0;
+}
+
+.dashboard-grid-header-row th {
+    background-color: #003876;
+    color: #ffffff;
+    font-weight: 600;
+    border-bottom: none;
+    vertical-align: middle;
+}
+
+.dashboard-grid-filter-row th {
+    background-color: #edf4fb;
+    border-top: none;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+    vertical-align: middle;
+}
+
+.dashboard-grid-filter-row .form-control,
+.dashboard-grid-filter-row .form-select {
+    min-height: 1.85rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+    font-size: 0.8rem;
+}
+
+.dashboard-grid-table tbody td {
+    border-color: #e8eef7;
+}
+
+.dashboard-grid-table tbody tr:hover {
+    background-color: #f2f7fe;
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid-filter-row .form-control,
+    .dashboard-grid-filter-row .form-select {
+        min-height: 1.75rem;
+        font-size: 0.78rem;
+    }
+}

@@ -36,6 +36,7 @@ public sealed class QuizAppDbContext : DbContext
             entity.Property(x => x.QuizOrganizerTokenHash).IsRequired().HasMaxLength(512);
             entity.Property(x => x.CreatedAtUtc).IsRequired();
             entity.Property(x => x.IsDeleted).IsRequired();
+            entity.Property(x => x.IsStartAllowedForEveryone).IsRequired().HasDefaultValue(true);
 
             entity.HasQueryFilter(x => !x.IsDeleted);
 

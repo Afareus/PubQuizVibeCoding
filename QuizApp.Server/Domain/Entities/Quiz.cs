@@ -22,6 +22,7 @@ public sealed class Quiz
         DeletePasswordHash = EntityGuards.Required(deletePasswordHash, nameof(deletePasswordHash), "Delete password hash is required.");
         QuizOrganizerTokenHash = EntityGuards.Required(quizOrganizerTokenHash, nameof(quizOrganizerTokenHash), "Organizer token hash is required.");
         CreatedAtUtc = EntityGuards.Utc(createdAtUtc, nameof(createdAtUtc));
+        IsStartAllowedForEveryone = false;
     }
 
     public Guid QuizId { get; private set; }
@@ -38,6 +39,8 @@ public sealed class Quiz
 
     public bool IsDeleted { get; private set; }
 
+    public bool IsStartAllowedForEveryone { get; private set; }
+
     public IReadOnlyCollection<Question> Questions => _questions;
 
     public IReadOnlyCollection<QuizSession> Sessions => _sessions;
@@ -53,5 +56,10 @@ public sealed class Quiz
     {
         DeletedAtUtc = EntityGuards.Utc(deletedAtUtc, nameof(deletedAtUtc));
         IsDeleted = true;
+    }
+
+    public void SetStartPermission(bool isStartAllowedForEveryone)
+    {
+        IsStartAllowedForEveryone = isStartAllowedForEveryone;
     }
 }

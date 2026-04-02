@@ -36,7 +36,8 @@ public enum ApiErrorCode
     SessionStateChanged = 8,
     QuizHasActiveSessions = 9,
     QuizHasNoQuestions = 10,
-    RateLimited = 11
+    RateLimited = 11,
+    QuizStartLocked = 12
 }
 
 public enum RealtimeEventName

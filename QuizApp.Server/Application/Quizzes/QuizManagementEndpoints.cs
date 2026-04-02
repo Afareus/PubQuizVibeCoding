@@ -19,6 +19,8 @@ public static class QuizManagementEndpoints
             .RequireRateLimiting("OrganizerMutations");
         group.MapGet("/{quizId:guid}/sessions/generate-join-code", GenerateJoinCodeAsync)
             .RequireRateLimiting("OrganizerMutations");
+        group.MapPut("/{quizId:guid}/start-permission", UpdateQuizStartPermissionAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/questions", AddQuestionAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapPut("/{quizId:guid}/questions/{questionId:guid}", UpdateQuestionAsync)
@@ -67,6 +69,24 @@ public static class QuizManagementEndpoints
         var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.ImportQuizCsvAsync(quizId, organizerToken, organizerPassword, request.CsvContent, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> UpdateQuizStartPermissionAsync(
+        Guid quizId,
+        UpdateQuizStartPermissionRequest request,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.UpdateQuizStartPermissionAsync(quizId, request, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
@@ -231,6 +251,7 @@ public static class QuizManagementEndpoints
             ApiErrorCode.SessionStateChanged => StatusCodes.Status409Conflict,
             ApiErrorCode.QuizHasActiveSessions => StatusCodes.Status409Conflict,
             ApiErrorCode.QuizHasNoQuestions => StatusCodes.Status409Conflict,
+            ApiErrorCode.QuizStartLocked => StatusCodes.Status409Conflict,
             ApiErrorCode.RateLimited => StatusCodes.Status429TooManyRequests,
             _ => StatusCodes.Status400BadRequest
         };

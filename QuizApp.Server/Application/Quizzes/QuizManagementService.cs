@@ -31,6 +31,8 @@ public interface IQuizManagementService
 
     Task<QuizDetailOperationResult> GetQuizDetailAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
+    Task<UpdateQuizStartPermissionOperationResult> UpdateQuizStartPermissionAsync(Guid quizId, UpdateQuizStartPermissionRequest request, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<DeleteQuizOperationResult> DeleteQuizAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 }
 
@@ -64,7 +66,8 @@ public sealed class QuizManagementService : IQuizManagementService
             .Select(x => new QuizListItemResponse(
                 x.QuizId,
                 x.Name,
-                new DateTimeOffset(x.CreatedAtUtc, TimeSpan.Zero)))
+                new DateTimeOffset(x.CreatedAtUtc, TimeSpan.Zero),
+                x.IsStartAllowedForEveryone))
             .ToListAsync(cancellationToken);
     }
 
@@ -121,6 +124,11 @@ public sealed class QuizManagementService : IQuizManagementService
         if (quiz is null)
         {
             return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!quiz.IsStartAllowedForEveryone)
+        {
+            return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizStartLocked, "Spouštění tohoto kvízu je aktuálně uzamčeno administrátorem."));
         }
 
         if (quiz.Questions.Count == 0)
@@ -511,6 +519,7 @@ public sealed class QuizManagementService : IQuizManagementService
                 quiz.Name,
                 new DateTimeOffset(quiz.CreatedAtUtc, TimeSpan.Zero),
                 quiz.Questions.Count,
+                quiz.IsStartAllowedForEveryone,
                 []));
         }
 
@@ -540,7 +549,44 @@ public sealed class QuizManagementService : IQuizManagementService
             quiz.Name,
             new DateTimeOffset(quiz.CreatedAtUtc, TimeSpan.Zero),
             questions.Count,
+            quiz.IsStartAllowedForEveryone,
             questions));
+    }
+
+    public async Task<UpdateQuizStartPermissionOperationResult> UpdateQuizStartPermissionAsync(Guid quizId, UpdateQuizStartPermissionRequest request, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var quiz = await _dbContext.Quizzes
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return UpdateQuizStartPermissionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (string.IsNullOrWhiteSpace(organizerPassword))
+        {
+            return UpdateQuizStartPermissionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí Administrátorké heslo kvízu v hlavičce X-Quiz-Password."));
+        }
+
+        if (!VerifyPassword(organizerPassword, quiz.DeletePasswordHash))
+        {
+            return UpdateQuizStartPermissionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatné Administrátorké heslo kvízu."));
+        }
+
+        quiz.SetStartPermission(request.IsStartAllowedForEveryone);
+
+        var nowUtc = DateTime.UtcNow;
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            "QUIZ_START_PERMISSION_UPDATED",
+            quiz.QuizId,
+            null,
+            JsonSerializer.Serialize(new QuizStartPermissionUpdatedAuditPayload(quiz.QuizId, request.IsStartAllowedForEveryone))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return UpdateQuizStartPermissionOperationResult.Success(new UpdateQuizStartPermissionResponse(quiz.QuizId, quiz.IsStartAllowedForEveryone));
     }
 
     public async Task<DeleteQuizOperationResult> DeleteQuizAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
@@ -945,6 +991,8 @@ public sealed class QuizManagementService : IQuizManagementService
 
     private sealed record QuestionDeletedAuditPayload(Guid QuizId, Guid QuestionId, int OrderIndex);
 
+    private sealed record QuizStartPermissionUpdatedAuditPayload(Guid QuizId, bool IsStartAllowedForEveryone);
+
     private sealed record QuizDeletedAuditPayload(Guid QuizId);
 }
 
@@ -1030,4 +1078,15 @@ public sealed record DeleteQuizOperationResult(
     public static DeleteQuizOperationResult Success() => new(true, null);
 
     public static DeleteQuizOperationResult Fail(ApiErrorResponse error) => new(false, error);
+}
+
+public sealed record UpdateQuizStartPermissionOperationResult(
+    UpdateQuizStartPermissionResponse? Response,
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static UpdateQuizStartPermissionOperationResult Success(UpdateQuizStartPermissionResponse response) => new(response, null);
+
+    public static UpdateQuizStartPermissionOperationResult Fail(ApiErrorResponse error) => new(null, error);
 }

@@ -47,6 +47,20 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
+    public async Task CreateQuizAsync_DefaultsToStartLocked()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+
+        var result = await service.CreateQuizAsync(new CreateQuizRequest("Výchozí start", "heslo"), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var storedQuiz = await dbContext.Quizzes.SingleAsync(x => x.QuizId == result.Response!.QuizId);
+        Assert.False(storedQuiz.IsStartAllowedForEveryone);
+    }
+
+    [Fact]
     public async Task CreateQuizAsync_TooLongName_ReturnsValidationFailed()
     {
         await using var dbContext = CreateDbContext();
@@ -317,6 +331,53 @@ public class QuizManagementServiceTests
         Assert.NotNull(sessionResult.Error);
         Assert.Equal(ApiErrorCode.ValidationFailed, sessionResult.Error!.Code);
         Assert.Equal("Kvíz není možné spustit, protože neobsahuje kompletní pořadí otázek.", sessionResult.Error.Message);
+    }
+
+    [Fact]
+    public async Task CreateSessionAsync_WhenStartIsLocked_ReturnsQuizStartLocked()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Uzamčený start", "heslo123"), CancellationToken.None);
+
+        var csv =
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;30\n";
+
+        await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+        await service.UpdateQuizStartPermissionAsync(createResult.Response.QuizId, new UpdateQuizStartPermissionRequest(false), "heslo123", CancellationToken.None);
+
+        var sessionResult = await service.CreateSessionAsync(
+            createResult.Response.QuizId,
+            new CreateSessionRequest("LOCK2345"),
+            null,
+            null,
+            CancellationToken.None);
+
+        Assert.False(sessionResult.IsSuccess);
+        Assert.NotNull(sessionResult.Error);
+        Assert.Equal(ApiErrorCode.QuizStartLocked, sessionResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task UpdateQuizStartPermissionAsync_ValidPassword_UpdatesStartPermission()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Lock setting", "heslo123"), CancellationToken.None);
+
+        var updateResult = await service.UpdateQuizStartPermissionAsync(
+            createResult.Response!.QuizId,
+            new UpdateQuizStartPermissionRequest(false),
+            "heslo123",
+            CancellationToken.None);
+
+        Assert.True(updateResult.IsSuccess);
+        Assert.NotNull(updateResult.Response);
+        Assert.False(updateResult.Response!.IsStartAllowedForEveryone);
+
+        var storedQuiz = await dbContext.Quizzes.SingleAsync(x => x.QuizId == createResult.Response.QuizId);
+        Assert.False(storedQuiz.IsStartAllowedForEveryone);
     }
 
     [Fact]

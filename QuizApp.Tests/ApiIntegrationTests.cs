@@ -31,6 +31,7 @@ public class ApiIntegrationTests
         Assert.Equal(2, payload!.Count);
         Assert.Contains(payload, quiz => quiz.QuizId == firstQuiz.QuizId && quiz.Name == "Sdílený kvíz 1");
         Assert.Contains(payload, quiz => quiz.QuizId == secondQuiz.QuizId && quiz.Name == "Sdílený kvíz 2");
+        Assert.All(payload, quiz => Assert.False(quiz.IsStartAllowedForEveryone));
     }
 
     [Fact]

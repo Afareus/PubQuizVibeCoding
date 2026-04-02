@@ -13,7 +13,8 @@ public sealed record CreateQuizResponse(
 public sealed record QuizListItemResponse(
     Guid QuizId,
     string Name,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    bool IsStartAllowedForEveryone);
 
 public sealed record ImportQuizCsvRequest(
     Guid QuizId,
@@ -57,7 +58,15 @@ public sealed record QuizDetailResponse(
     string Name,
     DateTimeOffset CreatedAtUtc,
     int QuestionCount,
+    bool IsStartAllowedForEveryone,
     IReadOnlyList<QuizDetailQuestionDto> Questions);
+
+public sealed record UpdateQuizStartPermissionRequest(
+    bool IsStartAllowedForEveryone);
+
+public sealed record UpdateQuizStartPermissionResponse(
+    Guid QuizId,
+    bool IsStartAllowedForEveryone);
 
 public sealed record QuizDetailQuestionDto(
     Guid QuestionId,

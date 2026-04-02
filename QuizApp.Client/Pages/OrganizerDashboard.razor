@@ -25,7 +25,7 @@
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5">Dostupné kvízy</h2>
+        <h2 class="h4 dashboard-grid-title">Dostupné kvízy</h2>
 
         @if (availableQuizzes.Count == 0)
         {
@@ -33,15 +33,16 @@
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-sm align-middle text-start">
+            <div class="table-responsive dashboard-grid-wrap">
+                <table class="table table-sm align-middle text-start dashboard-grid-table">
                     <thead>
-                        <tr>
+                        <tr class="dashboard-grid-header-row">
                             <th>Název kvízu</th>
                             <th>Datum založení</th>
+                            <th>Spustitelný bez hesla</th>
                             <th></th>
                         </tr>
-                        <tr>
+                        <tr class="dashboard-grid-filter-row">
                             <th>
                                 <input id="quizSearch"
                                        class="form-control form-control-sm"
@@ -56,6 +57,15 @@
                                        value="@QuizCreatedAtFilter"
                                        @oninput="OnQuizCreatedAtSearchInput" />
                             </th>
+                            <th>
+                                <select id="quizRunnableFilter"
+                                        class="form-select form-select-sm"
+                                        value="@QuizRunnableFilter"
+                                        @onchange="OnQuizRunnableFilterChanged">
+                                    <option value="all">Všechny</option>
+                                    <option value="runnable-only">Pouze spustitelné</option>
+                                </select>
+                            </th>
                             <th></th>
                         </tr>
                     </thead>
@@ -63,7 +73,7 @@
                         @if (PagedQuizzes.Count == 0)
                         {
                             <tr>
-                                <td colspan="3" class="text-muted">Pro zadaný filtr nebyl nalezen žádný kvíz.</td>
+                                <td colspan="4" class="text-muted">Pro zadaný filtr nebyl nalezen žádný kvíz.</td>
                             </tr>
                         }
                         else
@@ -73,6 +83,7 @@
                                 <tr>
                                     <td>@GetQuizName(quiz)</td>
                                     <td>@GetQuizCreatedAt(quiz)</td>
+                                    <td>@GetQuizRunnableStatus(quiz)</td>
                                     <td class="text-end">
                                         <a class="btn btn-sm btn-outline-primary" href="@($"/organizator/kviz/{quiz.QuizId}")">Detail</a>
                                     </td>
@@ -140,6 +151,7 @@
     private bool isCreatingQuiz;
     private string quizSearchTerm = string.Empty;
     private string quizCreatedAtFilter = string.Empty;
+    private string quizRunnableFilter = "all";
     private int currentPage = 1;
     private const int PageSize = 10;
 
@@ -175,6 +187,21 @@
         }
     }
 
+    private string QuizRunnableFilter
+    {
+        get => quizRunnableFilter;
+        set
+        {
+            if (quizRunnableFilter == value)
+            {
+                return;
+            }
+
+            quizRunnableFilter = value;
+            currentPage = 1;
+        }
+    }
+
     private IReadOnlyList<OrganizerDashboardQuizItem> PagedQuizzes
     {
         get
@@ -202,6 +229,14 @@
     private void OnQuizCreatedAtSearchInput(ChangeEventArgs args)
     {
         QuizCreatedAtFilter = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private void OnQuizRunnableFilterChanged(ChangeEventArgs args)
+    {
+        var requestedValue = args.Value?.ToString() ?? "all";
+        QuizRunnableFilter = string.Equals(requestedValue, "runnable-only", StringComparison.Ordinal)
+            ? "runnable-only"
+            : "all";
     }
 
     protected override async Task OnInitializedAsync()
@@ -263,7 +298,7 @@
             .Select(quiz =>
             {
                 storedItems.TryGetValue(quiz.QuizId, out var storedQuiz);
-                return new OrganizerDashboardQuizItem(quiz.QuizId, quiz.Name, quiz.CreatedAtUtc, storedQuiz?.QuizOrganizerToken);
+                return new OrganizerDashboardQuizItem(quiz.QuizId, quiz.Name, quiz.CreatedAtUtc, quiz.IsStartAllowedForEveryone, storedQuiz?.QuizOrganizerToken);
             })
             .ToList();
 
@@ -283,6 +318,11 @@
         if (!string.IsNullOrWhiteSpace(QuizCreatedAtFilter))
         {
             filtered = filtered.Where(x => x.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd") == QuizCreatedAtFilter);
+        }
+
+        if (string.Equals(QuizRunnableFilter, "runnable-only", StringComparison.Ordinal))
+        {
+            filtered = filtered.Where(x => x.IsStartAllowedForEveryone);
         }
 
         return filtered.ToList();
@@ -333,6 +373,11 @@
         return quiz.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy");
     }
 
+    private static string GetQuizRunnableStatus(OrganizerDashboardQuizItem quiz)
+    {
+        return quiz.IsStartAllowedForEveryone ? "Ano" : "Ne";
+    }
+
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
     {
         var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
@@ -363,6 +408,7 @@
         Guid QuizId,
         string Name,
         DateTimeOffset CreatedAtUtc,
+        bool IsStartAllowedForEveryone,
         string? OrganizerToken);
 }
 
