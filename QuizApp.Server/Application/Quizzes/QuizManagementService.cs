@@ -123,11 +123,6 @@ public sealed class QuizManagementService : IQuizManagementService
             return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
         }
 
-        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return CreateSessionOperationResult.Fail(authError!);
-        }
-
         if (quiz.Questions.Count == 0)
         {
             return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasNoQuestions, "Nelze spustit kvíz, který neobsahuje žádné otázky."));
@@ -176,11 +171,6 @@ public sealed class QuizManagementService : IQuizManagementService
         if (quiz is null)
         {
             return GenerateJoinCodeOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
-        }
-
-        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return GenerateJoinCodeOperationResult.Fail(authError!);
         }
 
         for (var attempt = 0; attempt < GenerateJoinCodeMaxAttempts; attempt++)

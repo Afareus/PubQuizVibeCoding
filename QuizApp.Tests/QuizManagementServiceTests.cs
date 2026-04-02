@@ -267,7 +267,7 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
-    public async Task GenerateJoinCodeAsync_MissingAuthorization_ReturnsMissingAuthToken()
+    public async Task GenerateJoinCodeAsync_WithoutAuthorization_ReturnsGeneratedCode()
     {
         await using var dbContext = CreateDbContext();
         var service = CreateService(dbContext);
@@ -275,9 +275,11 @@ public class QuizManagementServiceTests
 
         var generateResult = await service.GenerateJoinCodeAsync(createResult.Response!.QuizId, null, null, CancellationToken.None);
 
-        Assert.False(generateResult.IsSuccess);
-        Assert.NotNull(generateResult.Error);
-        Assert.Equal(ApiErrorCode.MissingAuthToken, generateResult.Error!.Code);
+        Assert.True(generateResult.IsSuccess);
+        Assert.NotNull(generateResult.Response);
+        Assert.NotNull(generateResult.Response!.JoinCode);
+        Assert.Equal(6, generateResult.Response.JoinCode.Length);
+        Assert.Matches("^[0-9]{6}$", generateResult.Response.JoinCode);
     }
 
     [Fact]

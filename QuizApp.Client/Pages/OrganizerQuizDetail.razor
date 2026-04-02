@@ -1178,7 +1178,22 @@
     private void ApplyOrganizerAuth(HttpRequestMessage request)
     {
         AddHeaderIfMissing(request, "X-Organizer-Token", storedOrganizerToken);
-        AddHeaderIfMissing(request, "X-Quiz-Password", questionsPassword);
+        AddHeaderIfMissing(request, "X-Quiz-Password", ResolveOrganizerPassword());
+    }
+
+    private string? ResolveOrganizerPassword()
+    {
+        if (!string.IsNullOrWhiteSpace(questionsPassword))
+        {
+            return questionsPassword;
+        }
+
+        if (!string.IsNullOrWhiteSpace(deletePassword))
+        {
+            return deletePassword;
+        }
+
+        return null;
     }
 
     private static void AddHeaderIfMissing(HttpRequestMessage request, string headerName, string? headerValue)
