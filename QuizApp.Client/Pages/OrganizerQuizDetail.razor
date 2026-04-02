@@ -1177,10 +1177,18 @@
 
     private void ApplyOrganizerAuth(HttpRequestMessage request)
     {
-        if (!string.IsNullOrWhiteSpace(storedOrganizerToken))
+        AddHeaderIfMissing(request, "X-Organizer-Token", storedOrganizerToken);
+        AddHeaderIfMissing(request, "X-Quiz-Password", questionsPassword);
+    }
+
+    private static void AddHeaderIfMissing(HttpRequestMessage request, string headerName, string? headerValue)
+    {
+        if (string.IsNullOrWhiteSpace(headerValue) || request.Headers.Contains(headerName))
         {
-            request.Headers.Add("X-Organizer-Token", storedOrganizerToken);
+            return;
         }
+
+        request.Headers.Add(headerName, headerValue.Trim());
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)

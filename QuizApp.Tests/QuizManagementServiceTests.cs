@@ -156,6 +156,28 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
+    public async Task GetQuizDetailAsync_WithoutAuthorization_ReturnsMetadataWithoutQuestions()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Detail bez auth", "heslo"), CancellationToken.None);
+
+        var csv =
+            "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
+            "Kolik je 2+2?;3;4;5;6;B;30\n";
+
+        await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+
+        var detailResult = await service.GetQuizDetailAsync(createResult.Response.QuizId, null, null, CancellationToken.None);
+
+        Assert.True(detailResult.IsSuccess);
+        Assert.NotNull(detailResult.Response);
+        Assert.Equal("Detail bez auth", detailResult.Response!.Name);
+        Assert.Equal(1, detailResult.Response.QuestionCount);
+        Assert.Empty(detailResult.Response.Questions);
+    }
+
+    [Fact]
     public async Task CreateSessionAsync_QuizWithoutQuestions_ReturnsQuizHasNoQuestions()
     {
         await using var dbContext = CreateDbContext();
