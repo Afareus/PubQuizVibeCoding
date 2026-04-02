@@ -418,11 +418,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return OrganizerSessionStateOperationResult.Fail(authError!);
-        }
-
         var response = ToOrganizerSnapshot(
             session,
             await IsResultsPublishedAsync(session.SessionId, cancellationToken));
@@ -442,11 +437,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (session is null)
         {
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
-        }
-
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return OrganizerSessionStateOperationResult.Fail(authError!);
         }
 
         if (session.Status != SessionStatus.Waiting)
@@ -515,11 +505,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return OrganizerSessionStateOperationResult.Fail(authError!);
-        }
-
         if (session.Status != SessionStatus.Running)
         {
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze pozastavit pouze ve stavu RUNNING."));
@@ -561,11 +546,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return OrganizerSessionStateOperationResult.Fail(authError!);
-        }
-
         if (session.Status != SessionStatus.Paused)
         {
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session lze znovu spustit pouze ze stavu PAUSED."));
@@ -605,11 +585,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (session is null)
         {
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
-        }
-
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return OrganizerSessionStateOperationResult.Fail(authError!);
         }
 
         if (session.Status != SessionStatus.Running)
@@ -832,11 +807,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return CurrentQuestionCorrectAnswerOperationResult.Fail(authError!);
-        }
-
         if (session.Status is not SessionStatus.Running and not SessionStatus.Paused)
         {
             return CurrentQuestionCorrectAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Správnou odpověď lze zobrazit pouze během aktivní otázky."));
@@ -976,11 +946,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
         if (session is null)
         {
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
-        }
-
-        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return OrganizerSessionStateOperationResult.Fail(authError!);
         }
 
         if (session.Status is SessionStatus.Finished or SessionStatus.Cancelled)

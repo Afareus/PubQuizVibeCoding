@@ -244,7 +244,7 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
-    public async Task GetOrganizerSessionStateAsync_WithoutAuth_ReturnsMissingAuthToken()
+    public async Task GetOrganizerSessionStateAsync_WithoutAuth_ReturnsSessionSnapshot()
     {
         await using var dbContext = CreateDbContext();
         var quizService = CreateQuizService(dbContext);
@@ -254,9 +254,9 @@ public class SessionParticipationServiceTests
 
         var snapshotResult = await sessionService.GetOrganizerSessionStateAsync(created.SessionId, null, null, CancellationToken.None);
 
-        Assert.False(snapshotResult.IsSuccess);
-        Assert.NotNull(snapshotResult.Error);
-        Assert.Equal(ApiErrorCode.MissingAuthToken, snapshotResult.Error!.Code);
+        Assert.True(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Response);
+        Assert.Equal(created.SessionId, snapshotResult.Response!.SessionId);
     }
 
     [Fact]
