@@ -1272,7 +1272,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return true;
         }
 
-        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný organizer token nebo Administrátorké heslo kvízu.");
+        error = new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatné Administrátorké heslo kvízu.");
         return false;
     }
 
