@@ -514,6 +514,16 @@ public sealed class QuizManagementService : IQuizManagementService
             return QuizDetailOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
         }
 
+        if (string.IsNullOrWhiteSpace(organizerToken) && string.IsNullOrWhiteSpace(organizerPassword))
+        {
+            return QuizDetailOperationResult.Success(new QuizDetailResponse(
+                quiz.QuizId,
+                quiz.Name,
+                new DateTimeOffset(quiz.CreatedAtUtc, TimeSpan.Zero),
+                quiz.Questions.Count,
+                []));
+        }
+
         if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
         {
             return QuizDetailOperationResult.Fail(authError!);
