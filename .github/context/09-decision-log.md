@@ -39,6 +39,13 @@ Každý záznam má mít:
 ## Další záznamy
 Sem přidávej další rozhodnutí průběžně.
 
+### D-200 — Organizátorský dashboard je globální napříč uživateli
+- **Datum/čas (UTC):** 2026-04-02T00:00:00Z
+- **Krok:** Post-S21 feature
+- **Rozhodnutí:** Seznam v `OrganizerDashboard` se nově načítá serverově přes veřejný endpoint `GET /api/quizzes` a zobrazuje všechny existující kvízy bez vazby na lokální `browser storage`.
+- **Důvod:** Uživatel explicitně požadoval, aby každý, kdo aplikaci otevře, viděl i kvízy vytvořené jinými uživateli.
+- **Dopad:** Lokální úložiště už neslouží jako zdroj pravdy pro viditelnost seznamu; používá se jen pro uchování lokálního organizer tokenu k vlastním kvízům.
+
 ### D-005 — S00 přijato jako splněné na existující solution
 - **Datum/čas (UTC):** 2026-03-25T11:08:22Z
 - **Krok:** S00

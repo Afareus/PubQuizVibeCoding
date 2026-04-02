@@ -13,6 +13,8 @@ namespace QuizApp.Server.Application.Quizzes;
 
 public interface IQuizManagementService
 {
+    Task<IReadOnlyList<QuizListItemResponse>> GetQuizzesAsync(CancellationToken cancellationToken);
+
     Task<CreateQuizOperationResult> CreateQuizAsync(CreateQuizRequest request, CancellationToken cancellationToken);
 
     Task<CreateSessionOperationResult> CreateSessionAsync(Guid quizId, CreateSessionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -52,6 +54,18 @@ public sealed class QuizManagementService : IQuizManagementService
     {
         _dbContext = dbContext;
         _quizCsvParser = quizCsvParser;
+    }
+
+    public async Task<IReadOnlyList<QuizListItemResponse>> GetQuizzesAsync(CancellationToken cancellationToken)
+    {
+        return await _dbContext.Quizzes
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(x => new QuizListItemResponse(
+                x.QuizId,
+                x.Name,
+                new DateTimeOffset(x.CreatedAtUtc, TimeSpan.Zero)))
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<CreateQuizOperationResult> CreateQuizAsync(CreateQuizRequest request, CancellationToken cancellationToken)
