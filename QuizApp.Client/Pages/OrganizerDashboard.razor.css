@@ -38,6 +38,36 @@
     font-size: 0.8rem;
 }
 
+.dashboard-sort-filter-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.dashboard-sort-button {
+    width: 1.55rem;
+    min-width: 1.55rem;
+    height: 1.85rem;
+    padding: 0;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dashboard-sort-indicator {
+    display: inline-block;
+    transition: transform 0.05s linear, opacity 0.05s linear;
+}
+
+.dashboard-sort-indicator.is-descending {
+    transform: rotate(180deg);
+}
+
+.dashboard-sort-indicator.is-inactive {
+    opacity: 0.45;
+}
+
 .dashboard-grid-table tbody td {
     border-color: #e8eef7;
 }

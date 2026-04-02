@@ -118,3 +118,4 @@ Ptej se jen tehdy, pokud by dvě různé varianty vedly k zásadně odlišné ar
 - V editoru otázek, popis `Otázka číslo:` bude umístěn nad textboxem pořadí a popis `Otázka:` nad textboxem textu otázky.
 - Uživatel preferuje v editoru otázek needitovatelné číslo otázky a změnu pořadí přes šipky nahoru/dolů, přičemž pořadí všech otázek má po posunu vždy tvořit souvislou řadu 1..N.
 - Uživatel preferuje, aby hláška "Otázka byla úspěšně přidána." byla po uložení zobrazena inline přímo nad danou otázkou, ne globálně pro celou sekci.
+- Uživatel preferuje u šipek řazení v gridu dostupných kvízů užší tlačítko a výrazně rychlejší animaci otáčení.

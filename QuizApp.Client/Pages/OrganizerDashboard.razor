@@ -44,25 +44,37 @@
                         </tr>
                         <tr class="dashboard-grid-filter-row">
                             <th>
-                                <input id="quizSearch"
-                                       class="form-control form-control-sm"
-                                       placeholder="Hledat podle názvu"
-                                       value="@QuizSearchTerm"
-                                       @oninput="OnQuizSearchInput" />
+                                <div class="dashboard-sort-filter-wrap">
+                                    <button class="btn btn-sm btn-outline-secondary dashboard-sort-button" type="button" title="@GetSortButtonTitle(SortColumnName, "Název kvízu")" @onclick="() => ToggleSortByColumn(SortColumnName)">
+                                        <span class="@GetSortIndicatorClass(SortColumnName)">▲</span>
+                                    </button>
+
+                                    <input id="quizSearch"
+                                           class="form-control form-control-sm"
+                                           placeholder="Hledat podle názvu"
+                                           value="@QuizSearchTerm"
+                                           @oninput="OnQuizSearchInput" />
+                                </div>
                             </th>
                             <th>
-                                <input id="quizCreatedAtSearch"
-                                       type="date"
-                                       class="form-control form-control-sm"
-                                       value="@QuizCreatedAtFilter"
-                                       @oninput="OnQuizCreatedAtSearchInput" />
+                                <div class="dashboard-sort-filter-wrap">
+                                    <button class="btn btn-sm btn-outline-secondary dashboard-sort-button" type="button" title="@GetSortButtonTitle(SortColumnCreatedAt, "Datum založení")" @onclick="() => ToggleSortByColumn(SortColumnCreatedAt)">
+                                        <span class="@GetSortIndicatorClass(SortColumnCreatedAt)">▲</span>
+                                    </button>
+
+                                    <input id="quizCreatedAtSearch"
+                                           type="date"
+                                           class="form-control form-control-sm"
+                                           value="@QuizCreatedAtFilter"
+                                           @oninput="OnQuizCreatedAtSearchInput" />
+                                </div>
                             </th>
                             <th>
                                 <select id="quizRunnableFilter"
                                         class="form-select form-select-sm"
                                         value="@QuizRunnableFilter"
                                         @onchange="OnQuizRunnableFilterChanged">
-                                    <option value="all">Všechny</option>
+                                    <option value="all">Vše</option>
                                     <option value="runnable-only">Pouze spustitelné</option>
                                 </select>
                             </th>
@@ -152,6 +164,10 @@
     private string quizSearchTerm = string.Empty;
     private string quizCreatedAtFilter = string.Empty;
     private string quizRunnableFilter = "all";
+    private const string SortColumnName = "name";
+    private const string SortColumnCreatedAt = "createdAt";
+    private string selectedSortColumn = SortColumnCreatedAt;
+    private bool isSortAscending;
     private int currentPage = 1;
     private const int PageSize = 10;
 
@@ -307,8 +323,7 @@
 
     private List<OrganizerDashboardQuizItem> GetFilteredQuizzes()
     {
-        IEnumerable<OrganizerDashboardQuizItem> filtered = availableQuizzes
-            .OrderByDescending(x => x.CreatedAtUtc);
+        IEnumerable<OrganizerDashboardQuizItem> filtered = availableQuizzes;
 
         if (!string.IsNullOrWhiteSpace(QuizSearchTerm))
         {
@@ -325,7 +340,56 @@
             filtered = filtered.Where(x => x.IsStartAllowedForEveryone);
         }
 
+        filtered = ApplySelectedSorting(filtered);
+
         return filtered.ToList();
+    }
+
+    private IEnumerable<OrganizerDashboardQuizItem> ApplySelectedSorting(IEnumerable<OrganizerDashboardQuizItem> quizzes)
+    {
+        return selectedSortColumn switch
+        {
+            SortColumnName => isSortAscending
+                ? quizzes.OrderBy(x => GetQuizName(x), StringComparer.CurrentCultureIgnoreCase).ThenByDescending(x => x.CreatedAtUtc)
+                : quizzes.OrderByDescending(x => GetQuizName(x), StringComparer.CurrentCultureIgnoreCase).ThenByDescending(x => x.CreatedAtUtc),
+            _ => isSortAscending
+                ? quizzes.OrderBy(x => x.CreatedAtUtc).ThenBy(x => GetQuizName(x), StringComparer.CurrentCultureIgnoreCase)
+                : quizzes.OrderByDescending(x => x.CreatedAtUtc).ThenBy(x => GetQuizName(x), StringComparer.CurrentCultureIgnoreCase)
+        };
+    }
+
+    private void ToggleSortByColumn(string column)
+    {
+        if (string.Equals(selectedSortColumn, column, StringComparison.Ordinal))
+        {
+            isSortAscending = !isSortAscending;
+        }
+        else
+        {
+            selectedSortColumn = column;
+            isSortAscending = true;
+        }
+
+        currentPage = 1;
+    }
+
+    private string GetSortIndicatorClass(string column)
+    {
+        if (!string.Equals(selectedSortColumn, column, StringComparison.Ordinal))
+        {
+            return "dashboard-sort-indicator is-inactive";
+        }
+
+        return isSortAscending
+            ? "dashboard-sort-indicator is-ascending"
+            : "dashboard-sort-indicator is-descending";
+    }
+
+    private string GetSortButtonTitle(string columnKey, string columnLabel)
+    {
+        var isCurrentColumn = string.Equals(selectedSortColumn, columnKey, StringComparison.Ordinal);
+        var nextDirectionLabel = !isCurrentColumn || !isSortAscending ? "vzestupně" : "sestupně";
+        return $"Seřadit podle sloupce {columnLabel} {nextDirectionLabel}.";
     }
 
     private void PreviousPage()
