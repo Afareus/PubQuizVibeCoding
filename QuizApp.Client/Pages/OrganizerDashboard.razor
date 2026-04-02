@@ -221,8 +221,8 @@
                 await OrganizerQuizLocalStore.UpsertAsync(
                     payload.QuizId,
                     payload.QuizOrganizerToken,
-                    detail?.Name ?? createQuizForm.Name.Trim(),
-                    detail?.CreatedAtUtc ?? DateTimeOffset.UtcNow);
+                    detail.Detail?.Name ?? createQuizForm.Name.Trim(),
+                    detail.Detail?.CreatedAtUtc ?? DateTimeOffset.UtcNow);
                 await LoadStoredQuizzesAsync();
 
                 createSuccessMessage = "Kvíz byl vytvořen.";
@@ -242,16 +242,25 @@
         var storedItems = (await OrganizerQuizLocalStore.GetAllAsync()).ToList();
         var needsRefresh = false;
 
-        foreach (var quiz in storedItems.Where(x => string.IsNullOrWhiteSpace(x.QuizName) || x.CreatedAtUtc is null))
+        foreach (var quiz in storedItems)
         {
-            var detail = await TryGetQuizDetailAsync(quiz.QuizId, quiz.QuizOrganizerToken);
-            if (detail is null)
+            var detailResult = await TryGetQuizDetailAsync(quiz.QuizId, quiz.QuizOrganizerToken);
+            if (detailResult.Detail is null)
             {
+                if (detailResult.Error?.Code == ApiErrorCode.ResourceNotFound)
+                {
+                    await OrganizerQuizLocalStore.RemoveAsync(quiz.QuizId);
+                    needsRefresh = true;
+                }
+
                 continue;
             }
 
-            await OrganizerQuizLocalStore.UpsertAsync(quiz.QuizId, quiz.QuizOrganizerToken, detail.Name, detail.CreatedAtUtc);
-            needsRefresh = true;
+            if (string.IsNullOrWhiteSpace(quiz.QuizName) || quiz.CreatedAtUtc is null)
+            {
+                await OrganizerQuizLocalStore.UpsertAsync(quiz.QuizId, quiz.QuizOrganizerToken, detailResult.Detail.Name, detailResult.Detail.CreatedAtUtc);
+                needsRefresh = true;
+            }
         }
 
         storedQuizzes = needsRefresh
@@ -314,18 +323,20 @@
         }
     }
 
-    private async Task<QuizDetailResponse?> TryGetQuizDetailAsync(Guid quizId, string organizerToken)
+    private async Task<QuizDetailWithError> TryGetQuizDetailAsync(Guid quizId, string organizerToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId}");
         request.Headers.Add("X-Organizer-Token", organizerToken);
 
         using var response = await HttpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
+        if (response.IsSuccessStatusCode)
         {
-            return null;
+            var detail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+            return new QuizDetailWithError(detail, null);
         }
 
-        return await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
+        var apiError = await ReadApiErrorAsync(response);
+        return new QuizDetailWithError(null, apiError);
     }
 
     private static string GetQuizName(StoredOrganizerQuiz quiz)
@@ -363,4 +374,10 @@
             DeletePassword = string.Empty;
         }
     }
+
+    private sealed record QuizDetailWithError(QuizDetailResponse? Detail, ApiErrorResponse? Error);
 }
+
+
+
+

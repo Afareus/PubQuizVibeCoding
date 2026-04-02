@@ -10,6 +10,15 @@ using QuizApp.Server.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configuredCorsOrigins = builder.Configuration
+    .GetSection(CorsOptions.SectionName)
+    .Get<CorsOptions>()?
+    .AllowedOrigins
+    .Where(static origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(static origin => origin.Trim())
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? [];
+
 builder.Services.AddOptions<PostgreSqlOptions>()
     .Bind(builder.Configuration.GetSection(PostgreSqlOptions.SectionName))
     .ValidateDataAnnotations()
@@ -37,8 +46,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("ClientOrigins", policy =>
     {
-        policy
-            .SetIsOriginAllowed(static origin =>
+        if (configuredCorsOrigins.Length > 0)
+        {
+            policy.WithOrigins(configuredCorsOrigins);
+        }
+        else if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
+        {
+            policy.SetIsOriginAllowed(static origin =>
             {
                 if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
                 {
@@ -46,7 +60,14 @@ builder.Services.AddCors(options =>
                 }
 
                 return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
-            })
+            });
+        }
+        else
+        {
+            throw new InvalidOperationException("CORS policy 'ClientOrigins' requires at least one configured origin in production.");
+        }
+
+        policy
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

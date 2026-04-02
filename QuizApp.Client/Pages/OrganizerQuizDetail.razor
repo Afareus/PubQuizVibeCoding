@@ -70,7 +70,7 @@
             <button class="btn btn-outline-primary mb-3" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "Načítám otázky..." : "Zobrazit otázky")</button>
         }
 
-        @if (hasLoadedQuestions || (quizDetail?.QuestionCount ?? 0) == 0 || allowManualAddWithoutPassword)
+        @if (quizDetail is not null && (hasLoadedQuestions || quizDetail.QuestionCount == 0 || allowManualAddWithoutPassword))
         {
             <div class="d-flex flex-column gap-3 mb-3">
                 @foreach (var question in questionEditors.OrderBy(x => x.Order))
@@ -346,6 +346,12 @@
         {
             quizDetail = null;
             apiError = await ReadApiErrorAsync(response);
+
+            if (apiError.Code == ApiErrorCode.ResourceNotFound)
+            {
+                await OrganizerQuizLocalStore.RemoveAsync(quizId.Value);
+                infoMessage = "Kvíz nebyl nalezen a byl odebrán z lokálního seznamu. Pravděpodobně byl smazán nebo používáte jinou databázi.";
+            }
         }
 
         isLoadingDetail = false;
