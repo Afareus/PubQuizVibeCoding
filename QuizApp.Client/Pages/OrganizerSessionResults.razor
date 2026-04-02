@@ -170,13 +170,6 @@
             await LoadStoredTokenAsync(quizId.Value);
         }
 
-        if (string.IsNullOrWhiteSpace(storedOrganizerToken) && string.IsNullOrWhiteSpace(organizerPasswordForAuth))
-        {
-            apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Zadejte Quiz ID pro načtení tokenu nebo Administrátorké heslo kvízu.");
-            isLoading = false;
-            return;
-        }
-
         await LoadResultsAsync();
 
         if (apiError is null)

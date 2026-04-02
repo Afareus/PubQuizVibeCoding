@@ -982,7 +982,7 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
-    public async Task GetSessionResultsAsync_NoAuth_ReturnsMissingAuthToken()
+    public async Task GetSessionResultsAsync_NoAuth_ReturnsResults()
     {
         await using var dbContext = CreateDbContext();
         var quizService = CreateQuizService(dbContext);
@@ -993,8 +993,9 @@ public class SessionParticipationServiceTests
         var resultsResult = await sessionService.GetSessionResultsAsync(
             created.SessionId, null, null, null, null, CancellationToken.None);
 
-        Assert.False(resultsResult.IsSuccess);
-        Assert.Equal(ApiErrorCode.MissingAuthToken, resultsResult.Error!.Code);
+        Assert.True(resultsResult.IsSuccess);
+        Assert.NotNull(resultsResult.Response);
+        Assert.NotEmpty(resultsResult.Response!.Results);
     }
 
     [Fact]
@@ -1064,7 +1065,7 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
-    public async Task GetCorrectAnswersAsync_WithoutOrganizerAuth_ReturnsMissingAuthToken()
+    public async Task GetCorrectAnswersAsync_WithoutOrganizerAuth_ReturnsCorrectAnswers()
     {
         await using var dbContext = CreateDbContext();
         var quizService = CreateQuizService(dbContext);
@@ -1075,8 +1076,9 @@ public class SessionParticipationServiceTests
         var correctResult = await sessionService.GetCorrectAnswersAsync(
             created.SessionId, null, null, null, null, CancellationToken.None);
 
-        Assert.False(correctResult.IsSuccess);
-        Assert.Equal(ApiErrorCode.MissingAuthToken, correctResult.Error!.Code);
+        Assert.True(correctResult.IsSuccess);
+        Assert.NotNull(correctResult.Response);
+        Assert.NotEmpty(correctResult.Response!.CorrectAnswers);
     }
 
     [Fact]
