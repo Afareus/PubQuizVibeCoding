@@ -35,9 +35,13 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Post-S21 UI tweak — v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po vygenerování join kódu už nezobrazuje informační hláška „Byl vygenerován volný join kód.“.
+- Post-S21 feature — organizátorský dashboard načítá globální seznam všech kvízů přes nový endpoint `GET /api/quizzes`, takže každý uživatel vidí i kvízy vytvořené jinými uživateli.
 
 ## Aktuální poznámky
+- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` a `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` přibyla operace/endpoint `GET /api/quizzes` vracející veřejný seznam kvízů (`QuizId`, `Name`, `CreatedAtUtc`) bez organizátorské autentizace.
+- `QuizApp.Client/Pages/OrganizerDashboard.razor` už nenačítá tabulku pouze z `localStorage`; hlavní seznam bere ze serveru a lokálně uložené tokeny používá jen jako doplňkové metadata.
+- V `QuizApp.Shared/Contracts/QuizContracts.cs` byl přidán kontrakt `QuizListItemResponse`.
+- V `QuizApp.Tests/ApiIntegrationTests.cs` přibyl test `GetQuizzesEndpoint_ReturnsAllCreatedQuizzes`.
 - V `QuizApp.Client/Pages/OrganizerDashboard.razor` je v sekci `Dostupné kvízy` fulltext filtr podle názvu kvízu (`oninput`) integrován přímo do hlavičky gridu a stránkování (`Předchozí`/`Další`) má limit 10 záznamů na stránku.
 - V `QuizApp.Client/Pages/OrganizerDashboard.razor` přibyl druhý fulltext filtr v hlavičce gridu pro sloupec `Datum založení`; oba filtry (`Název kvízu`, `Datum založení`) se aplikují kombinovaně a aktualizují se po každém stisku klávesy.
 - V `QuizApp.Client/Pages/OrganizerDashboard.razor` je filtr `Datum založení` realizován jako `input type="datetime-local"`; aplikace filtruje záznamy podle zvoleného lokálního data a času na minuty.
@@ -172,6 +176,6 @@ Po každém kroku jej aktualizuj.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 85/85 passed)
+- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 95/95 passed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

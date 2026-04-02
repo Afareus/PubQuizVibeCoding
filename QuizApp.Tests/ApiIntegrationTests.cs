@@ -17,6 +17,23 @@ namespace QuizApp.Tests;
 public class ApiIntegrationTests
 {
     [Fact]
+    public async Task GetQuizzesEndpoint_ReturnsAllCreatedQuizzes()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var firstQuiz = await CreateQuizAsync(client, "Sdílený kvíz 1", "heslo-1");
+        var secondQuiz = await CreateQuizAsync(client, "Sdílený kvíz 2", "heslo-2");
+
+        var payload = await client.GetFromJsonAsync<IReadOnlyList<QuizListItemResponse>>("/api/quizzes");
+        Assert.NotNull(payload);
+
+        Assert.Equal(2, payload!.Count);
+        Assert.Contains(payload, quiz => quiz.QuizId == firstQuiz.QuizId && quiz.Name == "Sdílený kvíz 1");
+        Assert.Contains(payload, quiz => quiz.QuizId == secondQuiz.QuizId && quiz.Name == "Sdílený kvíz 2");
+    }
+
+    [Fact]
     public async Task OrganizerPassword_AllowsCreateImportCreateSessionAndSnapshotFlow()
     {
         await using var factory = new QuizAppApiFactory();

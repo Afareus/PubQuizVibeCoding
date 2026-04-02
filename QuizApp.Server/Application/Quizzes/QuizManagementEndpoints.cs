@@ -12,6 +12,7 @@ public static class QuizManagementEndpoints
     {
         var group = endpoints.MapGroup("/api/quizzes");
 
+        group.MapGet("/", GetQuizzesAsync);
         group.MapPost("/", CreateQuizAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/sessions", CreateSessionAsync)
@@ -45,6 +46,14 @@ public static class QuizManagementEndpoints
         }
 
         return TypedResults.Created($"/api/quizzes/{result.Response!.QuizId}", result.Response);
+    }
+
+    private static async Task<IResult> GetQuizzesAsync(
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var response = await quizManagementService.GetQuizzesAsync(cancellationToken);
+        return TypedResults.Ok(response);
     }
 
     private static async Task<IResult> ImportQuizCsvAsync(

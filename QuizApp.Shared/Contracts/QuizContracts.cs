@@ -10,6 +10,11 @@ public sealed record CreateQuizResponse(
     Guid QuizId,
     string QuizOrganizerToken);
 
+public sealed record QuizListItemResponse(
+    Guid QuizId,
+    string Name,
+    DateTimeOffset CreatedAtUtc);
+
 public sealed record ImportQuizCsvRequest(
     Guid QuizId,
     string CsvContent);

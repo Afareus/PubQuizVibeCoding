@@ -18,13 +18,18 @@
     <div class="alert alert-danger" role="alert">@createError.Message</div>
 }
 
+@if (listError is not null)
+{
+    <div class="alert alert-danger" role="alert">@listError.Message</div>
+}
+
 <section class="card mb-4">
     <div class="card-body">
         <h2 class="h5">Dostupné kvízy</h2>
 
-        @if (storedQuizzes.Count == 0)
+        @if (availableQuizzes.Count == 0)
         {
-            <p class="mb-0">Zatím tu není uložen žádný kvíz.</p>
+            <p class="mb-0">Zatím tu není žádný kvíz.</p>
         }
         else
         {
@@ -128,8 +133,9 @@
 
 @code {
     private readonly CreateQuizFormModel createQuizForm = new();
-    private List<StoredOrganizerQuiz> storedQuizzes = [];
+    private List<OrganizerDashboardQuizItem> availableQuizzes = [];
     private ApiErrorResponse? createError;
+    private ApiErrorResponse? listError;
     private string? createSuccessMessage;
     private bool isCreatingQuiz;
     private string quizSearchTerm = string.Empty;
@@ -169,7 +175,7 @@
         }
     }
 
-    private IReadOnlyList<StoredOrganizerQuiz> PagedQuizzes
+    private IReadOnlyList<OrganizerDashboardQuizItem> PagedQuizzes
     {
         get
         {
@@ -200,7 +206,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadStoredQuizzesAsync();
+        await LoadAvailableQuizzesAsync();
     }
 
     private async Task CreateQuizAsync()
@@ -217,13 +223,12 @@
             var payload = await response.Content.ReadFromJsonAsync<CreateQuizResponse>();
             if (payload is not null)
             {
-                var detail = await TryGetQuizDetailAsync(payload.QuizId, payload.QuizOrganizerToken);
                 await OrganizerQuizLocalStore.UpsertAsync(
                     payload.QuizId,
                     payload.QuizOrganizerToken,
-                    detail.Detail?.Name ?? createQuizForm.Name.Trim(),
-                    detail.Detail?.CreatedAtUtc ?? DateTimeOffset.UtcNow);
-                await LoadStoredQuizzesAsync();
+                    createQuizForm.Name.Trim(),
+                    DateTimeOffset.UtcNow);
+                await LoadAvailableQuizzesAsync();
 
                 createSuccessMessage = "Kvíz byl vytvořen.";
                 createQuizForm.Clear();
@@ -237,43 +242,38 @@
         isCreatingQuiz = false;
     }
 
-    private async Task LoadStoredQuizzesAsync()
+    private async Task LoadAvailableQuizzesAsync()
     {
-        var storedItems = (await OrganizerQuizLocalStore.GetAllAsync()).ToList();
-        var needsRefresh = false;
+        listError = null;
 
-        foreach (var quiz in storedItems)
+        var storedItems = (await OrganizerQuizLocalStore.GetAllAsync())
+            .ToDictionary(x => x.QuizId, x => x, EqualityComparer<Guid>.Default);
+
+        using var response = await HttpClient.GetAsync("/api/quizzes");
+        if (!response.IsSuccessStatusCode)
         {
-            var detailResult = await TryGetQuizDetailAsync(quiz.QuizId, quiz.QuizOrganizerToken);
-            if (detailResult.Detail is null)
-            {
-                if (detailResult.Error?.Code == ApiErrorCode.ResourceNotFound)
-                {
-                    await OrganizerQuizLocalStore.RemoveAsync(quiz.QuizId);
-                    needsRefresh = true;
-                }
-
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(quiz.QuizName) || quiz.CreatedAtUtc is null)
-            {
-                await OrganizerQuizLocalStore.UpsertAsync(quiz.QuizId, quiz.QuizOrganizerToken, detailResult.Detail.Name, detailResult.Detail.CreatedAtUtc);
-                needsRefresh = true;
-            }
+            availableQuizzes = [];
+            listError = await ReadApiErrorAsync(response);
+            NormalizeCurrentPage();
+            return;
         }
 
-        storedQuizzes = needsRefresh
-            ? (await OrganizerQuizLocalStore.GetAllAsync()).ToList()
-            : storedItems;
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyList<QuizListItemResponse>>() ?? [];
+        availableQuizzes = payload
+            .Select(quiz =>
+            {
+                storedItems.TryGetValue(quiz.QuizId, out var storedQuiz);
+                return new OrganizerDashboardQuizItem(quiz.QuizId, quiz.Name, quiz.CreatedAtUtc, storedQuiz?.QuizOrganizerToken);
+            })
+            .ToList();
 
         NormalizeCurrentPage();
     }
 
-    private List<StoredOrganizerQuiz> GetFilteredQuizzes()
+    private List<OrganizerDashboardQuizItem> GetFilteredQuizzes()
     {
-        IEnumerable<StoredOrganizerQuiz> filtered = storedQuizzes
-            .OrderByDescending(x => x.CreatedAtUtc ?? DateTimeOffset.MinValue);
+        IEnumerable<OrganizerDashboardQuizItem> filtered = availableQuizzes
+            .OrderByDescending(x => x.CreatedAtUtc);
 
         if (!string.IsNullOrWhiteSpace(QuizSearchTerm))
         {
@@ -282,7 +282,7 @@
 
         if (!string.IsNullOrWhiteSpace(QuizCreatedAtFilter))
         {
-            filtered = filtered.Where(x => x.CreatedAtUtc?.ToLocalTime().ToString("yyyy-MM-dd") == QuizCreatedAtFilter);
+            filtered = filtered.Where(x => x.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd") == QuizCreatedAtFilter);
         }
 
         return filtered.ToList();
@@ -323,30 +323,14 @@
         }
     }
 
-    private async Task<QuizDetailWithError> TryGetQuizDetailAsync(Guid quizId, string organizerToken)
+    private static string GetQuizName(OrganizerDashboardQuizItem quiz)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/quizzes/{quizId}");
-        request.Headers.Add("X-Organizer-Token", organizerToken);
-
-        using var response = await HttpClient.SendAsync(request);
-        if (response.IsSuccessStatusCode)
-        {
-            var detail = await response.Content.ReadFromJsonAsync<QuizDetailResponse>();
-            return new QuizDetailWithError(detail, null);
-        }
-
-        var apiError = await ReadApiErrorAsync(response);
-        return new QuizDetailWithError(null, apiError);
+        return string.IsNullOrWhiteSpace(quiz.Name) ? "(neznámý název)" : quiz.Name;
     }
 
-    private static string GetQuizName(StoredOrganizerQuiz quiz)
+    private static string GetQuizCreatedAt(OrganizerDashboardQuizItem quiz)
     {
-        return string.IsNullOrWhiteSpace(quiz.QuizName) ? "(neznámý název)" : quiz.QuizName;
-    }
-
-    private static string GetQuizCreatedAt(StoredOrganizerQuiz quiz)
-    {
-        return quiz.CreatedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy") ?? "-";
+        return quiz.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy");
     }
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
@@ -375,7 +359,11 @@
         }
     }
 
-    private sealed record QuizDetailWithError(QuizDetailResponse? Detail, ApiErrorResponse? Error);
+    private sealed record OrganizerDashboardQuizItem(
+        Guid QuizId,
+        string Name,
+        DateTimeOffset CreatedAtUtc,
+        string? OrganizerToken);
 }
 
 
