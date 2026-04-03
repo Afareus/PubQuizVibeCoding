@@ -158,10 +158,13 @@ else
     private System.Threading.Timer? countdownTimer;
     private System.Threading.Timer? heartbeatTimer;
     private System.Threading.Timer? fallbackPollTimer;
+    private System.Threading.Timer? pendingSubmitRetryTimer;
     private int remainingSeconds;
     private bool isHeartbeatInFlight;
     private bool isFallbackPolling;
     private bool isFallbackPollInFlight;
+    private bool isPendingSubmitInFlight;
+    private PendingSubmitItem? pendingSubmit;
     private const int FallbackPollIntervalSeconds = 3;
 
     private string PageHeading => snapshot?.Status is SessionStatus.Finished ? "Konec kvízu" : "Otázka";
@@ -169,7 +172,8 @@ else
     private bool CanSubmitAnswer => snapshot?.Status == SessionStatus.Running
         && !snapshot.IsCurrentQuestionAnsweringClosed
         && !submittedOption.HasValue
-        && !submittedNumericValue.HasValue;
+        && !submittedNumericValue.HasValue
+        && pendingSubmit is null;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -222,6 +226,7 @@ else
             }
 
             await ReloadSubmittedAnswerAsync();
+            HandlePendingSubmitSnapshotState();
             UpdateActiveSessionState();
         }
         else
@@ -238,87 +243,231 @@ else
 
     private async Task SubmitAnswerAsync(OptionKey option)
     {
-        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null || submittedOption.HasValue)
+        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null || submittedOption.HasValue || pendingSubmit is not null)
         {
             return;
         }
 
-        apiError = null;
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{SessionId.Value}/answers")
-        {
-            Content = JsonContent.Create(new SubmitAnswerRequest(identity.TeamId, snapshot.CurrentQuestion.QuestionId, option, null))
-        };
-
-        request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
-
-        using var response = await HttpClient.SendAsync(request);
-        if (response.IsSuccessStatusCode)
-        {
-            await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, option, null);
-            submittedOption = option;
-            submittedNumericValue = null;
-            infoMessage = null;
-        }
-        else
-        {
-            var error = await ReadApiErrorAsync(response);
-            if (error.Code == ApiErrorCode.AlreadyAnswered)
-            {
-                await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, option, null);
-                submittedOption = option;
-                submittedNumericValue = null;
-                infoMessage = "Odpověď již byla dříve odeslána.";
-            }
-            else
-            {
-                apiError = error;
-                infoMessage = null;
-            }
-        }
-
+        await QueuePendingSubmitAsync(option, null);
     }
 
     private async Task SubmitNumericAnswerAsync()
     {
-        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null || !numericTip.HasValue || submittedOption.HasValue || submittedNumericValue.HasValue)
+        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null || !numericTip.HasValue || submittedOption.HasValue || submittedNumericValue.HasValue || pendingSubmit is not null)
         {
             return;
         }
 
-        apiError = null;
+        await QueuePendingSubmitAsync(null, numericTip.Value);
+    }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{SessionId.Value}/answers")
+    private async Task QueuePendingSubmitAsync(OptionKey? option, decimal? numericValue)
+    {
+        if (!SessionId.HasValue || identity is null || snapshot?.CurrentQuestion is null)
         {
-            Content = JsonContent.Create(new SubmitAnswerRequest(identity.TeamId, snapshot.CurrentQuestion.QuestionId, null, numericTip.Value))
-        };
-
-        request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
-
-        using var response = await HttpClient.SendAsync(request);
-        if (response.IsSuccessStatusCode)
-        {
-            await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, null, numericTip.Value);
-            submittedOption = null;
-            submittedNumericValue = numericTip.Value;
-            infoMessage = null;
+            return;
         }
-        else
+
+        pendingSubmit = new PendingSubmitItem(
+            snapshot.CurrentQuestion.QuestionId,
+            option,
+            numericValue,
+            Guid.NewGuid(),
+            0,
+            DateTimeOffset.UtcNow);
+
+        apiError = null;
+        infoMessage = "Odesílám odpověď...";
+
+        await TryProcessPendingSubmitAsync();
+    }
+
+    private async Task TryProcessPendingSubmitAsync()
+    {
+        if (!SessionId.HasValue || identity is null || pendingSubmit is null || isPendingSubmitInFlight)
         {
+            return;
+        }
+
+        if (DateTimeOffset.UtcNow < pendingSubmit.NextAttemptAtUtc)
+        {
+            SchedulePendingSubmitRetry(pendingSubmit.NextAttemptAtUtc - DateTimeOffset.UtcNow);
+            return;
+        }
+
+        isPendingSubmitInFlight = true;
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{SessionId.Value}/answers")
+            {
+                Content = JsonContent.Create(new SubmitAnswerRequest(
+                    identity.TeamId,
+                    pendingSubmit.QuestionId,
+                    pendingSubmit.SelectedOption,
+                    pendingSubmit.NumericValue,
+                    pendingSubmit.ClientRequestId))
+            };
+
+            request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+
+            using var response = await HttpClient.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                await ConfirmPendingSubmitAcceptedAsync();
+                return;
+            }
+
             var error = await ReadApiErrorAsync(response);
             if (error.Code == ApiErrorCode.AlreadyAnswered)
             {
-                await TeamSessionLocalStore.SaveSubmittedAnswerAsync(SessionId.Value, identity.TeamId, snapshot.CurrentQuestion.QuestionId, null, numericTip.Value);
-                submittedOption = null;
-                submittedNumericValue = numericTip.Value;
-                infoMessage = "Odpověď již byla dříve odeslána.";
+                await ConfirmPendingSubmitAlreadyAnsweredAsync();
+                return;
             }
-            else
+
+            if (IsRetryableSubmitError(error.Code))
             {
-                apiError = error;
-                infoMessage = null;
+                SchedulePendingSubmitRetry(ComputeRetryDelay(IncrementPendingAttempt()));
+                infoMessage = "Odeslání odpovědi se nepodařilo, proběhne automatický pokus o opakování.";
+                return;
             }
+
+            apiError = error;
+            infoMessage = null;
+            ClearPendingSubmit();
         }
+        catch (HttpRequestException)
+        {
+            SchedulePendingSubmitRetry(ComputeRetryDelay(IncrementPendingAttempt()));
+            infoMessage = "Spojení není dostupné, odpověď bude odeslána automaticky po obnovení sítě.";
+        }
+        catch (TaskCanceledException)
+        {
+            SchedulePendingSubmitRetry(ComputeRetryDelay(IncrementPendingAttempt()));
+            infoMessage = "Čekám na obnovení spojení, odpověď zkusím odeslat znovu.";
+        }
+        finally
+        {
+            isPendingSubmitInFlight = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ConfirmPendingSubmitAcceptedAsync()
+    {
+        if (!SessionId.HasValue || identity is null || pendingSubmit is null)
+        {
+            return;
+        }
+
+        var acceptedSubmit = pendingSubmit;
+
+        await TeamSessionLocalStore.SaveSubmittedAnswerAsync(
+            SessionId.Value,
+            identity.TeamId,
+            acceptedSubmit.QuestionId,
+            acceptedSubmit.SelectedOption,
+            acceptedSubmit.NumericValue);
+
+        submittedOption = acceptedSubmit.SelectedOption;
+        submittedNumericValue = acceptedSubmit.NumericValue;
+        infoMessage = null;
+        apiError = null;
+        ClearPendingSubmit();
+    }
+
+    private async Task ConfirmPendingSubmitAlreadyAnsweredAsync()
+    {
+        if (!SessionId.HasValue || identity is null || pendingSubmit is null)
+        {
+            return;
+        }
+
+        var resolvedSubmit = pendingSubmit;
+
+        await LoadSnapshotAsync();
+
+        await TeamSessionLocalStore.SaveSubmittedAnswerAsync(
+            SessionId.Value,
+            identity.TeamId,
+            resolvedSubmit.QuestionId,
+            resolvedSubmit.SelectedOption,
+            resolvedSubmit.NumericValue);
+
+        submittedOption = resolvedSubmit.SelectedOption;
+        submittedNumericValue = resolvedSubmit.NumericValue;
+        infoMessage = "Odpověď již byla dříve odeslána (stav potvrzen snapshotem).";
+        apiError = null;
+        ClearPendingSubmit();
+    }
+
+    private void HandlePendingSubmitSnapshotState()
+    {
+        if (pendingSubmit is null || snapshot is null)
+        {
+            return;
+        }
+
+        if (snapshot.Status != SessionStatus.Running
+            || snapshot.IsCurrentQuestionAnsweringClosed
+            || snapshot.CurrentQuestion is null
+            || snapshot.CurrentQuestion.QuestionId != pendingSubmit.QuestionId)
+        {
+            infoMessage = "Aktuální otázka už není aktivní. Odpověď nebylo možné znovu odeslat.";
+            ClearPendingSubmit();
+        }
+    }
+
+    private int IncrementPendingAttempt()
+    {
+        if (pendingSubmit is null)
+        {
+            return 0;
+        }
+
+        pendingSubmit = pendingSubmit with { RetryAttempt = pendingSubmit.RetryAttempt + 1 };
+        return pendingSubmit.RetryAttempt;
+    }
+
+    private void SchedulePendingSubmitRetry(TimeSpan delay)
+    {
+        if (pendingSubmit is null)
+        {
+            return;
+        }
+
+        if (delay < TimeSpan.FromSeconds(1))
+        {
+            delay = TimeSpan.FromSeconds(1);
+        }
+
+        pendingSubmit = pendingSubmit with
+        {
+            NextAttemptAtUtc = DateTimeOffset.UtcNow.Add(delay)
+        };
+
+        pendingSubmitRetryTimer?.Dispose();
+        pendingSubmitRetryTimer = new System.Threading.Timer(_ =>
+        {
+            _ = InvokeAsync(TryProcessPendingSubmitAsync);
+        }, null, delay, System.Threading.Timeout.InfiniteTimeSpan);
+    }
+
+    private static TimeSpan ComputeRetryDelay(int retryAttempt)
+    {
+        var seconds = Math.Min(8, (int)Math.Pow(2, Math.Max(0, retryAttempt)));
+        return TimeSpan.FromSeconds(seconds);
+    }
+
+    private static bool IsRetryableSubmitError(ApiErrorCode errorCode)
+    {
+        return errorCode is ApiErrorCode.RateLimited;
+    }
+
+    private void ClearPendingSubmit()
+    {
+        pendingSubmit = null;
+        pendingSubmitRetryTimer?.Dispose();
+        pendingSubmitRetryTimer = null;
     }
 
     private async Task ReloadSubmittedAnswerAsync()
@@ -539,6 +688,8 @@ else
                 StopFallbackPolling();
                 infoMessage = "Realtime připojení bylo obnoveno.";
             }
+
+            await TryProcessPendingSubmitAsync();
         }
         finally
         {
@@ -557,6 +708,7 @@ else
             }
 
             RestartCountdownTimer();
+            await TryProcessPendingSubmitAsync();
             StateHasChanged();
         });
     }
@@ -601,6 +753,7 @@ else
         countdownTimer = null;
         StopHeartbeatTimer();
         StopFallbackPolling();
+        ClearPendingSubmit();
 
         if (hubConnection is null)
         {
@@ -614,6 +767,14 @@ else
 
         await hubConnection.DisposeAsync();
     }
+
+    private sealed record PendingSubmitItem(
+        Guid QuestionId,
+        OptionKey? SelectedOption,
+        decimal? NumericValue,
+        Guid ClientRequestId,
+        int RetryAttempt,
+        DateTimeOffset NextAttemptAtUtc);
 
     private void StartHeartbeatTimer()
     {

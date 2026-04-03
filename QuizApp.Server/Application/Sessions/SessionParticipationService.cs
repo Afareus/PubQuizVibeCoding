@@ -59,6 +59,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private const string OrganizerHeartbeatAuditAction = "ORGANIZER_HEARTBEAT";
     private const string OrganizerReconnectedAuditAction = "ORGANIZER_RECONNECTED";
     private const string OrganizerDisconnectedAuditAction = "ORGANIZER_DISCONNECTED";
+    private const string TeamAnswerAcceptedAuditAction = "TEAM_ANSWER_ACCEPTED";
 
     private static readonly TimeSpan ConnectedPresenceWindow = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan InactivePresenceWindow = TimeSpan.FromSeconds(90);
@@ -374,6 +375,21 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuestionClosed, "Organizátor už uzavřel odpovídání na tuto otázku."));
         }
 
+        if (request.ClientRequestId.HasValue)
+        {
+            var existingResponse = await TryResolveSubmitByClientRequestIdAsync(
+                sessionId,
+                request.TeamId,
+                request.QuestionId,
+                request.ClientRequestId.Value,
+                cancellationToken);
+
+            if (existingResponse is not null)
+            {
+                return SubmitAnswerOperationResult.Success(existingResponse);
+            }
+        }
+
         var alreadyAnswered = await _dbContext.TeamAnswers.AnyAsync(
             x => x.SessionId == sessionId && x.TeamId == request.TeamId && x.QuestionId == request.QuestionId,
             cancellationToken);
@@ -415,12 +431,42 @@ public sealed class SessionParticipationService : ISessionParticipationService
             isCorrect,
             responseTimeMs));
 
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            TeamAnswerAcceptedAuditAction,
+            session.QuizId,
+            session.SessionId,
+            JsonSerializer.Serialize(new TeamAnswerAcceptedAuditPayload(
+                sessionId,
+                request.TeamId,
+                request.QuestionId,
+                submittedOption,
+                submittedNumericValue,
+                nowUtc,
+                request.ClientRequestId))));
+
         try
         {
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException)
         {
+            if (request.ClientRequestId.HasValue)
+            {
+                var existingResponse = await TryResolveSubmitByClientRequestIdAsync(
+                    sessionId,
+                    request.TeamId,
+                    request.QuestionId,
+                    request.ClientRequestId.Value,
+                    cancellationToken);
+
+                if (existingResponse is not null)
+                {
+                    return SubmitAnswerOperationResult.Success(existingResponse);
+                }
+            }
+
             return SubmitAnswerOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.AlreadyAnswered, "Tým už na tuto otázku odpověděl."));
         }
 
@@ -430,7 +476,8 @@ public sealed class SessionParticipationService : ISessionParticipationService
             request.QuestionId,
             submittedOption,
             submittedNumericValue,
-            new DateTimeOffset(nowUtc, TimeSpan.Zero)));
+            new DateTimeOffset(nowUtc, TimeSpan.Zero),
+            request.ClientRequestId));
     }
 
     public async Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
@@ -1446,7 +1493,59 @@ public sealed class SessionParticipationService : ISessionParticipationService
             errors[nameof(SubmitAnswerRequest.QuestionId)] = ["QuestionId je povinné."];
         }
 
+        if (request.ClientRequestId.HasValue && request.ClientRequestId.Value == Guid.Empty)
+        {
+            errors[nameof(SubmitAnswerRequest.ClientRequestId)] = ["ClientRequestId nesmí být prázdné GUID."];
+        }
+
         return errors.Count == 0 ? null : errors;
+    }
+
+    private async Task<SubmitAnswerResponse?> TryResolveSubmitByClientRequestIdAsync(
+        Guid sessionId,
+        Guid teamId,
+        Guid questionId,
+        Guid clientRequestId,
+        CancellationToken cancellationToken)
+    {
+        var payloads = await _dbContext.AuditLogs
+            .AsNoTracking()
+            .Where(x => x.SessionId == sessionId && x.ActionType == TeamAnswerAcceptedAuditAction)
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .Select(x => x.PayloadJson)
+            .ToListAsync(cancellationToken);
+
+        foreach (var payloadJson in payloads)
+        {
+            TeamAnswerAcceptedAuditPayload? payload;
+            try
+            {
+                payload = JsonSerializer.Deserialize<TeamAnswerAcceptedAuditPayload>(payloadJson);
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            if (payload is null
+                || payload.ClientRequestId != clientRequestId
+                || payload.TeamId != teamId
+                || payload.QuestionId != questionId)
+            {
+                continue;
+            }
+
+            return new SubmitAnswerResponse(
+                sessionId,
+                teamId,
+                questionId,
+                payload.SelectedOption,
+                payload.NumericValue,
+                new DateTimeOffset(payload.SubmittedAtUtc, TimeSpan.Zero),
+                payload.ClientRequestId);
+        }
+
+        return null;
     }
 
     private static string GenerateTeamReconnectToken()
@@ -1586,6 +1685,15 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private sealed record TeamPresenceAuditPayload(Guid TeamId, string TeamName, ParticipantPresenceStatus PresenceStatus);
 
     private sealed record OrganizerPresenceAuditPayload(ParticipantPresenceStatus PresenceStatus);
+
+    private sealed record TeamAnswerAcceptedAuditPayload(
+        Guid SessionId,
+        Guid TeamId,
+        Guid QuestionId,
+        OptionKey? SelectedOption,
+        decimal? NumericValue,
+        DateTime SubmittedAtUtc,
+        Guid? ClientRequestId);
 }
 
 public sealed record JoinSessionOperationResult(

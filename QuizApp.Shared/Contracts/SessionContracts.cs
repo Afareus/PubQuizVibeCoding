@@ -30,7 +30,8 @@ public sealed record SubmitAnswerRequest(
     Guid TeamId,
     Guid QuestionId,
     OptionKey? SelectedOption,
-    decimal? NumericValue);
+    decimal? NumericValue,
+    Guid? ClientRequestId = null);
 
 public sealed record SubmitAnswerResponse(
     Guid SessionId,
@@ -38,7 +39,8 @@ public sealed record SubmitAnswerResponse(
     Guid QuestionId,
     OptionKey? SelectedOption,
     decimal? NumericValue,
-    DateTimeOffset SubmittedAtUtc);
+    DateTimeOffset SubmittedAtUtc,
+    Guid? ClientRequestId = null);
 
 public sealed record SessionStateSnapshotResponse(
     Guid SessionId,

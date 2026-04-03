@@ -39,6 +39,13 @@ Každý záznam má mít:
 ## Další záznamy
 Sem přidávej další rozhodnutí průběžně.
 
+### D-201 — R05 idempotentní submit deduplikován přes `ClientRequestId`
+- **Datum/čas (UTC):** 2026-04-03T00:00:00Z
+- **Krok:** R05
+- **Rozhodnutí:** Submit odpovědí používá volitelný `ClientRequestId`; server opakovaný submit se stejným `ClientRequestId` vrací idempotentně jako úspěch (místo `AlreadyAnswered`) podle audit záznamu `TEAM_ANSWER_ACCEPTED`.
+- **Důvod:** Při síťovém výpadku může být první request uložen na serveru, ale klient nedostane odpověď; retry musí být bezpečný a deterministický.
+- **Dopad:** Klient může automaticky retryovat pending submit bez rizika duplicitního zápisu/bodování.
+
 ### D-200 — Organizátorský dashboard je globální napříč uživateli
 - **Datum/čas (UTC):** 2026-04-02T00:00:00Z
 - **Krok:** Post-S21 feature

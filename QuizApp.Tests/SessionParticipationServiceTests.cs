@@ -903,6 +903,40 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task SubmitAnswerAsync_SameClientRequestId_ReturnsIdempotentSuccess()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+        var clientRequestId = Guid.NewGuid();
+
+        var firstSubmit = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null, clientRequestId),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+        Assert.True(firstSubmit.IsSuccess);
+
+        var secondSubmit = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null, clientRequestId),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(secondSubmit.IsSuccess);
+        Assert.NotNull(secondSubmit.Response);
+        Assert.Equal(clientRequestId, secondSubmit.Response!.ClientRequestId);
+
+        var storedAnswers = await dbContext.TeamAnswers
+            .Where(x => x.SessionId == created.SessionId && x.TeamId == created.TeamId && x.QuestionId == created.QuestionId)
+            .ToListAsync();
+
+        Assert.Single(storedAnswers);
+    }
+
+    [Fact]
     public async Task SubmitAnswerAsync_AfterDeadline_ReturnsQuestionClosed()
     {
         await using var dbContext = CreateDbContext();

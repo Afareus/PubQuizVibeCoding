@@ -15,6 +15,14 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
+## R05 — Idempotentní submit odpovědí při výpadku sítě
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` byly kontrakty `SubmitAnswerRequest` a `SubmitAnswerResponse` rozšířeny o `ClientRequestId`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` je doplněna deduplikace submitu podle `ClientRequestId` s auditem `TEAM_ANSWER_ACCEPTED`; opakovaný request vrací idempotentně úspěšnou odpověď.
+- V `QuizApp.Client/Pages/TeamQuestion.razor` byla doplněna pending submit fronta pro aktuální otázku, automatický retry s backoff a potvrzení finálního stavu přes snapshot při `AlreadyAnswered`.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyl test `SubmitAnswerAsync_SameClientRequestId_ReturnsIdempotentSuccess`.
+- Ověřeno: `run_build` úspěšný.
+- Omezení: cílený test R05 (`dotnet test --filter SubmitAnswerAsync_SameClientRequestId_ReturnsIdempotentSuccess`) aktuálně selhává na známé nestabilitě seed flow (`QuizStartLocked`), která je mimo scope tohoto kroku.
+
 ## R04 — Realtime odolnost: subscribe potvrzení + fallback poll
 - V `QuizApp.Server/Application/Sessions/SessionHub.cs` nyní `SubscribeToSessionAsync` vrací explicitní ack (`bool`) po úspěšném zařazení do group `session:{sessionId}`.
 - V klientských stránkách `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` je po reconnectu vyžadováno subscribe potvrzení; při neúspěchu se automaticky aktivuje fallback `REST` polling každé 3 sekundy do obnovení realtime.
