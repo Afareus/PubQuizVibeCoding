@@ -1,8 +1,22 @@
 ﻿@page "/"
+@inject TeamSessionLocalStore TeamSessionLocalStore
 
 <PageTitle>Pub Kvíz</PageTitle>
 
 <h1>Pub Kvíz</h1>
+
+@if (recentIdentity is not null)
+{
+    <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2" role="alert">
+        <span>
+            Nalezena neuložená session pro tým <strong>@recentIdentity.TeamName</strong>.
+            Chcete pokračovat?
+        </span>
+        <a class="btn btn-sm btn-primary" href="/tym/obnovit/@recentIdentity.SessionId?teamId=@recentIdentity.TeamId">
+            Obnovit session
+        </a>
+    </div>
+}
 
 <p>Vyberte roli pro pokračování.</p>
 
@@ -10,3 +24,12 @@
     <a class="btn btn-primary" href="organizator">Jsem organizátor</a>
     <a class="btn btn-outline-primary" href="tym/pripojeni">Jsem tým</a>
 </div>
+
+@code {
+    private StoredTeamIdentity? recentIdentity;
+
+    protected override async Task OnInitializedAsync()
+    {
+        recentIdentity = await TeamSessionLocalStore.FindMostRecentActiveIdentityAsync();
+    }
+}

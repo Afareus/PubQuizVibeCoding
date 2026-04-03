@@ -157,6 +157,7 @@ else
 
         if (results is not null)
         {
+            await TeamSessionLocalStore.SaveRouteStateAsync(identity.SessionId, identity.TeamId, "results");
             await LoadCorrectAnswersAsync();
         }
     }

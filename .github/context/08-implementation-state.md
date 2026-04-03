@@ -35,10 +35,14 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R05 — Idempotentní submit odpovědí při výpadku sítě (`ClientRequestId` v submit kontraktu, server-side deduplikace, klientská pending submit fronta s retry/backoff a potvrzením přes snapshot).
+- R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu (`LastKnownRoute` v `StoredTeamIdentity`, bootstrap stránka `/tym/obnovit/{SessionId}`, aktualizace route stavu ve všech týmových stránkách, banner na `Home.razor`).
 
 ## Aktuální poznámky
-- Reconnect hardening R05: `QuizApp.Shared/Contracts/SessionContracts.cs` rozšiřuje `SubmitAnswerRequest`/`SubmitAnswerResponse` o volitelný `ClientRequestId`.
+- Reconnect hardening R06: `QuizApp.Client/Team/TeamSessionLocalStore.cs` rozšiřuje `StoredTeamIdentity` o `LastKnownRoute` a `LastRouteAtUtc`; nové metody `SaveRouteStateAsync` a `FindMostRecentActiveIdentityAsync`.
+- Reconnect hardening R06: nová stránka `QuizApp.Client/Pages/TeamSessionReconnect.razor` (`/tym/obnovit/{SessionId:guid}`) slouží jako autoritativní bootstrap: fetchne snapshot a naviguje na správnou obrazovku; bezpečně ošetří CANCELLED/auth-failed scénáře.
+- Reconnect hardening R06: `TeamWaitingRoom`, `TeamQuestion` a `SessionResults` ukládají route stav po každém úspěšném načtení stavu/výsledků.
+- Reconnect hardening R06: `Home.razor` zobrazuje banner s tlačítkem „Obnovit session", pokud localStorage obsahuje nedávnou aktivní identitu.
+- Reconnect hardening R05:
 - Reconnect hardening R05: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` deduplikuje submit podle `ClientRequestId` (audit `TEAM_ANSWER_ACCEPTED`) a při retry vrací idempotentně úspěšnou odpověď.
 - Reconnect hardening R05: `QuizApp.Client/Pages/TeamQuestion.razor` drží pending submit frontu pro aktuální otázku, retryuje s backoff a při `AlreadyAnswered` potvrzuje finální stav přes snapshot.
 - Reconnect hardening R05: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyl test `SubmitAnswerAsync_SameClientRequestId_ReturnsIdempotentSuccess`.
@@ -213,7 +217,7 @@ Po každém kroku jej aktualizuj.
   - V klientu držet „pending submit“ frontu pro aktuální otázku a automatický retry s backoff.
   - Po obnově spojení potvrdit finální stav přes snapshot (`already submitted` vs `accepted now`).
 
-- [ ] R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu
+- [x] R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu
   - V `TeamSessionLocalStore` držet i poslední známý route-state (`waiting/question/results`) + timestamp.
   - Přidat bootstrap stránku/guard, která po startu app rozhodne cílovou obrazovku ze snapshotu (ne z lokální domněnky).
   - Ošetřit scénář „session mezitím skončila/byla zrušena“ a bezpečný redirect.
@@ -247,7 +251,7 @@ Po každém kroku jej aktualizuj.
 - Test suite je aktuálně nestabilní mimo scope kroku R01 (`run_tests`, `Project=QuizApp.Tests`: 47/99 passed, 52 failed; opakující se selhání navázaná na flow vytvoření session vracející `QuizStartLocked`).
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`)
-- Testy: cílený test R05 (`dotnet test --filter SubmitAnswerAsync_SameClientRequestId_ReturnsIdempotentSuccess`) aktuálně FAIL na známém problému seed flow (`QuizStartLocked` větev); mimo scope kroku R05 zůstává test suite nestabilní.
+- Build: úspěšný (`run_build`) — po R06
+- Testy: cílený test R05
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

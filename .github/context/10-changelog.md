@@ -15,6 +15,15 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
+## R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu
+- V `QuizApp.Client/Team/TeamSessionLocalStore.cs` byl `StoredTeamIdentity` rozšířen o volitelné `LastKnownRoute` (string) a `LastRouteAtUtc` (DateTimeOffset?); přibyla metoda `SaveRouteStateAsync` (aktualizace route stavu v uložené identitě) a `FindMostRecentActiveIdentityAsync` (vrátí posledně aktivní identitu podle `LastRouteAtUtc`).
+- Vznikla nová bootstrap stránka `QuizApp.Client/Pages/TeamSessionReconnect.razor` na routě `/tym/obnovit/{SessionId:guid}`: načte identitu z localStorage, fetchne snapshot ze serveru a naviguje na správnou obrazovku (`/tym/cekarna`, `/tym/otazka`, `/session/vysledky`) podle stavu session; při CANCELLED smaže lokální identitu a přejde na hlavní stránku; při auth chybě nebo nenalezené session přejde na `/tym/pripojeni`.
+- `QuizApp.Client/Pages/TeamWaitingRoom.razor` ukládá route stav `"waiting"` po každém úspěšném načtení snapshotu.
+- `QuizApp.Client/Pages/TeamQuestion.razor` ukládá route stav `"question"` po každém úspěšném načtení snapshotu.
+- `QuizApp.Client/Pages/SessionResults.razor` ukládá route stav `"results"` po úspěšném načtení výsledků.
+- `QuizApp.Client/Pages/Home.razor` byl rozšířen: při načtení kontroluje localStorage pro nejnovější aktivní identitu a zobrazuje banner „Obnovit session" s odkazem na `/tym/obnovit/{SessionId}`; banner obsahuje název týmu.
+- Ověřeno: `run_build` úspěšný.
+
 ## R05 — Idempotentní submit odpovědí při výpadku sítě
 - V `QuizApp.Shared/Contracts/SessionContracts.cs` byly kontrakty `SubmitAnswerRequest` a `SubmitAnswerResponse` rozšířeny o `ClientRequestId`.
 - V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` je doplněna deduplikace submitu podle `ClientRequestId` s auditem `TEAM_ANSWER_ACCEPTED`; opakovaný request vrací idempotentně úspěšnou odpověď.

@@ -50,6 +50,28 @@ public sealed class TeamSessionLocalStore
         await SaveAsync(AnswersStorageKey, answers);
     }
 
+    public async Task SaveRouteStateAsync(Guid sessionId, Guid teamId, string route)
+    {
+        var identities = (await GetIdentitiesAsync()).ToList();
+        var index = identities.FindIndex(i => i.SessionId == sessionId && i.TeamId == teamId);
+        if (index < 0)
+        {
+            return;
+        }
+
+        identities[index] = identities[index] with { LastKnownRoute = route, LastRouteAtUtc = DateTimeOffset.UtcNow };
+        await SaveAsync(IdentityStorageKey, identities);
+    }
+
+    public async Task<StoredTeamIdentity?> FindMostRecentActiveIdentityAsync()
+    {
+        var identities = await GetIdentitiesAsync();
+        return identities
+            .Where(i => i.LastRouteAtUtc.HasValue)
+            .OrderByDescending(i => i.LastRouteAtUtc)
+            .FirstOrDefault();
+    }
+
     public async Task<StoredTeamAnswer?> FindSubmittedAnswerAsync(Guid sessionId, Guid teamId, Guid questionId)
     {
         var answers = await GetAnswersAsync();
@@ -105,7 +127,9 @@ public sealed record StoredTeamIdentity(
     Guid SessionId,
     Guid TeamId,
     string TeamName,
-    string TeamReconnectToken);
+    string TeamReconnectToken,
+    string? LastKnownRoute = null,
+    DateTimeOffset? LastRouteAtUtc = null);
 
 public sealed record StoredTeamAnswer(
     Guid SessionId,

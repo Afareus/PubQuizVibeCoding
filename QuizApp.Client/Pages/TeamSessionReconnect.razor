@@ -1,0 +1,104 @@
+@page "/tym/obnovit/{SessionId:guid}"
+@inject HttpClient HttpClient
+@inject TeamSessionLocalStore TeamSessionLocalStore
+@inject NavigationManager NavigationManager
+
+<PageTitle>Obnovení session</PageTitle>
+
+<h1>Obnovení session</h1>
+
+<p class="text-muted">@statusMessage</p>
+
+@if (apiError is not null)
+{
+    <div class="alert alert-danger" role="alert">@apiError.Message</div>
+    <a class="btn btn-outline-primary" href="/tym/pripojeni">Přejít na připojení týmu</a>
+}
+
+@code {
+    [Parameter]
+    public Guid SessionId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public Guid? TeamId { get; set; }
+
+    private string statusMessage = "Načítám stav session...";
+    private ApiErrorResponse? apiError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        apiError = null;
+        statusMessage = "Načítám stav session...";
+
+        var identity = await TeamSessionLocalStore.FindIdentityAsync(SessionId, TeamId);
+        if (identity is null)
+        {
+            NavigationManager.NavigateTo("/tym/pripojeni");
+            return;
+        }
+
+        HttpResponseMessage response;
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{SessionId}/state?teamId={identity.TeamId}");
+            request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+            response = await HttpClient.SendAsync(request);
+        }
+        catch
+        {
+            statusMessage = "Spojení se serverem se nezdařilo.";
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst stav session. Zkontrolujte připojení a zkuste to znovu.");
+            return;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+            if (error?.Code is ApiErrorCode.MissingAuthToken or ApiErrorCode.InvalidAuthToken or ApiErrorCode.ResourceNotFound)
+            {
+                NavigationManager.NavigateTo("/tym/pripojeni");
+                return;
+            }
+
+            apiError = error ?? new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst stav session.");
+            return;
+        }
+
+        var snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+        if (snapshot is null)
+        {
+            apiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Server vrátil neplatnou odpověď.");
+            return;
+        }
+
+        var teamIdParam = $"?teamId={identity.TeamId}";
+
+        switch (snapshot.Status)
+        {
+            case SessionStatus.Waiting:
+                NavigationManager.NavigateTo($"/tym/cekarna/{SessionId}{teamIdParam}");
+                break;
+
+            case SessionStatus.Running:
+            case SessionStatus.Paused:
+                NavigationManager.NavigateTo($"/tym/otazka/{SessionId}{teamIdParam}");
+                break;
+
+            case SessionStatus.Finished:
+                NavigationManager.NavigateTo($"/session/vysledky/{SessionId}{teamIdParam}");
+                break;
+
+            case SessionStatus.Cancelled:
+            default:
+                await TeamSessionLocalStore.RemoveIdentityAsync(SessionId, identity.TeamId);
+                NavigationManager.NavigateTo("/");
+                break;
+        }
+    }
+
+    private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
+    {
+        var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+        return error ?? new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Načtení stavu session selhalo.");
+    }
+}
