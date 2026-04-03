@@ -35,10 +35,13 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu (`LastKnownRoute` v `StoredTeamIdentity`, bootstrap stránka `/tym/obnovit/{SessionId}`, aktualizace route stavu ve všech týmových stránkách, banner na `Home.razor`).
+- R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků (`ActiveSessionId` v `StoredOrganizerQuiz`, `SaveActiveSessionAsync`, banner v `OrganizerQuizDetail`, mazání ze store při terminálním stavu v `OrganizerWaitingRoom`).
 
 ## Aktuální poznámky
-- Reconnect hardening R06: `QuizApp.Client/Team/TeamSessionLocalStore.cs` rozšiřuje `StoredTeamIdentity` o `LastKnownRoute` a `LastRouteAtUtc`; nové metody `SaveRouteStateAsync` a `FindMostRecentActiveIdentityAsync`.
+- Reconnect hardening R07: `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` rozšiřuje `StoredOrganizerQuiz` o `ActiveSessionId` a novou metodu `SaveActiveSessionAsync`.
+- Reconnect hardening R07: `QuizApp.Client/Pages/OrganizerQuizDetail.razor` načítá `activeSessionId` z localStorage a zobrazuje banner „Obnovit řízení session" s přímým odkazem na `OrganizerWaitingRoom`; po vytvoření session uloží `SessionId`.
+- Reconnect hardening R07: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` po každém snapshotu v terminálním stavu maže `ActiveSessionId` ze store přes `ClearStoredSessionIfTerminalAsync`.
+- Reconnect hardening R06:
 - Reconnect hardening R06: nová stránka `QuizApp.Client/Pages/TeamSessionReconnect.razor` (`/tym/obnovit/{SessionId:guid}`) slouží jako autoritativní bootstrap: fetchne snapshot a naviguje na správnou obrazovku; bezpečně ošetří CANCELLED/auth-failed scénáře.
 - Reconnect hardening R06: `TeamWaitingRoom`, `TeamQuestion` a `SessionResults` ukládají route stav po každém úspěšném načtení stavu/výsledků.
 - Reconnect hardening R06: `Home.razor` zobrazuje banner s tlačítkem „Obnovit session", pokud localStorage obsahuje nedávnou aktivní identitu.
@@ -222,7 +225,7 @@ Po každém kroku jej aktualizuj.
   - Přidat bootstrap stránku/guard, která po startu app rozhodne cílovou obrazovku ze snapshotu (ne z lokální domněnky).
   - Ošetřit scénář „session mezitím skončila/byla zrušena“ a bezpečný redirect.
 
-- [ ] R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků
+- [x] R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků
   - Uložit poslední aktivní `sessionId` pro konkrétní `quizId` a po otevření detailu nabídnout/udělat „Obnovit řízení session“.
   - `OrganizerWaitingRoom` musí po reconnectu obnovit snapshot + realtime subscription automaticky.
   - Akce `Start/Cancel` chránit proti double-click/retry (idempotence + disabled state během in-flight requestu).
@@ -251,7 +254,7 @@ Po každém kroku jej aktualizuj.
 - Test suite je aktuálně nestabilní mimo scope kroku R01 (`run_tests`, `Project=QuizApp.Tests`: 47/99 passed, 52 failed; opakující se selhání navázaná na flow vytvoření session vracející `QuizStartLocked`).
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`) — po R06
+- Build: úspěšný (`run_build`) — po R07
 - Testy: cílený test R05
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

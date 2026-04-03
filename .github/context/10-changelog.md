@@ -15,7 +15,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
-## R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu
+## R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků
+- V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` byl záznam `StoredOrganizerQuiz` rozšířen o volitelné `ActiveSessionId`; přibyla metoda `SaveActiveSessionAsync(Guid quizId, Guid? sessionId)` pro uložení/vymazání aktivní session.
+- `QuizApp.Client/Pages/OrganizerQuizDetail.razor`: metoda `LoadStoredTokenAsync` nově načítá i `activeSessionId` z localStorage; po úspěšném vytvoření session se volá `SaveActiveSessionAsync` se skutečným `SessionId`; přibyl informační banner „Pro tento kvíz je uložená aktivní session" s odkazem „Obnovit řízení session" na `/organizator/session/cekarna/{sessionId}?quizId={quizId}`.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`: po každém úspěšném načtení snapshotu (v `LoadSnapshotAsync` i `ReloadSnapshotFromRealtimeAsync`) se volá `ClearStoredSessionIfTerminalAsync`, která při stavu `Finished` nebo `Cancelled` vymaže `ActiveSessionId` ze store, aby banner v detailu kvízu zmizel po ukončení session.
+- Ověřeno: `run_build` úspěšný.
+
+## R06 —
 - V `QuizApp.Client/Team/TeamSessionLocalStore.cs` byl `StoredTeamIdentity` rozšířen o volitelné `LastKnownRoute` (string) a `LastRouteAtUtc` (DateTimeOffset?); přibyla metoda `SaveRouteStateAsync` (aktualizace route stavu v uložené identitě) a `FindMostRecentActiveIdentityAsync` (vrátí posledně aktivní identitu podle `LastRouteAtUtc`).
 - Vznikla nová bootstrap stránka `QuizApp.Client/Pages/TeamSessionReconnect.razor` na routě `/tym/obnovit/{SessionId:guid}`: načte identitu z localStorage, fetchne snapshot ze serveru a naviguje na správnou obrazovku (`/tym/cekarna`, `/tym/otazka`, `/session/vysledky`) podle stavu session; při CANCELLED smaže lokální identitu a přejde na hlavní stránku; při auth chybě nebo nenalezené session přejde na `/tym/pripojeni`.
 - `QuizApp.Client/Pages/TeamWaitingRoom.razor` ukládá route stav `"waiting"` po každém úspěšném načtení snapshotu.

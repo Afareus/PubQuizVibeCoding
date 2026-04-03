@@ -255,6 +255,7 @@
                 return;
             }
 
+            await ClearStoredSessionIfTerminalAsync();
             var realtimeReady = await EnsureRealtimeConnectionAsync(sessionId.Value);
             if (!realtimeReady)
             {
@@ -698,6 +699,7 @@
                     return;
                 }
 
+                await ClearStoredSessionIfTerminalAsync();
                 ResetRevealedCorrectAnswerIfQuestionChanged();
                 infoMessage = message;
                 apiError = null;
@@ -969,6 +971,19 @@
         else
         {
             ActiveSessionState.Clear();
+        }
+    }
+
+    private async Task ClearStoredSessionIfTerminalAsync()
+    {
+        if (snapshot is null || QuizId is null)
+        {
+            return;
+        }
+
+        if (snapshot.Status is SessionStatus.Finished or SessionStatus.Cancelled)
+        {
+            await OrganizerQuizLocalStore.SaveActiveSessionAsync(QuizId.Value, null);
         }
     }
 }

@@ -57,10 +57,25 @@ public sealed class OrganizerQuizLocalStore
         var json = JsonSerializer.Serialize(items, SerializerOptions);
         await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
     }
+
+    public async Task SaveActiveSessionAsync(Guid quizId, Guid? sessionId)
+    {
+        var items = (await GetAllAsync()).ToList();
+        var index = items.FindIndex(item => item.QuizId == quizId);
+        if (index < 0)
+        {
+            return;
+        }
+
+        items[index] = items[index] with { ActiveSessionId = sessionId };
+        var json = JsonSerializer.Serialize(items, SerializerOptions);
+        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+    }
 }
 
 public sealed record StoredOrganizerQuiz(
     Guid QuizId,
     string QuizOrganizerToken,
     string? QuizName = null,
-    DateTimeOffset? CreatedAtUtc = null);
+    DateTimeOffset? CreatedAtUtc = null,
+    Guid? ActiveSessionId = null);

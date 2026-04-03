@@ -15,6 +15,14 @@
     <div class="alert alert-info" role="alert">@infoMessage</div>
 }
 
+@if (activeSessionId.HasValue && QuizId.HasValue)
+{
+    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2" role="alert">
+        <span>Pro tento kvíz je uložená aktivní session. Chcete se vrátit do řízení hry?</span>
+        <a class="btn btn-sm btn-warning" href="@($"/organizator/session/cekarna/{activeSessionId.Value}?quizId={QuizId.Value}")">Obnovit řízení session</a>
+    </div>
+}
+
 <section class="card mb-4">
     <div class="card-body">
         <h2 class="h5 fw-bold mb-3">@(quizDetail?.Name ?? "(Načítám název kvízu...)")</h2>
@@ -363,6 +371,7 @@
     private ImportQuizCsvResponse? importResult;
     private IReadOnlyList<QuizDetailQuestionDto> revealedQuestions = [];
     private List<QuestionEditorModel> questionEditors = [];
+    private Guid? activeSessionId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -973,6 +982,7 @@
             }
 
             var startModeQuery = isQuizTimerEnabled ? string.Empty : "&startMode=without-timer";
+            await OrganizerQuizLocalStore.SaveActiveSessionAsync(quizId.Value, createdSession.SessionId);
             NavigationManager.NavigateTo($"/organizator/session/cekarna/{createdSession.SessionId}?quizId={quizId.Value}{startModeQuery}");
             return;
         }
@@ -1162,6 +1172,7 @@
     {
         var storedQuiz = await OrganizerQuizLocalStore.FindByQuizIdAsync(quizId);
         storedOrganizerToken = storedQuiz?.QuizOrganizerToken;
+        activeSessionId = storedQuiz?.ActiveSessionId;
     }
 
     private Guid? GetQuizId() => QuizId;
