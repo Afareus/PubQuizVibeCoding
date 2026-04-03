@@ -42,6 +42,8 @@ public sealed record SubmitAnswerResponse(
 
 public sealed record SessionStateSnapshotResponse(
     Guid SessionId,
+    long Version,
+    DateTimeOffset ServerUtcNow,
     string QuizName,
     SessionStatus Status,
     int? CurrentQuestionIndex,
@@ -54,6 +56,8 @@ public sealed record SessionStateSnapshotResponse(
 
 public sealed record OrganizerSessionSnapshotResponse(
     Guid SessionId,
+    long Version,
+    DateTimeOffset ServerUtcNow,
     Guid QuizId,
     string JoinCode,
     SessionStatus Status,

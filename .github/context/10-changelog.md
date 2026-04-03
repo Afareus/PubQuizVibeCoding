@@ -439,3 +439,14 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Ověřeno buildem solution (`run_build`) a cílenými testy (`run_tests`, 2/2 passed):
   - `HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`
   - `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`
+
+## R03 — Verze snapshotu a deterministická resynchronizace
+- V `QuizApp.Shared/Contracts/SessionContracts.cs` jsou kontrakty `SessionStateSnapshotResponse` a `OrganizerSessionSnapshotResponse` rozšířené o `Version` a `ServerUtcNow`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` server vrací snapshot metadata (`Version`, `ServerUtcNow`) pro team i organizer snapshot; `Version` je monotónně odvozena z UTC ticks serverového času.
+- V `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` je přidaný stale-response guard: snapshot se aplikuje jen pokud není starší než aktuální verze v UI.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy `GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata` a `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`.
+- Ověřeno buildem solution (`run_build`) a cílenými testy (`run_tests`, 4/4 passed):
+  - `GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`
+  - `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`
+  - `HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`
+  - `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`

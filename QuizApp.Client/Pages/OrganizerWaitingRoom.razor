@@ -244,7 +244,13 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             await EnsureRealtimeConnectionAsync(sessionId.Value);
             RestartCountdownTimer();
             UpdateActiveSessionState();
@@ -388,7 +394,13 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = "Session byla spuštěna bez časomíry.";
             RestartCountdownTimer();
@@ -429,7 +441,13 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = wasLastQuestion
                 ? "Kvíz byl ukončen."
@@ -475,7 +493,13 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = wasPaused
                 ? "Session pokračuje."
@@ -571,7 +595,12 @@
             using var response = await HttpClient.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
-                snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+                var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+                if (!TryApplySnapshot(loadedSnapshot))
+                {
+                    return;
+                }
+
                 ResetRevealedCorrectAnswerIfQuestionChanged();
                 infoMessage = message;
                 apiError = null;
@@ -666,7 +695,13 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = "Session byla spuštěna.";
             RestartCountdownTimer();
@@ -711,7 +746,13 @@
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             ResetRevealedCorrectAnswerIfQuestionChanged();
             infoMessage = "Session byla zrušena.";
             RestartCountdownTimer();
@@ -735,6 +776,22 @@
     private Guid? ParseSessionId()
     {
         return Guid.TryParse(sessionIdInput, out var parsedSessionId) ? parsedSessionId : null;
+    }
+
+    private bool TryApplySnapshot(OrganizerSessionSnapshotResponse? incomingSnapshot)
+    {
+        if (incomingSnapshot is null)
+        {
+            return false;
+        }
+
+        if (snapshot is not null && incomingSnapshot.Version < snapshot.Version)
+        {
+            return false;
+        }
+
+        snapshot = incomingSnapshot;
+        return true;
     }
 
     private void ApplyOrganizerAuth(HttpRequestMessage request)

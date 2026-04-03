@@ -35,9 +35,13 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R02 — Server-side přítomnost a heartbeat pro týmy i organizátora (heartbeat endpointy + presence status `Connected/TemporarilyDisconnected/Inactive` + audit reconnect/disconnect).
+- R03 — Verze snapshotu a deterministická resynchronizace (snapshot `Version` + `ServerUtcNow` + klientský stale-response guard podle verze).
 
 ## Aktuální poznámky
+- Reconnect hardening R03: v `QuizApp.Shared/Contracts/SessionContracts.cs` jsou snapshot kontrakty `SessionStateSnapshotResponse` a `OrganizerSessionSnapshotResponse` rozšířené o `Version` a `ServerUtcNow`.
+- Reconnect hardening R03: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` generuje pro snapshoty monotónní `Version` z UTC ticks serverového času a vrací autoritativní `ServerUtcNow`.
+- Reconnect hardening R03: klientské stránky `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` aplikují snapshot jen pokud není starší (`incoming.Version < snapshot.Version` se ignoruje).
+- Reconnect hardening R03: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy `GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata` a `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`.
 - Reconnect hardening R02: v `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou endpointy `POST /api/sessions/{sessionId}/heartbeat/team` a `POST /api/sessions/{sessionId}/heartbeat/organizer` s limiter policy `HeartbeatPerParticipant`.
 - Reconnect hardening R02: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` udržuje server-side presence okna (`<=15s Connected`, `<=90s TemporarilyDisconnected`, jinak `Inactive`) a promítá je do `SnapshotTeamDto` i `OrganizerSessionSnapshotResponse`.
 - Reconnect hardening R02: do audit logu jsou zapisovány minimální presence eventy `TEAM_DISCONNECTED`, `TEAM_RECONNECTED`, `ORGANIZER_HEARTBEAT`, `ORGANIZER_RECONNECTED`, `ORGANIZER_DISCONNECTED` pro troubleshooting reconnectu.
@@ -187,7 +191,7 @@ Po každém kroku jej aktualizuj.
   - Rozlišit „dočasně odpojen“ vs „dlouhodobě neaktivní“ bez zásahu do skórování.
   - Přidat minimální audit eventy reconnect/disconnect pro troubleshooting.
 
-- [ ] R03 — Verze snapshotu a deterministická resynchronizace
+- [x] R03 — Verze snapshotu a deterministická resynchronizace
   - Rozšířit session snapshot kontrakty o monotónní `Version`/`Revision` a serverový čas (`ServerUtcNow`).
   - Klient po reconnectu vždy přepíše lokální view dle posledního snapshotu (server je autorita).
   - Ošetřit stale response (starší verze se nesmí propsat do UI).
@@ -237,6 +241,6 @@ Po každém kroku jej aktualizuj.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: cílené reconnect testy úspěšné (`run_tests`, `MethodName=HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`, `MethodName=GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`, 2/2 passed)
+- Testy: cílené reconnect testy úspěšné (`run_tests`, `MethodName=GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`, `MethodName=GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`, `MethodName=HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`, `MethodName=GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`, 4/4 passed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

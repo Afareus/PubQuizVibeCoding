@@ -337,6 +337,46 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var stateResult = await sessionService.GetSessionStateAsync(
+            seeded.SessionId,
+            seeded.TeamId,
+            seeded.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(stateResult.IsSuccess);
+        Assert.NotNull(stateResult.Response);
+        Assert.True(stateResult.Response!.Version > 0);
+        Assert.Equal(TimeSpan.Zero, stateResult.Response.ServerUtcNow.Offset);
+    }
+
+    [Fact]
+    public async Task GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var snapshotResult = await sessionService.GetOrganizerSessionStateAsync(
+            seeded.SessionId,
+            seeded.OrganizerToken,
+            null,
+            CancellationToken.None);
+
+        Assert.True(snapshotResult.IsSuccess);
+        Assert.NotNull(snapshotResult.Response);
+        Assert.True(snapshotResult.Response!.Version > 0);
+        Assert.Equal(TimeSpan.Zero, snapshotResult.Response.ServerUtcNow.Offset);
+    }
+
+    [Fact]
     public async Task GetOrganizerSessionStateAsync_WithoutAuth_ReturnsSessionSnapshot()
     {
         await using var dbContext = CreateDbContext();

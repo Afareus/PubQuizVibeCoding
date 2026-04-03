@@ -287,9 +287,13 @@ public sealed class SessionParticipationService : ISessionParticipationService
         var resultsPublished = await IsResultsPublishedAsync(session.SessionId, cancellationToken);
         var isCurrentQuestionAnsweringClosed = currentQuestion is not null
             && await IsCurrentQuestionAnsweringClosedAsync(session.SessionId, currentQuestion.QuestionId, cancellationToken);
+        var serverUtcNow = DateTimeOffset.UtcNow;
+        var snapshotVersion = CreateSnapshotVersion(serverUtcNow);
 
         var response = new SessionStateSnapshotResponse(
             session.SessionId,
+            snapshotVersion,
+            serverUtcNow,
             session.Quiz?.Name ?? string.Empty,
             session.Status,
             session.CurrentQuestionIndex,
@@ -298,7 +302,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             currentQuestion,
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
-                .Select(x => ToSnapshotTeamDto(x, nowUtc))
+                .Select(x => ToSnapshotTeamDto(x, serverUtcNow.UtcDateTime))
                 .ToList(),
             resultsPublished,
             isCurrentQuestionAnsweringClosed);
@@ -1306,10 +1310,14 @@ public sealed class SessionParticipationService : ISessionParticipationService
         ParticipantPresenceStatus organizerPresenceStatus = ParticipantPresenceStatus.Inactive,
         DateTimeOffset? organizerLastSeenAtUtc = null)
     {
-        var nowUtc = DateTime.UtcNow;
+        var serverUtcNow = DateTimeOffset.UtcNow;
+        var nowUtc = serverUtcNow.UtcDateTime;
+        var snapshotVersion = CreateSnapshotVersion(serverUtcNow);
 
         return new OrganizerSessionSnapshotResponse(
             session.SessionId,
+            snapshotVersion,
+            serverUtcNow,
             session.QuizId,
             session.JoinCode,
             session.Status,
@@ -1328,6 +1336,11 @@ public sealed class SessionParticipationService : ISessionParticipationService
             resultsPublished,
             organizerPresenceStatus,
             organizerLastSeenAtUtc);
+    }
+
+    private static long CreateSnapshotVersion(DateTimeOffset serverUtcNow)
+    {
+        return serverUtcNow.UtcDateTime.Ticks;
     }
 
     private Task<bool> IsResultsPublishedAsync(Guid sessionId, CancellationToken cancellationToken)

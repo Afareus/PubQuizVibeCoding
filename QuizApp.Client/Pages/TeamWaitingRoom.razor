@@ -141,7 +141,13 @@ else
         using var response = await HttpClient.SendAsync(request);
         if (response.IsSuccessStatusCode)
         {
-            snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+            var loadedSnapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+            if (!TryApplySnapshot(loadedSnapshot))
+            {
+                isLoading = false;
+                return;
+            }
+
             UpdateActiveSessionState();
             TryNavigateToQuestionScreen();
         }
@@ -362,6 +368,22 @@ else
         hubConnection = null;
         realtimeSessionId = null;
         isRealtimeConnected = false;
+    }
+
+    private bool TryApplySnapshot(SessionStateSnapshotResponse? incomingSnapshot)
+    {
+        if (incomingSnapshot is null)
+        {
+            return false;
+        }
+
+        if (snapshot is not null && incomingSnapshot.Version < snapshot.Version)
+        {
+            return false;
+        }
+
+        snapshot = incomingSnapshot;
+        return true;
     }
 
     private void UpdateActiveSessionState()

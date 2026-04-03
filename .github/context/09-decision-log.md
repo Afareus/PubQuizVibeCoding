@@ -515,3 +515,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Presence vrstva je server-authoritative přes heartbeat endpointy `POST /api/sessions/{sessionId}/heartbeat/team` a `POST /api/sessions/{sessionId}/heartbeat/organizer`; přítomnost se klasifikuje do `Connected` (<=15 s), `TemporarilyDisconnected` (<=90 s) a `Inactive` (>90 s), přičemž troubleshooting audit minimum zahrnuje `TEAM_DISCONNECTED`, `TEAM_RECONNECTED`, `ORGANIZER_HEARTBEAT`, `ORGANIZER_RECONNECTED` a `ORGANIZER_DISCONNECTED`.
 - **Důvod:** Backlog R02 vyžaduje periodický update presence, rozlišení krátkodobého výpadku vs dlouhé neaktivity bez zásahu do skórování a minimální audit reconnect/disconnect eventů.
 - **Dopad:** Organizátor i tým mají v snapshotu konzistentní serverové vyhodnocení přítomnosti a provozní troubleshooting má explicitní auditní stopu reconnect/disconnect přechodů bez změny scoring pravidel.
+
+### D-067 — R03: Snapshot versioning přes UTC ticks + klientský stale guard
+- **Datum/čas (UTC):** 2026-04-03T00:00:00Z
+- **Krok:** R03
+- **Rozhodnutí:** Snapshot kontrakty `SessionStateSnapshotResponse` a `OrganizerSessionSnapshotResponse` nesou monotónní `Version` (odvozené jako `ServerUtcNow.UtcDateTime.Ticks`) a explicitní serverový čas `ServerUtcNow`; klientské stránky aplikují snapshot jen pokud není starší než aktuálně držená verze (`incoming.Version < current.Version` se ignoruje).
+- **Důvod:** Backlog R03 požaduje deterministickou resynchronizaci po reconnectu a ochranu proti stale response, aby server zůstal autoritou a pozdní odpovědi nepřepisovaly UI na starší stav.
+- **Dopad:** Tým i organizátor mají jednotný mechanismus „latest snapshot wins“, který omezuje race conditions mezi realtime refreshi a REST odpověďmi a připravuje základ pro idempotentní realtime handler v navazujícím kroku R04.
