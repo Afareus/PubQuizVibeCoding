@@ -35,9 +35,13 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R01 — Specifikace reconnect stavů a UX contract (sjednocené klientské stavy, hlášky a akce pro tým i organizátora; zapsáno v `context/09-decision-log.md`).
+- R02 — Server-side přítomnost a heartbeat pro týmy i organizátora (heartbeat endpointy + presence status `Connected/TemporarilyDisconnected/Inactive` + audit reconnect/disconnect).
 
 ## Aktuální poznámky
+- Reconnect hardening R02: v `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou endpointy `POST /api/sessions/{sessionId}/heartbeat/team` a `POST /api/sessions/{sessionId}/heartbeat/organizer` s limiter policy `HeartbeatPerParticipant`.
+- Reconnect hardening R02: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` udržuje server-side presence okna (`<=15s Connected`, `<=90s TemporarilyDisconnected`, jinak `Inactive`) a promítá je do `SnapshotTeamDto` i `OrganizerSessionSnapshotResponse`.
+- Reconnect hardening R02: do audit logu jsou zapisovány minimální presence eventy `TEAM_DISCONNECTED`, `TEAM_RECONNECTED`, `ORGANIZER_HEARTBEAT`, `ORGANIZER_RECONNECTED`, `ORGANIZER_DISCONNECTED` pro troubleshooting reconnectu.
+- Reconnect hardening R02: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyl test `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit` (bez duplicitního logování disconnect eventu při opakovaném snapshotu).
 - Reconnect hardening R01: v `context/09-decision-log.md` je dopsán sjednocený UX contract stavů `Online` / `Reconnecting` / `Offline` / `Resynced` / `SessionEnded` pro tým i organizátora, včetně jednotných UI hlášek a povolených akcí bez dead-end stavů.
 - V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` a `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` přibyla operace/endpoint `GET /api/quizzes` vracející veřejný seznam kvízů (`QuizId`, `Name`, `CreatedAtUtc`) bez organizátorské autentizace.
 - `QuizApp.Client/Pages/OrganizerDashboard.razor` už nenačítá tabulku pouze z `localStorage`; hlavní seznam bere ze serveru a lokálně uložené tokeny používá jen jako doplňkové metadata.
@@ -178,7 +182,7 @@ Po každém kroku jej aktualizuj.
   - Doplnit jednotné UI hlášky a akce (retry, návrat do čekárny/otázky, přechod na výsledky) bez skrytých dead-end stavů.
   - Zapsat rozhodnutí do `context/09-decision-log.md`.
 
-- [ ] R02 — Server-side přítomnost a heartbeat pro týmy i organizátora
+- [x] R02 — Server-side přítomnost a heartbeat pro týmy i organizátora
   - Zavést periodický heartbeat endpoint (nebo rozšířit snapshot endpointy) pro průběžný update `LastSeenAtUtc`.
   - Rozlišit „dočasně odpojen“ vs „dlouhodobě neaktivní“ bez zásahu do skórování.
   - Přidat minimální audit eventy reconnect/disconnect pro troubleshooting.
@@ -233,6 +237,6 @@ Po každém kroku jej aktualizuj.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: neúspěšné (`run_tests`, `Project=QuizApp.Tests`, 47/99 passed, 52 failed)
+- Testy: cílené reconnect testy úspěšné (`run_tests`, `MethodName=HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`, `MethodName=GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`, 2/2 passed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

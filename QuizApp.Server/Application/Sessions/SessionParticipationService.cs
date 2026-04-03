@@ -58,6 +58,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private const string TeamReconnectedAuditAction = "TEAM_RECONNECTED";
     private const string OrganizerHeartbeatAuditAction = "ORGANIZER_HEARTBEAT";
     private const string OrganizerReconnectedAuditAction = "ORGANIZER_RECONNECTED";
+    private const string OrganizerDisconnectedAuditAction = "ORGANIZER_DISCONNECTED";
 
     private static readonly TimeSpan ConnectedPresenceWindow = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan InactivePresenceWindow = TimeSpan.FromSeconds(90);
@@ -450,6 +451,32 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
 
         var organizerPresence = await GetOrganizerPresenceStateAsync(session.SessionId, nowUtc, cancellationToken);
+        if (organizerPresence.Status != ParticipantPresenceStatus.Connected)
+        {
+            var latestOrganizerPresenceAuditAction = await _dbContext.AuditLogs
+                .AsNoTracking()
+                .Where(x => x.SessionId == session.SessionId
+                    && (x.ActionType == OrganizerHeartbeatAuditAction
+                        || x.ActionType == OrganizerReconnectedAuditAction
+                        || x.ActionType == OrganizerDisconnectedAuditAction))
+                .OrderByDescending(x => x.OccurredAtUtc)
+                .Select(x => x.ActionType)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!string.Equals(latestOrganizerPresenceAuditAction, OrganizerDisconnectedAuditAction, StringComparison.Ordinal))
+            {
+                _dbContext.AuditLogs.Add(AuditLog.Create(
+                    Guid.NewGuid(),
+                    nowUtc,
+                    OrganizerDisconnectedAuditAction,
+                    session.QuizId,
+                    session.SessionId,
+                    JsonSerializer.Serialize(new OrganizerPresenceAuditPayload(organizerPresence.Status))));
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+
         var response = ToOrganizerSnapshot(
             session,
             await IsResultsPublishedAsync(session.SessionId, cancellationToken),

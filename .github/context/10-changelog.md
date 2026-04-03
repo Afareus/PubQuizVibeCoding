@@ -430,3 +430,12 @@ Pro každý dokončený krok přidej záznam ve formátu:
 - Byl doplněn zákaz dead-end stavů: klient vždy nabízí recovery akci a po reconnectu přepisuje view autoritativním snapshotem serveru.
 - Ověřeno buildem solution (`run_build`).
 - Ověření testů: `run_tests` pro `QuizApp.Tests` aktuálně neprochází (`47/99 passed`, `52 failed`) — mimo scope kroku `R01`, zaznamenáno ve stavu implementace.
+
+## R02 — Server-side přítomnost a heartbeat pro týmy i organizátora
+- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou aktivní heartbeat endpointy `POST /api/sessions/{sessionId}/heartbeat/team` a `POST /api/sessions/{sessionId}/heartbeat/organizer` s limiter policy `HeartbeatPerParticipant`.
+- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` je server-side presence klasifikace `Connected` / `TemporarilyDisconnected` / `Inactive` podle `LastSeenAtUtc` bez zásahu do výpočtu skóre.
+- Ve stejné službě bylo doplněno minimální auditování presence troubleshootingu včetně eventu `ORGANIZER_DISCONNECTED` při přechodu organizátora do odpojeného stavu.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` byl přidán test `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`, který ověřuje zápis a neduplikování disconnect auditu.
+- Ověřeno buildem solution (`run_build`) a cílenými testy (`run_tests`, 2/2 passed):
+  - `HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`
+  - `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`

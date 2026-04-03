@@ -281,6 +281,40 @@ public class SessionParticipationServiceTests
     }
 
     [Fact]
+    public async Task GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == seeded.SessionId);
+        var staleHeartbeatAtUtc = DateTime.UtcNow.AddSeconds(-30);
+
+        dbContext.AuditLogs.Add(QuizApp.Server.Domain.Entities.AuditLog.Create(
+            Guid.NewGuid(),
+            staleHeartbeatAtUtc,
+            "ORGANIZER_HEARTBEAT",
+            session.QuizId,
+            session.SessionId,
+            "{}"));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var firstSnapshot = await sessionService.GetOrganizerSessionStateAsync(seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+        Assert.True(firstSnapshot.IsSuccess);
+
+        var disconnectCountAfterFirstSnapshot = await dbContext.AuditLogs.CountAsync(
+            x => x.SessionId == seeded.SessionId && x.ActionType == "ORGANIZER_DISCONNECTED");
+        Assert.Equal(1, disconnectCountAfterFirstSnapshot);
+
+        var secondSnapshot = await sessionService.GetOrganizerSessionStateAsync(seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+        Assert.True(secondSnapshot.IsSuccess);
+
+        var disconnectCountAfterSecondSnapshot = await dbContext.AuditLogs.CountAsync(
+            x => x.SessionId == seeded.SessionId && x.ActionType == "ORGANIZER_DISCONNECTED");
+        Assert.Equal(1, disconnectCountAfterSecondSnapshot);
+    }
+
+    [Fact]
     public async Task GetOrganizerSessionStateAsync_ValidPassword_ReturnsSessionSnapshotWithTeams()
     {
         await using var dbContext = CreateDbContext();

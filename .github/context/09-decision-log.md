@@ -508,3 +508,10 @@ Sem přidávej další rozhodnutí průběžně.
 - Klient nesmí zůstat bez akce v režimu „chyba připojení“; vždy existuje minimálně `Zkusit znovu`.
 - Přechod na neplatnou obrazovku po reconnectu (např. zůstat na otázce po `FINISHED`) je zakázaný; routing vždy přepisuje autoritativní snapshot.
 - Lokální stav nikdy nepřebíjí serverový snapshot po reconnectu.
+
+### D-066 — R02: Server-side presence přes heartbeat endpointy + minimální reconnect audit
+- **Datum/čas (UTC):** 2026-04-03T00:00:00Z
+- **Krok:** R02
+- **Rozhodnutí:** Presence vrstva je server-authoritative přes heartbeat endpointy `POST /api/sessions/{sessionId}/heartbeat/team` a `POST /api/sessions/{sessionId}/heartbeat/organizer`; přítomnost se klasifikuje do `Connected` (<=15 s), `TemporarilyDisconnected` (<=90 s) a `Inactive` (>90 s), přičemž troubleshooting audit minimum zahrnuje `TEAM_DISCONNECTED`, `TEAM_RECONNECTED`, `ORGANIZER_HEARTBEAT`, `ORGANIZER_RECONNECTED` a `ORGANIZER_DISCONNECTED`.
+- **Důvod:** Backlog R02 vyžaduje periodický update presence, rozlišení krátkodobého výpadku vs dlouhé neaktivity bez zásahu do skórování a minimální audit reconnect/disconnect eventů.
+- **Dopad:** Organizátor i tým mají v snapshotu konzistentní serverové vyhodnocení přítomnosti a provozní troubleshooting má explicitní auditní stopu reconnect/disconnect přechodů bez změny scoring pravidel.
