@@ -522,3 +522,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** Snapshot kontrakty `SessionStateSnapshotResponse` a `OrganizerSessionSnapshotResponse` nesou monotónní `Version` (odvozené jako `ServerUtcNow.UtcDateTime.Ticks`) a explicitní serverový čas `ServerUtcNow`; klientské stránky aplikují snapshot jen pokud není starší než aktuálně držená verze (`incoming.Version < current.Version` se ignoruje).
 - **Důvod:** Backlog R03 požaduje deterministickou resynchronizaci po reconnectu a ochranu proti stale response, aby server zůstal autoritou a pozdní odpovědi nepřepisovaly UI na starší stav.
 - **Dopad:** Tým i organizátor mají jednotný mechanismus „latest snapshot wins“, který omezuje race conditions mezi realtime refreshi a REST odpověďmi a připravuje základ pro idempotentní realtime handler v navazujícím kroku R04.
+
+### D-062 — R04: subscribe ack + fallback polling + idempotence podle verze
+- **Datum/čas (UTC):** 2026-04-03T00:00:00Z
+- **Krok:** R04
+- **Rozhodnutí:** SignalR subscribe metoda `SubscribeToSessionAsync` vrací explicitní potvrzení (`bool`) a klient považuje realtime za obnovené až po úspěšném ack; při výpadku/reconnectu klientské stránky přechází do fallback `REST` poll režimu s intervalem 3 s a po obnovení hubu se vrací zpět na realtime.
+- **Důvod:** Backlog R04 vyžaduje deterministické potvrzení resubscribe, odolnost při výpadku realtime vrstvy a prevenci duplicitních UI aktualizací.
+- **Dopad:** Waiting room i question obrazovky zůstávají konzistentní i při dočasně nedostupném hubu; realtime eventy se zpracují idempotentně díky guardu `incoming.Version <= current.Version`.

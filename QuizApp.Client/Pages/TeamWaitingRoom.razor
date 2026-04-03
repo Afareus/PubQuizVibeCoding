@@ -11,7 +11,7 @@
 
 <h1>Čekárna týmu</h1>
 
-<p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")</p>
+<p class="text-muted">Realtime: @(isRealtimeConnected ? "připojeno" : "odpojeno")@(isFallbackPolling ? " (záložní polling aktivní)" : string.Empty)</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -100,7 +100,11 @@ else
     private Guid? realtimeSessionId;
     private bool hasNavigatedToQuestion;
     private System.Threading.Timer? heartbeatTimer;
+    private System.Threading.Timer? fallbackPollTimer;
     private bool isHeartbeatInFlight;
+    private bool isFallbackPolling;
+    private bool isFallbackPollInFlight;
+    private const int FallbackPollIntervalSeconds = 3;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -121,7 +125,11 @@ else
         }
 
         await LoadSnapshotAsync();
-        await EnsureRealtimeConnectionAsync(SessionId.Value);
+        var realtimeReady = await EnsureRealtimeConnectionAsync(SessionId.Value);
+        if (!realtimeReady)
+        {
+            StartFallbackPolling("Realtime připojení není dostupné. Běží záložní obnovování stavu.");
+        }
         StartHeartbeatTimer();
     }
 
@@ -161,7 +169,7 @@ else
         isLoading = false;
     }
 
-    private async Task EnsureRealtimeConnectionAsync(Guid sessionId)
+    private async Task<bool> EnsureRealtimeConnectionAsync(Guid sessionId)
     {
         if (hubConnection is null)
         {
@@ -181,38 +189,67 @@ else
             hubConnection.Reconnecting += _ =>
             {
                 isRealtimeConnected = false;
+                StartFallbackPolling("Realtime spojení se obnovuje. Běží záložní obnovování stavu.");
                 return InvokeAsync(StateHasChanged);
             };
 
             hubConnection.Reconnected += async _ =>
             {
-                isRealtimeConnected = true;
                 var reconnectSessionId = realtimeSessionId ?? sessionId;
-                await SubscribeRealtimeSessionAsync(reconnectSessionId);
+                var subscribed = await SubscribeRealtimeSessionAsync(reconnectSessionId);
+                if (!subscribed)
+                {
+                    isRealtimeConnected = false;
+                    StartFallbackPolling("Realtime připojení se nepodařilo obnovit. Běží záložní obnovování stavu.");
+                    return;
+                }
+
+                isRealtimeConnected = true;
+                StopFallbackPolling();
                 await ReloadSnapshotFromRealtimeAsync("Realtime připojení bylo obnoveno.");
             };
 
             hubConnection.Closed += _ =>
             {
                 isRealtimeConnected = false;
+                StartFallbackPolling("Realtime spojení bylo ukončeno. Běží záložní obnovování stavu.");
                 return InvokeAsync(StateHasChanged);
             };
         }
 
-        if (hubConnection.State == HubConnectionState.Disconnected)
+        try
         {
-            await hubConnection.StartAsync();
-            isRealtimeConnected = true;
-        }
+            if (hubConnection.State == HubConnectionState.Disconnected)
+            {
+                await hubConnection.StartAsync();
+            }
 
-        await SubscribeRealtimeSessionAsync(sessionId);
+            var subscribed = await SubscribeRealtimeSessionAsync(sessionId);
+            isRealtimeConnected = subscribed;
+            if (subscribed)
+            {
+                StopFallbackPolling();
+            }
+            else
+            {
+                StartFallbackPolling("Realtime připojení není dostupné. Běží záložní obnovování stavu.");
+            }
+
+            return subscribed;
+        }
+        catch
+        {
+            isRealtimeConnected = false;
+            StartFallbackPolling("Realtime připojení není dostupné. Běží záložní obnovování stavu.");
+            return false;
+        }
     }
 
-    private async Task SubscribeRealtimeSessionAsync(Guid sessionId)
+    private async Task<bool> SubscribeRealtimeSessionAsync(Guid sessionId)
     {
         if (hubConnection is null)
         {
-            return;
+            return false;
         }
 
         if (realtimeSessionId.HasValue && realtimeSessionId.Value != sessionId)
@@ -220,9 +257,63 @@ else
             await hubConnection.InvokeAsync("UnsubscribeFromSessionAsync", realtimeSessionId.Value);
         }
 
-        await hubConnection.InvokeAsync("SubscribeToSessionAsync", sessionId);
+        var subscribed = await hubConnection.InvokeAsync<bool>("SubscribeToSessionAsync", sessionId);
+        if (!subscribed)
+        {
+            return false;
+        }
+
         realtimeSessionId = sessionId;
         await InvokeAsync(StateHasChanged);
+        return true;
+    }
+
+    private void StartFallbackPolling(string message)
+    {
+        if (isFallbackPolling)
+        {
+            return;
+        }
+
+        isFallbackPolling = true;
+        infoMessage = message;
+
+        fallbackPollTimer = new System.Threading.Timer(_ =>
+        {
+            _ = InvokeAsync(RunFallbackPollAsync);
+        }, null, TimeSpan.FromSeconds(FallbackPollIntervalSeconds), TimeSpan.FromSeconds(FallbackPollIntervalSeconds));
+    }
+
+    private void StopFallbackPolling()
+    {
+        fallbackPollTimer?.Dispose();
+        fallbackPollTimer = null;
+        isFallbackPolling = false;
+        isFallbackPollInFlight = false;
+    }
+
+    private async Task RunFallbackPollAsync()
+    {
+        if (isFallbackPollInFlight || !SessionId.HasValue)
+        {
+            return;
+        }
+
+        isFallbackPollInFlight = true;
+        try
+        {
+            await LoadSnapshotAsync();
+            var realtimeReady = await EnsureRealtimeConnectionAsync(SessionId.Value);
+            if (realtimeReady)
+            {
+                StopFallbackPolling();
+                infoMessage = "Realtime připojení bylo obnoveno.";
+            }
+        }
+        finally
+        {
+            isFallbackPollInFlight = false;
+        }
     }
 
     private async Task ReloadSnapshotFromRealtimeAsync(string? message = null)
@@ -307,6 +398,7 @@ else
     {
         ActiveSessionState.Clear();
         StopHeartbeatTimer();
+        StopFallbackPolling();
         await DisposeRealtimeConnectionAsync();
     }
 
@@ -368,6 +460,7 @@ else
         hubConnection = null;
         realtimeSessionId = null;
         isRealtimeConnected = false;
+        StopFallbackPolling();
     }
 
     private bool TryApplySnapshot(SessionStateSnapshotResponse? incomingSnapshot)
@@ -377,7 +470,7 @@ else
             return false;
         }
 
-        if (snapshot is not null && incomingSnapshot.Version < snapshot.Version)
+        if (snapshot is not null && incomingSnapshot.Version <= snapshot.Version)
         {
             return false;
         }

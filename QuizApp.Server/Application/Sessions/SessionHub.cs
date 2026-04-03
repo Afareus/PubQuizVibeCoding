@@ -4,9 +4,10 @@ namespace QuizApp.Server.Application.Sessions;
 
 public sealed class SessionHub : Hub
 {
-    public Task SubscribeToSessionAsync(Guid sessionId)
+    public async Task<bool> SubscribeToSessionAsync(Guid sessionId)
     {
-        return Groups.AddToGroupAsync(Context.ConnectionId, SessionRealtimeGroups.ForSession(sessionId));
+        await Groups.AddToGroupAsync(Context.ConnectionId, SessionRealtimeGroups.ForSession(sessionId));
+        return true;
     }
 
     public Task UnsubscribeFromSessionAsync(Guid sessionId)

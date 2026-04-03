@@ -35,12 +35,15 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R03 — Verze snapshotu a deterministická resynchronizace (snapshot `Version` + `ServerUtcNow` + klientský stale-response guard podle verze).
+- R04 — Realtime odolnost: subscribe potvrzení + fallback poll (explicitní subscribe ack, fallback REST polling 3 s, idempotentní realtime refresh podle `Version`).
 
 ## Aktuální poznámky
+- Reconnect hardening R04: `QuizApp.Server/Application/Sessions/SessionHub.cs` vrací z `SubscribeToSessionAsync` explicitní ack (`bool`), který klient po reconnectu ověřuje před potvrzením realtime stavu.
+- Reconnect hardening R04: klientské stránky `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` při výpadku/reconnectu automaticky přepínají do fallback režimu (`REST` poll každé 3 sekundy) do obnovení SignalR.
+- Reconnect hardening R04: stale guard na klientu je zpřísněn na idempotentní zpracování (`incoming.Version <= snapshot.Version` se ignoruje), aby se duplicitní realtime eventy nepropsaly do UI.
 - Reconnect hardening R03: v `QuizApp.Shared/Contracts/SessionContracts.cs` jsou snapshot kontrakty `SessionStateSnapshotResponse` a `OrganizerSessionSnapshotResponse` rozšířené o `Version` a `ServerUtcNow`.
 - Reconnect hardening R03: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` generuje pro snapshoty monotónní `Version` z UTC ticks serverového času a vrací autoritativní `ServerUtcNow`.
-- Reconnect hardening R03: klientské stránky `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` aplikují snapshot jen pokud není starší (`incoming.Version < snapshot.Version` se ignoruje).
+- Reconnect hardening R03: klientské stránky `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` aplikují snapshot jen pokud je novější (`incoming.Version <= snapshot.Version` se ignoruje).
 - Reconnect hardening R03: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy `GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata` a `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`.
 - Reconnect hardening R02: v `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou endpointy `POST /api/sessions/{sessionId}/heartbeat/team` a `POST /api/sessions/{sessionId}/heartbeat/organizer` s limiter policy `HeartbeatPerParticipant`.
 - Reconnect hardening R02: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` udržuje server-side presence okna (`<=15s Connected`, `<=90s TemporarilyDisconnected`, jinak `Inactive`) a promítá je do `SnapshotTeamDto` i `OrganizerSessionSnapshotResponse`.
@@ -196,7 +199,7 @@ Po každém kroku jej aktualizuj.
   - Klient po reconnectu vždy přepíše lokální view dle posledního snapshotu (server je autorita).
   - Ošetřit stale response (starší verze se nesmí propsat do UI).
 
-- [ ] R04 — Realtime odolnost: subscribe potvrzení + fallback poll
+- [x] R04 — Realtime odolnost: subscribe potvrzení + fallback poll
   - Po obnovení SignalR připojení explicitně znovu provést subscribe do `session:{sessionId}` a ověřit ack.
   - Pokud realtime selhává, přepnout klienta do řízeného REST poll režimu (např. 2–3 s) do obnovení hubu.
   - Zabránit duplicitnímu zpracování eventů (idempotentní handler podle `Version`).

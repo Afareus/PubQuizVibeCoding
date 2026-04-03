@@ -15,6 +15,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
+## R04 — Realtime odolnost: subscribe potvrzení + fallback poll
+- V `QuizApp.Server/Application/Sessions/SessionHub.cs` nyní `SubscribeToSessionAsync` vrací explicitní ack (`bool`) po úspěšném zařazení do group `session:{sessionId}`.
+- V klientských stránkách `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`, `QuizApp.Client/Pages/TeamWaitingRoom.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` je po reconnectu vyžadováno subscribe potvrzení; při neúspěchu se automaticky aktivuje fallback `REST` polling každé 3 sekundy do obnovení realtime.
+- Ve stejných stránkách je zpřísněn stale guard na idempotentní zpracování (`incoming.Version <= snapshot.Version` se ignoruje), aby duplicitní eventy nepřepisovaly UI.
+- Ověřeno: `run_build` úspěšný; cílené reconnect testy `GetSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`, `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`, `HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`, `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit` (4/4 passed).
+- Omezení: interaktivní smoke-check fallback režimu při skutečném síťovém výpadku (browser + SignalR) zůstává mimo toto prostředí.
+
 ## S00 — Bootstrap repozitáře a solution
 - Ověřena existující solution a přítomnost projektů `QuizApp.Client`, `QuizApp.Server`, `QuizApp.Shared`, `QuizApp.Tests`.
 - Ověřeny projektové reference mezi `Server/Client -> Shared` a `Tests -> Server + Shared`.
