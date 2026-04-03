@@ -22,6 +22,10 @@ public interface ISessionParticipationService
 
     Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
+    Task<HeartbeatOperationResult> HeartbeatTeamAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken);
+
+    Task<HeartbeatOperationResult> HeartbeatOrganizerAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken, bool useQuestionTimer = true);
 
     Task<OrganizerSessionStateOperationResult> AdvanceSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -50,6 +54,13 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private const int MaxTeamNameLength = 120;
     private const string SessionResultsPublishedAuditAction = "SESSION_RESULTS_PUBLISHED";
     private const string CurrentQuestionAnswerRevealedAuditAction = "SESSION_CURRENT_QUESTION_ANSWER_REVEALED";
+    private const string TeamDisconnectedAuditAction = "TEAM_DISCONNECTED";
+    private const string TeamReconnectedAuditAction = "TEAM_RECONNECTED";
+    private const string OrganizerHeartbeatAuditAction = "ORGANIZER_HEARTBEAT";
+    private const string OrganizerReconnectedAuditAction = "ORGANIZER_RECONNECTED";
+
+    private static readonly TimeSpan ConnectedPresenceWindow = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan InactivePresenceWindow = TimeSpan.FromSeconds(90);
 
     private readonly QuizAppDbContext _dbContext;
     private readonly ISessionRealtimePublisher _sessionRealtimePublisher;
@@ -235,7 +246,21 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return SessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný team reconnect token."));
         }
 
-        team.MarkSeen(DateTime.UtcNow);
+        var nowUtc = DateTime.UtcNow;
+        var wasDisconnected = team.Status == TeamStatus.Disconnected;
+        team.MarkSeen(nowUtc);
+
+        if (wasDisconnected)
+        {
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                TeamReconnectedAuditAction,
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new TeamPresenceAuditPayload(team.TeamId, team.Name, ParticipantPresenceStatus.Connected))));
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         SnapshotQuestionDto? currentQuestion = null;
@@ -272,7 +297,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
             currentQuestion,
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
-                .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
+                .Select(x => ToSnapshotTeamDto(x, nowUtc))
                 .ToList(),
             resultsPublished,
             isCurrentQuestionAnsweringClosed);
@@ -406,7 +431,6 @@ public sealed class SessionParticipationService : ISessionParticipationService
     public async Task<OrganizerSessionStateOperationResult> GetOrganizerSessionStateAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
     {
         var session = await _dbContext.Sessions
-            .AsNoTracking()
             .Include(x => x.Quiz)
                 .ThenInclude(x => x!.Questions)
                 .ThenInclude(x => x.Options)
@@ -418,11 +442,108 @@ public sealed class SessionParticipationService : ISessionParticipationService
             return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
         }
 
+        var nowUtc = DateTime.UtcNow;
+        var presenceTransitionsChanged = MarkDisconnectedTeams(session, nowUtc);
+        if (presenceTransitionsChanged)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var organizerPresence = await GetOrganizerPresenceStateAsync(session.SessionId, nowUtc, cancellationToken);
         var response = ToOrganizerSnapshot(
             session,
-            await IsResultsPublishedAsync(session.SessionId, cancellationToken));
+            await IsResultsPublishedAsync(session.SessionId, cancellationToken),
+            organizerPresence.Status,
+            organizerPresence.LastSeenAtUtc);
 
         return OrganizerSessionStateOperationResult.Success(response);
+    }
+
+    public async Task<HeartbeatOperationResult> HeartbeatTeamAsync(Guid sessionId, Guid teamId, string? teamReconnectToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(teamReconnectToken))
+        {
+            return HeartbeatOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí hlavička X-Team-Reconnect-Token."));
+        }
+
+        var session = await _dbContext.Sessions
+            .Include(x => x.Teams)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return HeartbeatOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        var team = session.Teams.SingleOrDefault(x => x.TeamId == teamId);
+        if (team is null)
+        {
+            return HeartbeatOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Tým v session nebyl nalezen."));
+        }
+
+        if (!VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
+        {
+            return HeartbeatOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný team reconnect token."));
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var wasDisconnected = team.Status == TeamStatus.Disconnected;
+        team.MarkSeen(nowUtc);
+
+        if (wasDisconnected)
+        {
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                TeamReconnectedAuditAction,
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new TeamPresenceAuditPayload(team.TeamId, team.Name, ParticipantPresenceStatus.Connected))));
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return HeartbeatOperationResult.Success();
+    }
+
+    public async Task<HeartbeatOperationResult> HeartbeatOrganizerAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        var session = await _dbContext.Sessions
+            .Include(x => x.Quiz)
+            .SingleOrDefaultAsync(x => x.SessionId == sessionId, cancellationToken);
+
+        if (session is null)
+        {
+            return HeartbeatOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Session nebyla nalezena."));
+        }
+
+        if (!TryAuthorizeOrganizer(session.Quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return HeartbeatOperationResult.Fail(authError!);
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var organizerPresence = await GetOrganizerPresenceStateAsync(session.SessionId, nowUtc, cancellationToken);
+        if (organizerPresence.Status != ParticipantPresenceStatus.Connected)
+        {
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                OrganizerReconnectedAuditAction,
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new OrganizerPresenceAuditPayload(ParticipantPresenceStatus.Connected))));
+        }
+
+        _dbContext.AuditLogs.Add(AuditLog.Create(
+            Guid.NewGuid(),
+            nowUtc,
+            OrganizerHeartbeatAuditAction,
+            session.QuizId,
+            session.SessionId,
+            JsonSerializer.Serialize(new OrganizerPresenceAuditPayload(ParticipantPresenceStatus.Connected))));
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return HeartbeatOperationResult.Success();
     }
 
     public async Task<OrganizerSessionStateOperationResult> StartSessionAsync(Guid sessionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken, bool useQuestionTimer = true)
@@ -1086,8 +1207,80 @@ public sealed class SessionParticipationService : ISessionParticipationService
         }
     }
 
-    private static OrganizerSessionSnapshotResponse ToOrganizerSnapshot(QuizSession session, bool resultsPublished = false)
+    private bool MarkDisconnectedTeams(QuizSession session, DateTime nowUtc)
     {
+        var changed = false;
+
+        foreach (var team in session.Teams)
+        {
+            var presenceStatus = ResolvePresenceStatus(team.LastSeenAtUtc, nowUtc);
+            if (presenceStatus == ParticipantPresenceStatus.Connected || team.Status == TeamStatus.Disconnected)
+            {
+                continue;
+            }
+
+            team.MarkDisconnected();
+            _dbContext.AuditLogs.Add(AuditLog.Create(
+                Guid.NewGuid(),
+                nowUtc,
+                TeamDisconnectedAuditAction,
+                session.QuizId,
+                session.SessionId,
+                JsonSerializer.Serialize(new TeamPresenceAuditPayload(team.TeamId, team.Name, presenceStatus))));
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private async Task<(ParticipantPresenceStatus Status, DateTimeOffset? LastSeenAtUtc)> GetOrganizerPresenceStateAsync(Guid sessionId, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        var organizerLastSeenUtc = await _dbContext.AuditLogs
+            .AsNoTracking()
+            .Where(x => x.SessionId == sessionId && (x.ActionType == OrganizerHeartbeatAuditAction || x.ActionType == OrganizerReconnectedAuditAction))
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .Select(x => (DateTime?)x.OccurredAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!organizerLastSeenUtc.HasValue)
+        {
+            return (ParticipantPresenceStatus.Inactive, null);
+        }
+
+        var status = ResolvePresenceStatus(organizerLastSeenUtc.Value, nowUtc);
+        return (status, ToUtcOffset(organizerLastSeenUtc));
+    }
+
+    private static ParticipantPresenceStatus ResolvePresenceStatus(DateTime lastSeenAtUtc, DateTime nowUtc)
+    {
+        var elapsed = nowUtc - lastSeenAtUtc;
+        if (elapsed <= ConnectedPresenceWindow)
+        {
+            return ParticipantPresenceStatus.Connected;
+        }
+
+        return elapsed <= InactivePresenceWindow
+            ? ParticipantPresenceStatus.TemporarilyDisconnected
+            : ParticipantPresenceStatus.Inactive;
+    }
+
+    private static SnapshotTeamDto ToSnapshotTeamDto(Team team, DateTime nowUtc)
+    {
+        return new SnapshotTeamDto(
+            team.TeamId,
+            team.Name,
+            ResolvePresenceStatus(team.LastSeenAtUtc, nowUtc),
+            new DateTimeOffset(team.LastSeenAtUtc, TimeSpan.Zero));
+    }
+
+    private static OrganizerSessionSnapshotResponse ToOrganizerSnapshot(
+        QuizSession session,
+        bool resultsPublished = false,
+        ParticipantPresenceStatus organizerPresenceStatus = ParticipantPresenceStatus.Inactive,
+        DateTimeOffset? organizerLastSeenAtUtc = null)
+    {
+        var nowUtc = DateTime.UtcNow;
+
         return new OrganizerSessionSnapshotResponse(
             session.SessionId,
             session.QuizId,
@@ -1103,9 +1296,11 @@ public sealed class SessionParticipationService : ISessionParticipationService
             BuildCurrentQuestion(session),
             session.Teams
                 .OrderBy(x => x.JoinedAtUtc)
-                .Select(x => new SnapshotTeamDto(x.TeamId, x.Name))
+                .Select(x => ToSnapshotTeamDto(x, nowUtc))
                 .ToList(),
-            resultsPublished);
+            resultsPublished,
+            organizerPresenceStatus,
+            organizerLastSeenAtUtc);
     }
 
     private Task<bool> IsResultsPublishedAsync(Guid sessionId, CancellationToken cancellationToken)
@@ -1347,6 +1542,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
     private sealed record SessionResultsPublishedAuditPayload(Guid SessionId, Guid QuizId);
 
     private sealed record CurrentQuestionAnswerRevealedAuditPayload(Guid SessionId, Guid QuizId, Guid QuestionId);
+
+    private sealed record TeamPresenceAuditPayload(Guid TeamId, string TeamName, ParticipantPresenceStatus PresenceStatus);
+
+    private sealed record OrganizerPresenceAuditPayload(ParticipantPresenceStatus PresenceStatus);
 }
 
 public sealed record JoinSessionOperationResult(
@@ -1358,6 +1557,16 @@ public sealed record JoinSessionOperationResult(
     public static JoinSessionOperationResult Success(JoinSessionResponse response) => new(response, null);
 
     public static JoinSessionOperationResult Fail(ApiErrorResponse error) => new(null, error);
+}
+
+public sealed record HeartbeatOperationResult(
+    ApiErrorResponse? Error)
+{
+    public bool IsSuccess => Error is null;
+
+    public static HeartbeatOperationResult Success() => new((ApiErrorResponse?)null);
+
+    public static HeartbeatOperationResult Fail(ApiErrorResponse error) => new(error);
 }
 
 public sealed record SessionStateOperationResult(

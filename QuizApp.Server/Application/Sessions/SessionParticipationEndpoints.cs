@@ -17,6 +17,10 @@ public static class SessionParticipationEndpoints
             .RequireRateLimiting("JoinPerIp");
         group.MapGet("/{sessionId:guid}", GetOrganizerSessionAsync);
         group.MapGet("/{sessionId:guid}/state", GetSessionStateAsync);
+        group.MapPost("/{sessionId:guid}/heartbeat/team", HeartbeatTeamAsync)
+            .RequireRateLimiting("HeartbeatPerParticipant");
+        group.MapPost("/{sessionId:guid}/heartbeat/organizer", HeartbeatOrganizerAsync)
+            .RequireRateLimiting("HeartbeatPerParticipant");
         group.MapPost("/{sessionId:guid}/answers", SubmitAnswerAsync)
             .RequireRateLimiting("SubmitPerTeam");
         group.MapDelete("/{sessionId:guid}/teams/{teamId:guid}", LeaveSessionAsync)
@@ -52,6 +56,41 @@ public static class SessionParticipationEndpoints
         }
 
         return TypedResults.Ok(result.Response!);
+    }
+
+    private static async Task<IResult> HeartbeatTeamAsync(
+        Guid sessionId,
+        Guid teamId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
+        var result = await sessionParticipationService.HeartbeatTeamAsync(sessionId, teamId, teamReconnectToken, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> HeartbeatOrganizerAsync(
+        Guid sessionId,
+        HttpContext httpContext,
+        ISessionParticipationService sessionParticipationService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await sessionParticipationService.HeartbeatOrganizerAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.NoContent();
     }
 
     private static async Task<IResult> GetCurrentCorrectAnswerAsync(

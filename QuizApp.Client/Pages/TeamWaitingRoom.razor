@@ -99,6 +99,8 @@ else
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
     private bool hasNavigatedToQuestion;
+    private System.Threading.Timer? heartbeatTimer;
+    private bool isHeartbeatInFlight;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -120,6 +122,7 @@ else
 
         await LoadSnapshotAsync();
         await EnsureRealtimeConnectionAsync(SessionId.Value);
+        StartHeartbeatTimer();
     }
 
     private async Task LoadSnapshotAsync()
@@ -297,7 +300,50 @@ else
     public async ValueTask DisposeAsync()
     {
         ActiveSessionState.Clear();
+        StopHeartbeatTimer();
         await DisposeRealtimeConnectionAsync();
+    }
+
+    private void StartHeartbeatTimer()
+    {
+        StopHeartbeatTimer();
+
+        if (!SessionId.HasValue || identity is null)
+        {
+            return;
+        }
+
+        heartbeatTimer = new System.Threading.Timer(_ =>
+        {
+            _ = InvokeAsync(SendHeartbeatAsync);
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private void StopHeartbeatTimer()
+    {
+        heartbeatTimer?.Dispose();
+        heartbeatTimer = null;
+        isHeartbeatInFlight = false;
+    }
+
+    private async Task SendHeartbeatAsync()
+    {
+        if (!SessionId.HasValue || identity is null || isHeartbeatInFlight)
+        {
+            return;
+        }
+
+        isHeartbeatInFlight = true;
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{SessionId.Value}/heartbeat/team?teamId={identity.TeamId}");
+            request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
+            await HttpClient.SendAsync(request);
+        }
+        finally
+        {
+            isHeartbeatInFlight = false;
+        }
     }
 
     private async Task DisposeRealtimeConnectionAsync()

@@ -35,9 +35,10 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Post-S21 feature — organizátorský dashboard načítá globální seznam všech kvízů přes nový endpoint `GET /api/quizzes`, takže každý uživatel vidí i kvízy vytvořené jinými uživateli.
+- R01 — Specifikace reconnect stavů a UX contract (sjednocené klientské stavy, hlášky a akce pro tým i organizátora; zapsáno v `context/09-decision-log.md`).
 
 ## Aktuální poznámky
+- Reconnect hardening R01: v `context/09-decision-log.md` je dopsán sjednocený UX contract stavů `Online` / `Reconnecting` / `Offline` / `Resynced` / `SessionEnded` pro tým i organizátora, včetně jednotných UI hlášek a povolených akcí bez dead-end stavů.
 - V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` a `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` přibyla operace/endpoint `GET /api/quizzes` vracející veřejný seznam kvízů (`QuizId`, `Name`, `CreatedAtUtc`) bez organizátorské autentizace.
 - `QuizApp.Client/Pages/OrganizerDashboard.razor` už nenačítá tabulku pouze z `localStorage`; hlavní seznam bere ze serveru a lokálně uložené tokeny používá jen jako doplňkové metadata.
 - V `QuizApp.Shared/Contracts/QuizContracts.cs` byl přidán kontrakt `QuizListItemResponse`.
@@ -171,11 +172,67 @@ Po každém kroku jej aktualizuj.
 - Post-S21 UX/API tweak: `QuizApp.Server/Application/QuizImport/QuizCsvParser.cs` používá delimiter `;` a akceptuje volitelný první řádek `sep=;`; šablona `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv` je upravena na semicolon formát a v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je zobrazena informace o oddělovači `;`.
 - Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po kliknutí na `Vygenerovat kód` už nezobrazuje info hláška „Byl vygenerován volný join kód.“; vygenerovaná hodnota se pouze vyplní do pole join kódu.
 
+## Backlog po S21 — Reconnect hardening (reálný provoz)
+- [x] R01 — Specifikace reconnect stavů a UX contract
+  - Jednoznačně popsat stavy klienta: `Online`, `Reconnecting`, `Offline`, `Resynced`, `SessionEnded` pro tým i organizátora.
+  - Doplnit jednotné UI hlášky a akce (retry, návrat do čekárny/otázky, přechod na výsledky) bez skrytých dead-end stavů.
+  - Zapsat rozhodnutí do `context/09-decision-log.md`.
+
+- [ ] R02 — Server-side přítomnost a heartbeat pro týmy i organizátora
+  - Zavést periodický heartbeat endpoint (nebo rozšířit snapshot endpointy) pro průběžný update `LastSeenAtUtc`.
+  - Rozlišit „dočasně odpojen“ vs „dlouhodobě neaktivní“ bez zásahu do skórování.
+  - Přidat minimální audit eventy reconnect/disconnect pro troubleshooting.
+
+- [ ] R03 — Verze snapshotu a deterministická resynchronizace
+  - Rozšířit session snapshot kontrakty o monotónní `Version`/`Revision` a serverový čas (`ServerUtcNow`).
+  - Klient po reconnectu vždy přepíše lokální view dle posledního snapshotu (server je autorita).
+  - Ošetřit stale response (starší verze se nesmí propsat do UI).
+
+- [ ] R04 — Realtime odolnost: subscribe potvrzení + fallback poll
+  - Po obnovení SignalR připojení explicitně znovu provést subscribe do `session:{sessionId}` a ověřit ack.
+  - Pokud realtime selhává, přepnout klienta do řízeného REST poll režimu (např. 2–3 s) do obnovení hubu.
+  - Zabránit duplicitnímu zpracování eventů (idempotentní handler podle `Version`).
+
+- [ ] R05 — Idempotentní submit odpovědí při výpadku sítě
+  - Přidat `ClientRequestId` do `SubmitAnswerRequest` a deduplikaci na serveru.
+  - V klientu držet „pending submit“ frontu pro aktuální otázku a automatický retry s backoff.
+  - Po obnově spojení potvrdit finální stav přes snapshot (`already submitted` vs `accepted now`).
+
+- [ ] R06 — Team flow: plný návrat do rozehrané session po reloadu/browser restartu
+  - V `TeamSessionLocalStore` držet i poslední známý route-state (`waiting/question/results`) + timestamp.
+  - Přidat bootstrap stránku/guard, která po startu app rozhodne cílovou obrazovku ze snapshotu (ne z lokální domněnky).
+  - Ošetřit scénář „session mezitím skončila/byla zrušena“ a bezpečný redirect.
+
+- [ ] R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků
+  - Uložit poslední aktivní `sessionId` pro konkrétní `quizId` a po otevření detailu nabídnout/udělat „Obnovit řízení session“.
+  - `OrganizerWaitingRoom` musí po reconnectu obnovit snapshot + realtime subscription automaticky.
+  - Akce `Start/Cancel` chránit proti double-click/retry (idempotence + disabled state během in-flight requestu).
+
+- [ ] R08 — Přesné časování při reconnectu (deadline-safe UX)
+  - V UI odpočtu používat serverové hodnoty (`QuestionDeadlineUtc`, `ServerUtcNow`) a klientský drift korigovat.
+  - Po reconnectu vždy přepočítat zbývající čas z nového snapshotu, ne z lokálního timeru.
+  - Jasně zobrazit stav po deadline („odpověď už nelze odeslat“), i když klient byl offline.
+
+- [ ] R09 — Testy odolnosti na výpadky (unit + integrační + E2E scénáře)
+  - Unit testy: deduplikace `ClientRequestId`, stale snapshot guard, reconnect state machine.
+  - API integrační testy: submit během timeout boundary, reconnect po `question.changed`, fallback poll.
+  - E2E smoke scénáře: vypnutí sítě, obnovení po 5/30/90 s, reload tabu, více týmů v jednom browseru.
+
+- [ ] R10 — Provozní observabilita reconnectu
+  - Přidat metriku: počet reconnect pokusů, průměrný čas resync, neúspěšné resync, duplicitní submit retry.
+  - Strukturované logy s `SessionId`, `TeamId`, `ConnectionId`, `SnapshotVersion`.
+  - Definovat alert prahy (např. vysoká míra failed reconnect ve 5 min okně).
+
+- [ ] R11 — Release hardening checklist pro reconnect
+  - Aktualizovat `.github/context/11-release-checklist.md` o reconnect test matrix (desktop/mobile, throttling, tab sleep).
+  - Přidat rollback plán pro případ regresí v realtime vrstvě.
+  - Zapsat finální ověření do `context/08-implementation-state.md` po dokončení každého kroku R01–R10.
+
 ## Rizika / dluh
-- Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.
+- Test suite je aktuálně nestabilní mimo scope kroku R01 (`run_tests`, `Project=QuizApp.Tests`: 47/99 passed, 52 failed; opakující se selhání navázaná na flow vytvoření session vracející `QuizStartLocked`).
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 95/95 passed)
+- Testy: neúspěšné (`run_tests`, `Project=QuizApp.Tests`, 47/99 passed, 52 failed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

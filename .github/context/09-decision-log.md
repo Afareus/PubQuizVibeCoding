@@ -465,3 +465,46 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** V `OrganizerQuizDetail` se po úspěšném `DeleteEditedQuestionAsync` nastaví `isManualQuestionFormExpanded = false`, takže se formulář `Ruční vložení otázky` po smazání otázky automaticky sbalí.
 - **Důvod:** Uživatel explicitně požadoval automatické sbalení formuláře po akci `Smazat otázku`.
 - **Dopad:** Po smazání je obrazovka přehlednější a organizátor se vrací k seznamu otázek bez ručního klikání na toggle formuláře.
+
+### D-065 — R01: Sjednocený reconnect UX contract pro tým i organizátora
+- **Datum/čas (UTC):** 2026-04-03T00:00:00Z
+- **Krok:** R01
+- **Rozhodnutí:** Klientský reconnect lifecycle je normativně sjednocen do stavů `Online`, `Reconnecting`, `Offline`, `Resynced`, `SessionEnded` pro tým i organizátora; UI stavy mají jednotné hlášky a explicitní akce bez dead-end větví.
+- **Důvod:** Backlog krok R01 vyžaduje jednoznačnou specifikaci reconnect stavů a UX kontraktu dříve, než začne implementace heartbeat/versioning/fallback poll v R02+.
+- **Dopad:** Následující kroky R02–R08 mají pevný referenční kontrakt pro chování klienta při výpadku/reconnectu; testy v R09 mohou validovat deterministický stavový automat místo ad-hoc UI chování.
+
+#### R01 — Normativní stavový automat
+- `Online`
+  - Význam: SignalR připojeno a poslední snapshot je považován za aktuální.
+  - UI hláška: „Připojeno k live session.“
+  - Akce: běžné akce podle role (`Start/Cancel`, `Odeslat odpověď`, navigace dle stavu session).
+- `Reconnecting`
+  - Význam: dočasná ztráta realtime transportu, probíhá automatický reconnect v 60s okně.
+  - UI hláška: „Obnovuji připojení…“
+  - Akce: povoleno `Zkusit znovu` (okamžitý resync pokus), mutační akce jsou dočasně disabled.
+- `Offline`
+  - Význam: realtime reconnect se nepodařil nebo vypršel reconnect window; klient je bez potvrzeného živého stavu.
+  - UI hláška: „Připojení se nepodařilo obnovit. Ověřte síť a zkuste to znovu.“
+  - Akce: `Zkusit znovu`, `Obnovit snapshot` (REST), bezpečný návrat na čekárnu (pokud je route relevantní).
+- `Resynced`
+  - Význam: po reconnectu byl úspěšně načten aktuální server snapshot; klient mohl přeskočit mezistavy (`WAITING` -> `RUNNING`/`FINISHED`/`CANCELLED`).
+  - UI hláška: „Připojení obnoveno. Stav byl synchronizován.“
+  - Akce: jednorázové potvrzení a automatický přechod na správnou obrazovku dle snapshotu.
+- `SessionEnded`
+  - Význam: server autoritativně hlásí terminální stav session (`FINISHED` nebo `CANCELLED`).
+  - UI hláška (tým): „Kvíz byl ukončen.“ + podmíněná informace o výsledcích.
+  - UI hláška (organizátor): „Session je ukončena.“
+  - Akce: tým přechází na výsledky (nebo čeká na zveřejnění výsledků), organizátor na výsledky/správné odpovědi; mutace session jsou disabled.
+
+#### R01 — Role-specific UX pravidla
+- **Tým**
+  - V `Reconnecting`/`Offline` se nesmí tvářit, že odpověď byla definitivně přijata; potvrzení je validní až po resync/snapshotu.
+  - V `SessionEnded` zůstává tlačítko `Zobrazit výsledky` viditelné; před zveřejněním je disabled a hláška je nad tlačítkem.
+- **Organizátor**
+  - V `Reconnecting`/`Offline` jsou `Start`/`Cancel` disabled, aby nevznikal double-submit během neověřeného stavu.
+  - Po `Resynced` musí waiting room vždy respektovat server autoritu (stav session + seznam týmů) a nesmí zachovat stale lokální view.
+
+#### R01 — Zakázané dead-end stavy
+- Klient nesmí zůstat bez akce v režimu „chyba připojení“; vždy existuje minimálně `Zkusit znovu`.
+- Přechod na neplatnou obrazovku po reconnectu (např. zůstat na otázce po `FINISHED`) je zakázaný; routing vždy přepisuje autoritativní snapshot.
+- Lokální stav nikdy nepřebíjí serverový snapshot po reconnectu.

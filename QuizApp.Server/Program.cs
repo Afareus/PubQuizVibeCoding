@@ -118,6 +118,17 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+
+    options.AddPolicy("HeartbeatPerParticipant", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ResolveHeartbeatKey(httpContext),
+            factory: static _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -173,6 +184,26 @@ static string ResolveTeamKey(HttpContext httpContext)
     }
 
     return $"ip:{ResolveRemoteIp(httpContext)}";
+}
+
+static string ResolveHeartbeatKey(HttpContext httpContext)
+{
+    if (httpContext.Request.Headers.TryGetValue("X-Team-Reconnect-Token", out var teamToken) && !string.IsNullOrWhiteSpace(teamToken))
+    {
+        return $"heartbeat-team:{teamToken.ToString().Trim()}";
+    }
+
+    if (httpContext.Request.Headers.TryGetValue("X-Organizer-Token", out var organizerToken) && !string.IsNullOrWhiteSpace(organizerToken))
+    {
+        return $"heartbeat-organizer-token:{organizerToken.ToString().Trim()}";
+    }
+
+    if (httpContext.Request.Headers.TryGetValue("X-Quiz-Password", out var organizerPassword) && !string.IsNullOrWhiteSpace(organizerPassword))
+    {
+        return $"heartbeat-organizer-password:{organizerPassword.ToString().Trim()}";
+    }
+
+    return $"heartbeat-ip:{ResolveRemoteIp(httpContext)}";
 }
 
 static string ResolveOrganizerKey(HttpContext httpContext)

@@ -23,6 +23,13 @@ public enum QuestionType
     NumericClosest = 1
 }
 
+public enum ParticipantPresenceStatus
+{
+    Connected = 0,
+    TemporarilyDisconnected = 1,
+    Inactive = 2
+}
+
 public enum ApiErrorCode
 {
     ValidationFailed = 0,

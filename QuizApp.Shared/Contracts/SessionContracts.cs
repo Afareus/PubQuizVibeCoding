@@ -66,7 +66,9 @@ public sealed record OrganizerSessionSnapshotResponse(
     DateTimeOffset? QuestionDeadlineUtc,
     SnapshotQuestionDto? CurrentQuestion,
     IReadOnlyList<SnapshotTeamDto> Teams,
-    bool ResultsPublished);
+    bool ResultsPublished,
+    ParticipantPresenceStatus OrganizerPresenceStatus,
+    DateTimeOffset? OrganizerLastSeenAtUtc);
 
 public sealed record SnapshotQuestionDto(
     Guid QuestionId,
@@ -81,7 +83,9 @@ public sealed record SnapshotQuestionOptionDto(
 
 public sealed record SnapshotTeamDto(
     Guid TeamId,
-    string TeamName);
+    string TeamName,
+    ParticipantPresenceStatus PresenceStatus,
+    DateTimeOffset LastSeenAtUtc);
 
 public sealed record SessionResultsResponse(
     Guid SessionId,

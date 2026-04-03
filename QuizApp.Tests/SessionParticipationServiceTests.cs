@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 using QuizApp.Server.Application.QuizImport;
 using QuizApp.Server.Application.Quizzes;
 using QuizApp.Server.Application.Sessions;
@@ -219,6 +221,63 @@ public class SessionParticipationServiceTests
         Assert.Null(stateResult.Response.CurrentQuestion);
         Assert.False(stateResult.Response.ResultsPublished);
         Assert.Contains(stateResult.Response.Teams, x => x.TeamId == joinResult.Response.TeamId && x.TeamName == "Tým Delta");
+    }
+
+    [Fact]
+    public async Task HeartbeatTeamAsync_ValidToken_UpdatesLastSeen()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var teamBeforeHeartbeat = await dbContext.Teams.SingleAsync(x => x.TeamId == seeded.TeamId);
+        var lastSeenBeforeHeartbeat = teamBeforeHeartbeat.LastSeenAtUtc;
+
+        await Task.Delay(25);
+
+        var heartbeatResult = await sessionService.HeartbeatTeamAsync(
+            seeded.SessionId,
+            seeded.TeamId,
+            seeded.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.True(heartbeatResult.IsSuccess);
+
+        var teamAfterHeartbeat = await dbContext.Teams.SingleAsync(x => x.TeamId == seeded.TeamId);
+        Assert.True(teamAfterHeartbeat.LastSeenAtUtc > lastSeenBeforeHeartbeat);
+    }
+
+    [Fact]
+    public async Task GetOrganizerSessionStateAsync_StaleTeam_IsReportedAsTemporarilyDisconnected()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+        var team = await dbContext.Teams.SingleAsync(x => x.TeamId == seeded.TeamId);
+        team.MarkSeen(DateTime.UtcNow.AddSeconds(-30));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var organizerSnapshot = await sessionService.GetOrganizerSessionStateAsync(seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+
+        Assert.True(organizerSnapshot.IsSuccess);
+        var teamSnapshot = Assert.Single(organizerSnapshot.Response!.Teams);
+        Assert.Equal(ParticipantPresenceStatus.TemporarilyDisconnected, teamSnapshot.PresenceStatus);
+    }
+
+    [Fact]
+    public async Task HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var heartbeatResult = await sessionService.HeartbeatOrganizerAsync(seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+
+        Assert.True(heartbeatResult.IsSuccess);
+        Assert.True(await dbContext.AuditLogs.AnyAsync(x => x.SessionId == seeded.SessionId && x.ActionType == "ORGANIZER_HEARTBEAT"));
     }
 
     [Fact]
@@ -1331,6 +1390,45 @@ public class SessionParticipationServiceTests
         await sessionService.ProgressDueSessionsAsync(cancellationToken);
 
         return (created.SessionId, join1.Response.TeamId, join1.Response.TeamReconnectToken, join2.Response.TeamId, join2.Response.TeamReconnectToken, created.OrganizerToken);
+    }
+
+    private static async Task<(Guid SessionId, Guid TeamId, string TeamReconnectToken, string OrganizerToken)> SeedWaitingSessionWithTeamAsync(QuizAppDbContext dbContext)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var organizerToken = "ORGANIZER-R02";
+        var teamReconnectToken = "TEAM-R02";
+
+        var quiz = QuizApp.Server.Domain.Entities.Quiz.Create(
+            Guid.NewGuid(),
+            "Reconnect test quiz",
+            "pbkdf2-sha256$10000$AA$BB",
+            HashToken(organizerToken),
+            nowUtc);
+
+        var session = QuizApp.Server.Domain.Entities.QuizSession.Create(
+            Guid.NewGuid(),
+            quiz.QuizId,
+            "R02JOIN",
+            nowUtc);
+
+        var team = QuizApp.Server.Domain.Entities.Team.Create(
+            Guid.NewGuid(),
+            session.SessionId,
+            "Reconnect tým",
+            HashToken(teamReconnectToken),
+            nowUtc);
+
+        dbContext.Quizzes.Add(quiz);
+        dbContext.Sessions.Add(session);
+        dbContext.Teams.Add(team);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        return (session.SessionId, team.TeamId, teamReconnectToken, organizerToken);
+    }
+
+    private static string HashToken(string token)
+    {
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     }
 
     private sealed class FakeSessionRealtimePublisher : ISessionRealtimePublisher

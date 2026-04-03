@@ -423,3 +423,10 @@ Pro každý dokončený krok přidej záznam ve formátu:
 ## Post-S21 UI tweak — Po smazání otázky se formulář ručního vložení automaticky sbalí
 - V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` byl upraven `DeleteEditedQuestionAsync`: po úspěšném smazání otázky se kromě resetu formuláře nastaví i `isManualQuestionFormExpanded = false`.
 - Tlačítko `Smazat otázku` nyní po dokončení akce vrátí UI do sbaleného stavu sekce `Ruční vložení otázky`.
+
+## R01 — Specifikace reconnect stavů a UX contract
+- V `.github/context/09-decision-log.md` byl doplněn záznam `D-065` definující normativní reconnect stavový automat pro tým i organizátora: `Online`, `Reconnecting`, `Offline`, `Resynced`, `SessionEnded`.
+- Byly sjednoceny UI hlášky a povolené akce pro každý stav (včetně retry/resync flow) a explicitně popsány role-specific pravidla pro tým i organizátora.
+- Byl doplněn zákaz dead-end stavů: klient vždy nabízí recovery akci a po reconnectu přepisuje view autoritativním snapshotem serveru.
+- Ověřeno buildem solution (`run_build`).
+- Ověření testů: `run_tests` pro `QuizApp.Tests` aktuálně neprochází (`47/99 passed`, `52 failed`) — mimo scope kroku `R01`, zaznamenáno ve stavu implementace.
