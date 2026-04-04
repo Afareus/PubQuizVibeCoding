@@ -1539,6 +1539,268 @@ public class SessionParticipationServiceTests
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     }
 
+    // ===== R09 — Testy odolnosti na výpadky =====
+
+    [Fact]
+    public async Task SnapshotVersion_SuccessiveSnapshots_HaveIncreasingVersion()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var first = await sessionService.GetSessionStateAsync(
+            seeded.SessionId, seeded.TeamId, seeded.TeamReconnectToken, CancellationToken.None);
+        Assert.True(first.IsSuccess);
+
+        await Task.Delay(2);
+
+        var second = await sessionService.GetSessionStateAsync(
+            seeded.SessionId, seeded.TeamId, seeded.TeamReconnectToken, CancellationToken.None);
+        Assert.True(second.IsSuccess);
+
+        Assert.True(second.Response!.Version > first.Response!.Version,
+            "Successive snapshots must have strictly increasing Version (monotonic UTC ticks).");
+    }
+
+    [Fact]
+    public async Task SnapshotVersion_OrganizerSuccessiveSnapshots_HaveIncreasingVersion()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var first = await sessionService.GetOrganizerSessionStateAsync(
+            seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+        Assert.True(first.IsSuccess);
+
+        await Task.Delay(2);
+
+        var second = await sessionService.GetOrganizerSessionStateAsync(
+            seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+        Assert.True(second.IsSuccess);
+
+        Assert.True(second.Response!.Version > first.Response!.Version);
+    }
+
+    [Fact]
+    public async Task ClientRequestId_DifferentRequestId_ReturnsAlreadyAnswered()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+
+        var firstSubmit = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null, Guid.NewGuid()),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+        Assert.True(firstSubmit.IsSuccess);
+
+        var secondSubmit = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null, Guid.NewGuid()),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.False(secondSubmit.IsSuccess);
+        Assert.NotNull(secondSubmit.Error);
+        Assert.Equal(ApiErrorCode.AlreadyAnswered, secondSubmit.Error!.Code);
+    }
+
+    [Fact]
+    public async Task GetSessionStateAsync_AfterSessionStart_ReturnsRunningWithQuestion()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Reconnect"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var waitingSnapshot = await sessionService.GetSessionStateAsync(
+            created.SessionId, joinResult.Response!.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.True(waitingSnapshot.IsSuccess);
+        Assert.Equal(SessionStatus.Waiting, waitingSnapshot.Response!.Status);
+        Assert.Null(waitingSnapshot.Response.CurrentQuestion);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var runningSnapshot = await sessionService.GetSessionStateAsync(
+            created.SessionId, joinResult.Response.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.True(runningSnapshot.IsSuccess);
+        Assert.Equal(SessionStatus.Running, runningSnapshot.Response!.Status);
+        Assert.NotNull(runningSnapshot.Response.CurrentQuestion);
+        Assert.Equal(0, runningSnapshot.Response.CurrentQuestionIndex);
+    }
+
+    [Fact]
+    public async Task GetSessionStateAsync_AfterQuestionProgression_ReturnsNewQuestion()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithTwoQuestionsAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Progression"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var startResult = await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+        Assert.True(startResult.IsSuccess);
+
+        var firstSnapshot = await sessionService.GetSessionStateAsync(
+            created.SessionId, joinResult.Response!.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.True(firstSnapshot.IsSuccess);
+        var firstQuestionId = firstSnapshot.Response!.CurrentQuestion!.QuestionId;
+        Assert.Equal(0, firstSnapshot.Response.CurrentQuestionIndex);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-20), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+        await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
+
+        var secondSnapshot = await sessionService.GetSessionStateAsync(
+            created.SessionId, joinResult.Response.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.True(secondSnapshot.IsSuccess);
+        Assert.Equal(1, secondSnapshot.Response!.CurrentQuestionIndex);
+        Assert.NotNull(secondSnapshot.Response.CurrentQuestion);
+        Assert.NotEqual(firstQuestionId, secondSnapshot.Response.CurrentQuestion!.QuestionId);
+    }
+
+    [Fact]
+    public async Task GetSessionStateAsync_AfterSessionCancelled_ReturnsCancelledStatus()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Zrušení"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var cancelResult = await sessionService.CancelSessionAsync(created.SessionId, created.OrganizerToken, null, confirmCancellation: true, CancellationToken.None);
+        Assert.True(cancelResult.IsSuccess);
+
+        var snapshot = await sessionService.GetSessionStateAsync(
+            created.SessionId, joinResult.Response!.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.True(snapshot.IsSuccess);
+        Assert.Equal(SessionStatus.Cancelled, snapshot.Response!.Status);
+    }
+
+    [Fact]
+    public async Task SubmitAnswerAsync_SessionCancelled_ReturnsSessionStateChanged()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateRunningSessionWithTeamAsync(quizService, sessionService, CancellationToken.None);
+
+        var cancelResult = await sessionService.CancelSessionAsync(created.SessionId, null, "heslo", confirmCancellation: true, CancellationToken.None);
+        Assert.True(cancelResult.IsSuccess);
+
+        var submitResult = await sessionService.SubmitAnswerAsync(
+            created.SessionId,
+            new SubmitAnswerRequest(created.TeamId, created.QuestionId, OptionKey.B, null),
+            created.TeamReconnectToken,
+            CancellationToken.None);
+
+        Assert.False(submitResult.IsSuccess);
+        Assert.NotNull(submitResult.Error);
+        Assert.Equal(ApiErrorCode.SessionStateChanged, submitResult.Error!.Code);
+    }
+
+    [Fact]
+    public async Task PresenceStatus_InactiveAfter90Seconds()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+        var team = await dbContext.Teams.SingleAsync(x => x.TeamId == seeded.TeamId);
+        team.MarkSeen(DateTime.UtcNow.AddSeconds(-100));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var organizerSnapshot = await sessionService.GetOrganizerSessionStateAsync(seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+
+        Assert.True(organizerSnapshot.IsSuccess);
+        var teamSnapshot = Assert.Single(organizerSnapshot.Response!.Teams);
+        Assert.Equal(ParticipantPresenceStatus.Inactive, teamSnapshot.PresenceStatus);
+    }
+
+    [Fact]
+    public async Task PresenceStatus_ConnectedWithinWindow()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        await sessionService.HeartbeatTeamAsync(seeded.SessionId, seeded.TeamId, seeded.TeamReconnectToken, CancellationToken.None);
+
+        var organizerSnapshot = await sessionService.GetOrganizerSessionStateAsync(seeded.SessionId, seeded.OrganizerToken, null, CancellationToken.None);
+
+        Assert.True(organizerSnapshot.IsSuccess);
+        var teamSnapshot = Assert.Single(organizerSnapshot.Response!.Teams);
+        Assert.Equal(ParticipantPresenceStatus.Connected, teamSnapshot.PresenceStatus);
+    }
+
+    [Fact]
+    public async Task HeartbeatTeamAsync_AfterDisconnect_WritesReconnectedAudit()
+    {
+        await using var dbContext = CreateDbContext();
+        var sessionService = CreateSessionService(dbContext);
+
+        var seeded = await SeedWaitingSessionWithTeamAsync(dbContext);
+
+        var team = await dbContext.Teams.SingleAsync(x => x.TeamId == seeded.TeamId);
+        team.MarkSeen(DateTime.UtcNow.AddSeconds(-30));
+        team.MarkDisconnected();
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var heartbeatResult = await sessionService.HeartbeatTeamAsync(seeded.SessionId, seeded.TeamId, seeded.TeamReconnectToken, CancellationToken.None);
+        Assert.True(heartbeatResult.IsSuccess);
+
+        Assert.True(await dbContext.AuditLogs.AnyAsync(x => x.SessionId == seeded.SessionId && x.ActionType == "TEAM_RECONNECTED"));
+    }
+
+    [Fact]
+    public async Task GetSessionStateAsync_FullReconnectCycle_WaitingToRunningToFinished()
+    {
+        await using var dbContext = CreateDbContext();
+        var quizService = CreateQuizService(dbContext);
+        var sessionService = CreateSessionService(dbContext);
+
+        var created = await CreateWaitingSessionWithQuizAuthAsync(quizService, CancellationToken.None);
+        var joinResult = await sessionService.JoinSessionAsync(new JoinSessionRequest(created.JoinCode, "Tým Cycle"), CancellationToken.None);
+        Assert.True(joinResult.IsSuccess);
+
+        var s1 = await sessionService.GetSessionStateAsync(created.SessionId, joinResult.Response!.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.Equal(SessionStatus.Waiting, s1.Response!.Status);
+
+        await sessionService.StartSessionAsync(created.SessionId, created.OrganizerToken, null, CancellationToken.None);
+
+        var s2 = await sessionService.GetSessionStateAsync(created.SessionId, joinResult.Response.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.Equal(SessionStatus.Running, s2.Response!.Status);
+        Assert.NotNull(s2.Response.CurrentQuestion);
+
+        var session = await dbContext.Sessions.SingleAsync(x => x.SessionId == created.SessionId);
+        session.SetCurrentQuestion(0, DateTime.UtcNow.AddSeconds(-40), DateTime.UtcNow.AddSeconds(-1));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+        await sessionService.ProgressDueSessionsAsync(CancellationToken.None);
+
+        var s3 = await sessionService.GetSessionStateAsync(created.SessionId, joinResult.Response.TeamId, joinResult.Response.TeamReconnectToken, CancellationToken.None);
+        Assert.Equal(SessionStatus.Finished, s3.Response!.Status);
+
+        Assert.True(s3.Response.Version > s2.Response.Version);
+        Assert.True(s2.Response.Version > s1.Response.Version);
+    }
+
     private sealed class FakeSessionRealtimePublisher : ISessionRealtimePublisher
     {
         public List<(Guid SessionId, RealtimeEventName EventName)> Events { get; } = [];

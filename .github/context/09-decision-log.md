@@ -39,6 +39,13 @@ Každý záznam má mít:
 ## Další záznamy
 Sem přidávej další rozhodnutí průběžně.
 
+### D-202 — R09 oprava QuizStartLocked: autorizovaný organizátor obchází flag
+- **Datum/čas (UTC):** 2026-04-04T00:00:00Z
+- **Krok:** R09
+- **Rozhodnutí:** V `CreateSessionAsync` se `IsStartAllowedForEveryone` kontroluje pouze pro neautorizované volání. Autorizovaný organizátor (platný `X-Organizer-Token` nebo `X-Quiz-Password`) smí vytvořit session i při `IsStartAllowedForEveryone = false`.
+- **Důvod:** Původní implementace blokovala všechny (i autorizované) organizátory, protože `IsStartAllowedForEveryone` defaultně `false` a chyběl autorizační check. To způsobilo 52+ padajících testů a zablokovanou funkčnost v produkčním flow.
+- **Dopad:** Všech 124 testů prochází; produkční flow vytvoření session funguje korektně; `IsStartAllowedForEveryone` má smysluplnou sémantiku (veřejné vs. organizátorem chráněné spuštění).
+
 ### D-201 — R05 idempotentní submit deduplikován přes `ClientRequestId`
 - **Datum/čas (UTC):** 2026-04-03T00:00:00Z
 - **Krok:** R05

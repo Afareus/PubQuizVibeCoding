@@ -15,6 +15,13 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
+## R09 — Testy odolnosti na výpadky + oprava QuizStartLocked
+- **Root cause fix**: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` metoda `CreateSessionAsync` kontrolovala `IsStartAllowedForEveryone` (defaultně `false`) bez ohledu na autorizaci organizátora. Opraveno: autorizovaný organizátor (platný `X-Organizer-Token` nebo `X-Quiz-Password`) může vytvořit session i při `IsStartAllowedForEveryone = false`; flag nyní blokuje pouze neautorizované spuštění.
+- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 11 R09 unit testů: monotónní verze snapshotu (tým + organizátor), deduplikace s jiným `ClientRequestId`, snapshot po startu/progresi/cancelu session, submit po cancelu, presence status přechody (`Connected`/`TemporarilyDisconnected`/`Inactive`), heartbeat reconnect audit, plný reconnect cyklus (`Waiting→Running→Finished`).
+- V `QuizApp.Tests/ApiIntegrationTests.cs` přibylo 8 R09 API integračních testů: heartbeat endpointy (tým validní/nevalidní, organizátor), team reconnect po startu/cancelu session, idempotentní HTTP submit s `ClientRequestId`, organizátor snapshot s `Version`+`ServerUtcNow`.
+- Vytvořen `.github/context/12-reconnect-e2e-smoke-tests.md` s 10 manuálními E2E scénáři pro testování reconnect odolnosti.
+- Ověřeno: `run_build` úspěšný; 124/124 testů prošlo (0 selhání — pre-existující nestabilita `QuizStartLocked` vyřešena).
+
 ## R08 — Přesné časování při reconnectu (deadline-safe UX)
 - `QuizApp.Client/Pages/TeamQuestion.razor`: přidáno pole `_serverClockDrift` (TimeSpan); drift se kalkuluje z rozdílu `DateTimeOffset.UtcNow - snapshot.ServerUtcNow` v `TryApplySnapshot`, takže každý nový snapshot koriguje hodinový posun klienta vůči serveru.
 - `QuizApp.Client/Pages/TeamQuestion.razor`: metoda `UpdateRemainingSeconds` nyní počítá zbývající čas jako `QuestionDeadlineUtc - (UtcNow - drift)` namísto prostého `QuestionDeadlineUtc - UtcNow`.

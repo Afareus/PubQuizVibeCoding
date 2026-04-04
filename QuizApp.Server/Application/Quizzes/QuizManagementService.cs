@@ -126,7 +126,9 @@ public sealed class QuizManagementService : IQuizManagementService
             return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
         }
 
-        if (!quiz.IsStartAllowedForEveryone)
+        var isOrganizer = TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out _);
+
+        if (!isOrganizer && !quiz.IsStartAllowedForEveryone)
         {
             return CreateSessionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizStartLocked, "Spouštění tohoto kvízu je aktuálně uzamčeno administrátorem."));
         }

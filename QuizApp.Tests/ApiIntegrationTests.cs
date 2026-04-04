@@ -245,6 +245,194 @@ public class ApiIntegrationTests
         Assert.Equal(0, detailAfterDelete.Questions[0].OrderIndex);
     }
 
+    // ===== R09 — API integrační testy odolnosti na výpadky =====
+
+    [Fact]
+    public async Task HeartbeatTeamEndpoint_ValidToken_ReturnsNoContent()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Heartbeat kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "HBTM2345");
+
+        var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým HB"));
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+        var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
+
+        using var heartbeatMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/heartbeat/team?teamId={joinPayload!.TeamId}");
+        heartbeatMessage.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+
+        using var heartbeatResponse = await client.SendAsync(heartbeatMessage);
+        Assert.Equal(HttpStatusCode.NoContent, heartbeatResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task HeartbeatTeamEndpoint_InvalidToken_ReturnsForbidden()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Heartbeat invalid kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "HBIN2345");
+
+        var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým HBI"));
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+        var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
+
+        using var heartbeatMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/heartbeat/team?teamId={joinPayload!.TeamId}");
+        heartbeatMessage.Headers.Add("X-Team-Reconnect-Token", "invalid-token");
+
+        using var heartbeatResponse = await client.SendAsync(heartbeatMessage);
+        Assert.Equal(HttpStatusCode.Forbidden, heartbeatResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task HeartbeatOrganizerEndpoint_ValidPassword_ReturnsNoContent()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Org heartbeat kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "HBOR2345");
+
+        using var heartbeatMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/heartbeat/organizer");
+        heartbeatMessage.Headers.Add("X-Quiz-Password", "heslo");
+
+        using var heartbeatResponse = await client.SendAsync(heartbeatMessage);
+        Assert.Equal(HttpStatusCode.NoContent, heartbeatResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task TeamReconnect_AfterSessionStart_SnapshotReflectsRunningState()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Reconnect kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "RCST2345");
+
+        var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým Reconnect"));
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+        var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
+
+        using var startMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/start");
+        startMessage.Headers.Add("X-Quiz-Password", "heslo");
+        using var startResponse = await client.SendAsync(startMessage);
+        Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
+
+        using var snapshotMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{session.SessionId}/state?teamId={joinPayload!.TeamId}");
+        snapshotMessage.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+        using var snapshotResponse = await client.SendAsync(snapshotMessage);
+        Assert.Equal(HttpStatusCode.OK, snapshotResponse.StatusCode);
+
+        var snapshot = await snapshotResponse.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+        Assert.NotNull(snapshot);
+        Assert.Equal(SessionStatus.Running, snapshot!.Status);
+        Assert.NotNull(snapshot.CurrentQuestion);
+        Assert.True(snapshot.Version > 0);
+        Assert.Equal(TimeSpan.Zero, snapshot.ServerUtcNow.Offset);
+    }
+
+    [Fact]
+    public async Task TeamReconnect_AfterSessionCancelled_SnapshotReflectsCancelledState()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Cancel reconnect kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "RCCN2345");
+
+        var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým Cancel Reconnect"));
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+        var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
+
+        using var cancelMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/cancel");
+        cancelMessage.Content = JsonContent.Create(new CancelSessionRequest(true));
+        cancelMessage.Headers.Add("X-Quiz-Password", "heslo");
+        using var cancelResponse = await client.SendAsync(cancelMessage);
+        Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
+
+        using var snapshotMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{session.SessionId}/state?teamId={joinPayload!.TeamId}");
+        snapshotMessage.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+        using var snapshotResponse = await client.SendAsync(snapshotMessage);
+        Assert.Equal(HttpStatusCode.OK, snapshotResponse.StatusCode);
+
+        var snapshot = await snapshotResponse.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+        Assert.NotNull(snapshot);
+        Assert.Equal(SessionStatus.Cancelled, snapshot!.Status);
+    }
+
+    [Fact]
+    public async Task SubmitAnswer_WithClientRequestId_IdempotentRetryViaHttp()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Idempotent kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "IDMP2345");
+
+        var joinResponse = await client.PostAsJsonAsync("/api/sessions/join", new JoinSessionRequest(session.JoinCode, "Tým Idempotent"));
+        Assert.Equal(HttpStatusCode.OK, joinResponse.StatusCode);
+        var joinPayload = await joinResponse.Content.ReadFromJsonAsync<JoinSessionResponse>();
+
+        using var startMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/start");
+        startMessage.Headers.Add("X-Quiz-Password", "heslo");
+        using var startResponse = await client.SendAsync(startMessage);
+        Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
+
+        using var snapshotMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{session.SessionId}/state?teamId={joinPayload!.TeamId}");
+        snapshotMessage.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+        using var snapshotResponse = await client.SendAsync(snapshotMessage);
+        var snapshot = await snapshotResponse.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+        Assert.NotNull(snapshot?.CurrentQuestion);
+
+        var clientRequestId = Guid.NewGuid();
+
+        using var submit1 = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/answers");
+        submit1.Content = JsonContent.Create(new SubmitAnswerRequest(joinPayload.TeamId, snapshot!.CurrentQuestion!.QuestionId, OptionKey.B, null, clientRequestId));
+        submit1.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+        using var submit1Response = await client.SendAsync(submit1);
+        Assert.Equal(HttpStatusCode.OK, submit1Response.StatusCode);
+
+        using var submit2 = new HttpRequestMessage(HttpMethod.Post, $"/api/sessions/{session.SessionId}/answers");
+        submit2.Content = JsonContent.Create(new SubmitAnswerRequest(joinPayload.TeamId, snapshot.CurrentQuestion.QuestionId, OptionKey.B, null, clientRequestId));
+        submit2.Headers.Add("X-Team-Reconnect-Token", joinPayload.TeamReconnectToken);
+        using var submit2Response = await client.SendAsync(submit2);
+        Assert.Equal(HttpStatusCode.OK, submit2Response.StatusCode);
+
+        var submit2Payload = await submit2Response.Content.ReadFromJsonAsync<SubmitAnswerResponse>();
+        Assert.NotNull(submit2Payload);
+        Assert.Equal(clientRequestId, submit2Payload!.ClientRequestId);
+    }
+
+    [Fact]
+    public async Task OrganizerSnapshot_ContainsVersionAndServerUtcNow()
+    {
+        await using var factory = new QuizAppApiFactory();
+        using var client = factory.CreateClient();
+
+        var quiz = await CreateQuizAsync(client, "Version kvíz", "heslo");
+        await ImportSingleQuestionAsync(client, quiz.QuizId, "heslo");
+        var session = await CreateSessionAsync(client, quiz.QuizId, "heslo", "VRSN2345");
+
+        using var snapshotMessage = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{session.SessionId}");
+        snapshotMessage.Headers.Add("X-Quiz-Password", "heslo");
+        using var snapshotResponse = await client.SendAsync(snapshotMessage);
+        Assert.Equal(HttpStatusCode.OK, snapshotResponse.StatusCode);
+
+        var snapshot = await snapshotResponse.Content.ReadFromJsonAsync<OrganizerSessionSnapshotResponse>();
+        Assert.NotNull(snapshot);
+        Assert.True(snapshot!.Version > 0);
+        Assert.Equal(TimeSpan.Zero, snapshot.ServerUtcNow.Offset);
+    }
+
     private static async Task<CreateQuizResponse> CreateQuizAsync(HttpClient client, string name, string password)
     {
         var createResponse = await client.PostAsJsonAsync("/api/quizzes", new CreateQuizRequest(name, password));

@@ -35,9 +35,13 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R08 — Přesné časování při reconnectu: drift korekce hodin klienta vs. serveru (`_serverClockDrift`), lokální deadline guard v `CanSubmitAnswer`, jasná hláška "odpověď již nelze odeslat" v `TeamQuestion`; stejná korekce v `OrganizerWaitingRoom`.
+- R09 — Testy odolnosti na výpadky: 11 nových unit testů + 8 API integračních testů + 10 manuálních E2E scénářů; opravena kořenová příčina nestability testů (`QuizStartLocked` blokoval i autorizovaného organizátora). Všech 124 testů prochází.
 
 ## Aktuální poznámky
+- Reconnect hardening R09: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` opravena metoda `CreateSessionAsync` — autorizovaný organizátor (platný token/heslo) smí vytvořit session i při `IsStartAllowedForEveryone = false`; `QuizStartLocked` nyní blokuje jen neautorizované volání.
+- Reconnect hardening R09: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 11 unit testů pokrývajících snapshot verze, deduplikaci `ClientRequestId`, reconnect state machine, presence přechody a celý reconnect cyklus.
+- Reconnect hardening R09: v `QuizApp.Tests/ApiIntegrationTests.cs` přibylo 8 API integračních testů pokrývajících heartbeat endpointy, team reconnect po startu/cancelu, idempotentní HTTP submit a organizátor snapshot metadata.
+- Reconnect hardening R09: vytvořen `.github/context/12-reconnect-e2e-smoke-tests.md` s 10 manuálními E2E scénáři.
 - Reconnect hardening R07: `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` rozšiřuje `StoredOrganizerQuiz` o `ActiveSessionId` a novou metodu `SaveActiveSessionAsync`.
 - Reconnect hardening R07: `QuizApp.Client/Pages/OrganizerQuizDetail.razor` načítá `activeSessionId` z localStorage a zobrazuje banner „Obnovit řízení session" s přímým odkazem na `OrganizerWaitingRoom`; po vytvoření session uloží `SessionId`.
 - Reconnect hardening R07: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` po každém snapshotu v terminálním stavu maže `ActiveSessionId` ze store přes `ClearStoredSessionIfTerminalAsync`.
@@ -235,7 +239,7 @@ Po každém kroku jej aktualizuj.
   - Po reconnectu vždy přepočítat zbývající čas z nového snapshotu, ne z lokálního timeru.
   - Jasně zobrazit stav po deadline („odpověď už nelze odeslat“), i když klient byl offline.
 
-- [ ] R09 — Testy odolnosti na výpadky (unit + integrační + E2E scénáře)
+- [x] R09 — Testy odolnosti na výpadky (unit + integrační + E2E scénáře)
   - Unit testy: deduplikace `ClientRequestId`, stale snapshot guard, reconnect state machine.
   - API integrační testy: submit během timeout boundary, reconnect po `question.changed`, fallback poll.
   - E2E smoke scénáře: vypnutí sítě, obnovení po 5/30/90 s, reload tabu, více týmů v jednom browseru.
@@ -251,10 +255,10 @@ Po každém kroku jej aktualizuj.
   - Zapsat finální ověření do `context/08-implementation-state.md` po dokončení každého kroku R01–R10.
 
 ## Rizika / dluh
-- Test suite je aktuálně nestabilní mimo scope kroku R01 (`run_tests`, `Project=QuizApp.Tests`: 47/99 passed, 52 failed; opakující se selhání navázaná na flow vytvoření session vracející `QuizStartLocked`).
+- Test suite stabilní: 124/124 testů prochází. Pre-existující nestabilita `QuizStartLocked` vyřešena v R09 (oprava autorizační logiky v `CreateSessionAsync`).
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`) — po R08
-- Testy: 53/106 passed (stav konzistentní s před-R08; pre-existující selhání mimo scope)
+- Build: úspěšný (`run_build`) — po R09
+- Testy: 124/124 passed (`run_tests`, `Project=QuizApp.Tests`) — po R09
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)
