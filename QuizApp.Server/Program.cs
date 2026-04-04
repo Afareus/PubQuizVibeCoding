@@ -34,6 +34,7 @@ builder.Services.AddScoped<IQuizCsvParser, QuizCsvParser>();
 builder.Services.AddScoped<IQuizManagementService, QuizManagementService>();
 builder.Services.AddScoped<ISessionParticipationService, SessionParticipationService>();
 builder.Services.AddSingleton<ISessionRealtimePublisher, SessionRealtimePublisher>();
+builder.Services.AddSingleton<IReconnectMetrics, ReconnectMetrics>();
 builder.Services.AddHostedService<SessionProgressionBackgroundService>();
 
 builder.Services.AddSignalR(options =>
@@ -168,6 +169,7 @@ app.MapHealthChecks("/health");
 app.MapQuizManagementEndpoints();
 app.MapSessionParticipationEndpoints();
 app.MapHub<SessionHub>("/hubs/sessions");
+app.MapDiagnosticsEndpoints();
 
 app.Run();
 

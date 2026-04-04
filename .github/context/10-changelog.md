@@ -495,3 +495,15 @@ Pro každý dokončený krok přidej záznam ve formátu:
   - `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`
   - `HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`
   - `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`
+
+## R10 — Provozní observabilita reconnectu
+- Vytvořen `QuizApp.Server/Application/Sessions/ReconnectMetrics.cs` — in-memory singleton s thread-safe čítači (`TeamReconnectCount`, `OrganizerReconnectCount`, `SnapshotServedCount`, `DuplicateSubmitRetryCount`, `FailedResyncCount`), sledováním resync doby a kruhovou frontou posledních 200 `ReconnectEvent`.
+- Vytvořen `QuizApp.Server/Application/Sessions/DiagnosticsEndpoints.cs` — REST endpointy `GET /api/diagnostics/reconnect-metrics` a `POST /api/diagnostics/reconnect-metrics/reset`.
+- V `SessionParticipationService` doplněn `IReconnectMetrics` a `ILogger`; instrumentace v 6 bodech: team reconnect, failed resync, snapshot served, resync duration, duplicate submit retry, organizer reconnect.
+- V `SessionHub` doplněn `ILogger` s logy pro subscribe/unsubscribe/connect/disconnect.
+- V `SessionRealtimePublisher` doplněn `ILogger` s debug logem před každým publish eventem.
+- V `SessionProgressionBackgroundService` doplněn `ILogger`, try/catch s error logováním a info logy pro start/stop.
+- V `Program.cs` registrován `IReconnectMetrics` jako singleton a namapovány diagnostické endpointy.
+- V `SessionParticipationServiceTests.cs` aktualizován helper o `new ReconnectMetrics()` a `NullLogger`.
+- Doporučené alert prahy dokumentovány v XML komentářích.
+- Ověřeno: build OK, 124/124 testů prochází.

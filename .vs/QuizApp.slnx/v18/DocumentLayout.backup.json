@@ -100,6 +100,22 @@
     {
       "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\quizzes\\quizmanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\quizzes\\quizmanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\sessions\\reconnectmetrics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\sessions\\reconnectmetrics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\sessions\\sessionrealtimepublisher.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\sessions\\sessionrealtimepublisher.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\sessions\\sessionprogressionbackgroundservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\sessions\\sessionprogressionbackgroundservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\sessions\\diagnosticsendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\sessions\\diagnosticsendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -213,7 +229,7 @@
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionHub.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionHub.cs",
               "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\SessionHub.cs",
-              "ViewState": "AgIAAAUAAAAAAAAAAIBQwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAsAAAAAAAAAAIBQwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-03T20:07:41.715Z",
               "EditorCaption": ""
@@ -226,9 +242,61 @@
               "RelativeDocumentMoniker": ".github\\context\\08-implementation-state.md",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\08-implementation-state.md",
               "RelativeToolTip": ".github\\context\\08-implementation-state.md",
-              "ViewState": "AgIAAOEAAAAAAAAAAAAUwOcAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAOQAAAAAAAAAAAAUwPIAAABdAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-04-02T17:37:22.246Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 28,
+              "Title": "DiagnosticsEndpoints.cs",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\DiagnosticsEndpoints.cs",
+              "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\DiagnosticsEndpoints.cs",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\DiagnosticsEndpoints.cs",
+              "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\DiagnosticsEndpoints.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-04T07:51:51.886Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 27,
+              "Title": "SessionProgressionBackgroundService.cs",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionProgressionBackgroundService.cs",
+              "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionProgressionBackgroundService.cs",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionProgressionBackgroundService.cs",
+              "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\SessionProgressionBackgroundService.cs",
+              "ViewState": "AgIAAAkAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-04T07:28:34.205Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 26,
+              "Title": "SessionRealtimePublisher.cs",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionRealtimePublisher.cs",
+              "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionRealtimePublisher.cs",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionRealtimePublisher.cs",
+              "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\SessionRealtimePublisher.cs",
+              "ViewState": "AgIAAAwAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-04T07:28:24.389Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 25,
+              "Title": "ReconnectMetrics.cs",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\ReconnectMetrics.cs",
+              "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\ReconnectMetrics.cs",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\ReconnectMetrics.cs",
+              "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\ReconnectMetrics.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAIgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-04T07:25:08.956Z",
               "EditorCaption": ""
             },
             {
@@ -278,7 +346,7 @@
               "RelativeDocumentMoniker": "QuizApp.Tests\\SessionParticipationServiceTests.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\SessionParticipationServiceTests.cs",
               "RelativeToolTip": "QuizApp.Tests\\SessionParticipationServiceTests.cs",
-              "ViewState": "AgIAAAkHAAAAAAAAAIBQwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-03T19:31:45.52Z",
               "EditorCaption": ""
@@ -291,7 +359,7 @@
               "RelativeDocumentMoniker": "QuizApp.Server\\Program.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Program.cs",
               "RelativeToolTip": "QuizApp.Server\\Program.cs",
-              "ViewState": "AgIAAIAAAAAAAAAAAABRwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACMAAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-03T19:30:56.121Z",
               "EditorCaption": ""
@@ -317,7 +385,7 @@
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionParticipationService.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionParticipationService.cs",
               "RelativeToolTip": "QuizApp.Server\\Application\\Sessions\\SessionParticipationService.cs",
-              "ViewState": "AgIAADwAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAIgCAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-03T19:30:03.306Z",
               "EditorCaption": ""
@@ -408,7 +476,7 @@
               "RelativeDocumentMoniker": ".github\\context\\10-changelog.md",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\10-changelog.md",
               "RelativeToolTip": ".github\\context\\10-changelog.md",
-              "ViewState": "AgIAABgAAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAABcAAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-04-02T22:19:22.928Z",
               "EditorCaption": ""
@@ -421,7 +489,7 @@
               "RelativeDocumentMoniker": ".github\\context\\09-decision-log.md",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\09-decision-log.md",
               "RelativeToolTip": ".github\\context\\09-decision-log.md",
-              "ViewState": "AgIAAB8CAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAC8AAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
               "WhenOpened": "2026-04-02T17:37:32.39Z",
               "EditorCaption": ""

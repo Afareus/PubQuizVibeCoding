@@ -66,11 +66,19 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
     private readonly QuizAppDbContext _dbContext;
     private readonly ISessionRealtimePublisher _sessionRealtimePublisher;
+    private readonly IReconnectMetrics _reconnectMetrics;
+    private readonly ILogger<SessionParticipationService> _logger;
 
-    public SessionParticipationService(QuizAppDbContext dbContext, ISessionRealtimePublisher sessionRealtimePublisher)
+    public SessionParticipationService(
+        QuizAppDbContext dbContext,
+        ISessionRealtimePublisher sessionRealtimePublisher,
+        IReconnectMetrics reconnectMetrics,
+        ILogger<SessionParticipationService> logger)
     {
         _dbContext = dbContext;
         _sessionRealtimePublisher = sessionRealtimePublisher;
+        _reconnectMetrics = reconnectMetrics;
+        _logger = logger;
     }
 
     public async Task<int> TerminateNonTerminalSessionsAsync(CancellationToken cancellationToken)
@@ -245,9 +253,13 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         if (!VerifyTeamReconnectToken(teamReconnectToken, team.TeamReconnectTokenHash))
         {
+            _reconnectMetrics.RecordFailedResync(sessionId, "InvalidTeamReconnectToken");
+            _logger.LogWarning("Failed team resync: invalid reconnect token. SessionId={SessionId}, TeamId={TeamId}",
+                sessionId, teamId);
             return SessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.InvalidAuthToken, "Neplatný team reconnect token."));
         }
 
+        var resyncStopwatch = System.Diagnostics.Stopwatch.StartNew();
         var nowUtc = DateTime.UtcNow;
         var wasDisconnected = team.Status == TeamStatus.Disconnected;
         team.MarkSeen(nowUtc);
@@ -261,6 +273,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 session.QuizId,
                 session.SessionId,
                 JsonSerializer.Serialize(new TeamPresenceAuditPayload(team.TeamId, team.Name, ParticipantPresenceStatus.Connected))));
+
+            _reconnectMetrics.RecordTeamReconnect(sessionId, teamId);
+            _logger.LogInformation("Team reconnected after disconnect. SessionId={SessionId}, TeamId={TeamId}, TeamName={TeamName}",
+                sessionId, teamId, team.Name);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -307,6 +323,12 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 .ToList(),
             resultsPublished,
             isCurrentQuestionAnsweringClosed);
+
+        resyncStopwatch.Stop();
+        _reconnectMetrics.RecordSnapshotServed(sessionId, "Team");
+        _reconnectMetrics.RecordResyncDuration(sessionId, resyncStopwatch.ElapsedMilliseconds);
+        _logger.LogDebug("Team snapshot served. SessionId={SessionId}, TeamId={TeamId}, SnapshotVersion={SnapshotVersion}, ResyncMs={ResyncMs}",
+            sessionId, teamId, snapshotVersion, resyncStopwatch.ElapsedMilliseconds);
 
         return SessionStateOperationResult.Success(response);
     }
@@ -386,6 +408,9 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
             if (existingResponse is not null)
             {
+                _reconnectMetrics.RecordDuplicateSubmitRetry(sessionId, request.TeamId, request.QuestionId);
+                _logger.LogInformation("Duplicate submit deduplicated via ClientRequestId. SessionId={SessionId}, TeamId={TeamId}, QuestionId={QuestionId}, ClientRequestId={ClientRequestId}",
+                    sessionId, request.TeamId, request.QuestionId, request.ClientRequestId.Value);
                 return SubmitAnswerOperationResult.Success(existingResponse);
             }
         }
@@ -534,6 +559,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
             organizerPresence.Status,
             organizerPresence.LastSeenAtUtc);
 
+        _reconnectMetrics.RecordSnapshotServed(sessionId, "Organizer");
+        _logger.LogDebug("Organizer snapshot served. SessionId={SessionId}, SnapshotVersion={SnapshotVersion}",
+            sessionId, response.Version);
+
         return OrganizerSessionStateOperationResult.Success(response);
     }
 
@@ -577,6 +606,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 session.QuizId,
                 session.SessionId,
                 JsonSerializer.Serialize(new TeamPresenceAuditPayload(team.TeamId, team.Name, ParticipantPresenceStatus.Connected))));
+
+            _reconnectMetrics.RecordTeamReconnect(sessionId, teamId);
+            _logger.LogInformation("Team heartbeat reconnect. SessionId={SessionId}, TeamId={TeamId}, TeamName={TeamName}",
+                sessionId, teamId, team.Name);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -610,6 +643,10 @@ public sealed class SessionParticipationService : ISessionParticipationService
                 session.QuizId,
                 session.SessionId,
                 JsonSerializer.Serialize(new OrganizerPresenceAuditPayload(ParticipantPresenceStatus.Connected))));
+
+            _reconnectMetrics.RecordOrganizerReconnect(sessionId);
+            _logger.LogInformation("Organizer heartbeat reconnect. SessionId={SessionId}, PreviousStatus={PreviousStatus}",
+                sessionId, organizerPresence.Status);
         }
 
         _dbContext.AuditLogs.Add(AuditLog.Create(

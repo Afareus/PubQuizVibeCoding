@@ -35,10 +35,19 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R09 — Testy odolnosti na výpadky: 11 nových unit testů + 8 API integračních testů + 10 manuálních E2E scénářů; opravena kořenová příčina nestability testů (`QuizStartLocked` blokoval i autorizovaného organizátora). Všech 124 testů prochází.
+- R10 — Provozní observabilita reconnectu: vytvořen singleton `ReconnectMetrics` (in-memory čítače reconnect/snapshot/dedup/failed-resync + průměrný resync čas + 200 posledních eventů), diagnostické endpointy `GET/POST /api/diagnostics/reconnect-metrics`, strukturované logy v `SessionParticipationService`, `SessionHub`, `SessionRealtimePublisher` a `SessionProgressionBackgroundService`. Alert prahy dokumentovány v XML komentářích. Build OK, 124/124 testů prochází.
 
 ## Aktuální poznámky
-- Reconnect hardening R09: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` opravena metoda `CreateSessionAsync` — autorizovaný organizátor (platný token/heslo) smí vytvořit session i při `IsStartAllowedForEveryone = false`; `QuizStartLocked` nyní blokuje jen neautorizované volání.
+- Reconnect hardening R10: vytvořen `QuizApp.Server/Application/Sessions/ReconnectMetrics.cs` s rozhraním `IReconnectMetrics` a implementací `ReconnectMetrics` — in-memory singleton s thread-safe čítači (`TeamReconnectCount`, `OrganizerReconnectCount`, `SnapshotServedCount`, `DuplicateSubmitRetryCount`, `FailedResyncCount`), sledováním resync doby a kruhovou frontou posledních 200 `ReconnectEvent`.
+- Reconnect hardening R10: vytvořen `QuizApp.Server/Application/Sessions/DiagnosticsEndpoints.cs` s endpointy `GET /api/diagnostics/reconnect-metrics` (vrací snapshot metrik) a `POST /api/diagnostics/reconnect-metrics/reset` (resetuje čítače).
+- Reconnect hardening R10: v `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` doplněn `IReconnectMetrics` a `ILogger<SessionParticipationService>` do konstruktoru; instrumentace v `GetSessionStateAsync` (team reconnect, failed resync, snapshot served, resync duration), `SubmitAnswerAsync` (duplicate submit retry), `GetOrganizerSessionStateAsync` (snapshot served), `HeartbeatTeamAsync` (team reconnect), `HeartbeatOrganizerAsync` (organizer reconnect).
+- Reconnect hardening R10: v `QuizApp.Server/Application/Sessions/SessionHub.cs` doplněn `ILogger<SessionHub>` s logy pro subscribe/unsubscribe/connect/disconnect s `SessionId` a `ConnectionId`.
+- Reconnect hardening R10: v `QuizApp.Server/Application/Sessions/SessionRealtimePublisher.cs` doplněn `ILogger<SessionRealtimePublisher>` s debug logem před každým publish eventem.
+- Reconnect hardening R10: v `QuizApp.Server/Application/Sessions/SessionProgressionBackgroundService.cs` doplněn `ILogger<SessionProgressionBackgroundService>`, try/catch s error logováním v progression ticku a info logy pro start/stop služby.
+- Reconnect hardening R10: v `QuizApp.Server/Program.cs` registrován `IReconnectMetrics` jako singleton a namapovány diagnostické endpointy.
+- Reconnect hardening R10: v `QuizApp.Tests/SessionParticipationServiceTests.cs` aktualizován test helper `CreateSessionService` o `new ReconnectMetrics()` a `NullLogger<SessionParticipationService>.Instance`.
+- Reconnect hardening R10: doporučené alert prahy dokumentovány v XML komentářích `IReconnectMetrics`: `FailedResyncCount > 50/5min`, `TeamReconnectCount > 200/5min`, `DuplicateSubmitRetryCount > 30/5min`, `AverageResyncDurationMs > 5000`.
+- Reconnect hardening R09
 - Reconnect hardening R09: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 11 unit testů pokrývajících snapshot verze, deduplikaci `ClientRequestId`, reconnect state machine, presence přechody a celý reconnect cyklus.
 - Reconnect hardening R09: v `QuizApp.Tests/ApiIntegrationTests.cs` přibylo 8 API integračních testů pokrývajících heartbeat endpointy, team reconnect po startu/cancelu, idempotentní HTTP submit a organizátor snapshot metadata.
 - Reconnect hardening R09: vytvořen `.github/context/12-reconnect-e2e-smoke-tests.md` s 10 manuálními E2E scénáři.
@@ -244,7 +253,7 @@ Po každém kroku jej aktualizuj.
   - API integrační testy: submit během timeout boundary, reconnect po `question.changed`, fallback poll.
   - E2E smoke scénáře: vypnutí sítě, obnovení po 5/30/90 s, reload tabu, více týmů v jednom browseru.
 
-- [ ] R10 — Provozní observabilita reconnectu
+- [x] R10 — Provozní observabilita reconnectu
   - Přidat metriku: počet reconnect pokusů, průměrný čas resync, neúspěšné resync, duplicitní submit retry.
   - Strukturované logy s `SessionId`, `TeamId`, `ConnectionId`, `SnapshotVersion`.
   - Definovat alert prahy (např. vysoká míra failed reconnect ve 5 min okně).
@@ -258,7 +267,7 @@ Po každém kroku jej aktualizuj.
 - Test suite stabilní: 124/124 testů prochází. Pre-existující nestabilita `QuizStartLocked` vyřešena v R09 (oprava autorizační logiky v `CreateSessionAsync`).
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`) — po R09
-- Testy: 124/124 passed (`run_tests`, `Project=QuizApp.Tests`) — po R09
+- Build: úspěšný (`run_build`) — po R10
+- Testy: 124/124 passed (`run_tests`, `Project=QuizApp.Tests`) — po R10
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

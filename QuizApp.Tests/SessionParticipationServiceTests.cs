@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Security.Cryptography;
 using System.Text;
 using QuizApp.Server.Application.QuizImport;
@@ -1337,7 +1338,11 @@ public class SessionParticipationServiceTests
 
     private static SessionParticipationService CreateSessionService(QuizAppDbContext dbContext, ISessionRealtimePublisher? realtimePublisher = null)
     {
-        return new SessionParticipationService(dbContext, realtimePublisher ?? new FakeSessionRealtimePublisher());
+        return new SessionParticipationService(
+            dbContext,
+            realtimePublisher ?? new FakeSessionRealtimePublisher(),
+            new ReconnectMetrics(),
+            NullLogger<SessionParticipationService>.Instance);
     }
 
     private static QuizAppDbContext CreateDbContext()
