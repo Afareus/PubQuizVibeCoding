@@ -15,6 +15,28 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
+## R11 — Release hardening checklist pro reconnect
+- Aktualizován `.github/context/11-release-checklist.md`:
+  - Přidána **sekce 6 — Reconnect hardening test matrix**: tabulka 6 platforem (Windows Chrome/Firefox/Edge, macOS Safari, Android Chrome, iOS Safari), 7 síťových podmínek (výpadek 5/30/90+ s, Slow 3G, Fast 3G, tab sleep, reload) a 9 kritických scénářů (reconnect tým/organizátor, submit s výpadkem, session zrušena offline, více týmů, deadline drift, fallback poll).
+  - Přidána **sekce 6.3 — Ověření R01–R10**: tabulka s build/test statusem pro každý krok (R01–R11 all ✅).
+  - Přidána **sekce 7 — Rollback plán**: 3 eskalační úrovně (zvýšený monitoring → fallback REST-only → rollback deployment), detekce přes diagnostický endpoint `GET /api/diagnostics/reconnect-metrics` s definovanými alert prahy, bezpečnostní záruky (server-authoritative model, klientský fallback poll, `ClientRequestId` deduplikace, presence bez vlivu na skóre).
+- Aktualizován `.github/context/08-implementation-state.md`: R11 označen `[x]`, doplněna R11 poznámka, aktualizovány timestamps ověření.
+- Aktualizován `.github/context/09-decision-log.md`: přidán záznam D-203 (struktura test matrice a rollback plánu).
+- Ověřeno: `run_build` úspěšný; 124/124 testů prošlo.
+- Celý reconnect hardening backlog R01–R11 je nyní dokončen.
+
+## R10 — Provozní observabilita reconnectu
+- Vytvořen `QuizApp.Server/Application/Sessions/ReconnectMetrics.cs` — in-memory singleton s thread-safe čítači (`TeamReconnectCount`, `OrganizerReconnectCount`, `SnapshotServedCount`, `DuplicateSubmitRetryCount`, `FailedResyncCount`), sledováním resync doby a kruhovou frontou posledních 200 `ReconnectEvent`.
+- Vytvořen `QuizApp.Server/Application/Sessions/DiagnosticsEndpoints.cs` — REST endpointy `GET /api/diagnostics/reconnect-metrics` a `POST /api/diagnostics/reconnect-metrics/reset`.
+- V `SessionParticipationService` doplněn `IReconnectMetrics` a `ILogger`; instrumentace v 6 bodech: team reconnect, failed resync, snapshot served, resync duration, duplicate submit retry, organizer reconnect.
+- V `SessionHub` doplněn `ILogger` s logy pro subscribe/unsubscribe/connect/disconnect.
+- V `SessionRealtimePublisher` doplněn `ILogger` s debug logem před každým publish eventem.
+- V `SessionProgressionBackgroundService` doplněn `ILogger`, try/catch s error logováním a info logy pro start/stop.
+- V `Program.cs` registrován `IReconnectMetrics` jako singleton a namapovány diagnostické endpointy.
+- V `SessionParticipationServiceTests.cs` aktualizován helper o `new ReconnectMetrics()` a `NullLogger`.
+- Doporučené alert prahy dokumentovány v XML komentářích.
+- Ověřeno: build OK, 124/124 testů prochází.
+
 ## R09 — Testy odolnosti na výpadky + oprava QuizStartLocked
 - **Root cause fix**: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` metoda `CreateSessionAsync` kontrolovala `IsStartAllowedForEveryone` (defaultně `false`) bez ohledu na autorizaci organizátora. Opraveno: autorizovaný organizátor (platný `X-Organizer-Token` nebo `X-Quiz-Password`) může vytvořit session i při `IsStartAllowedForEveryone = false`; flag nyní blokuje pouze neautorizované spuštění.
 - V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 11 R09 unit testů: monotónní verze snapshotu (tým + organizátor), deduplikace s jiným `ClientRequestId`, snapshot po startu/progresi/cancelu session, submit po cancelu, presence status přechody (`Connected`/`TemporarilyDisconnected`/`Inactive`), heartbeat reconnect audit, plný reconnect cyklus (`Waiting→Running→Finished`).
@@ -495,15 +517,3 @@ Pro každý dokončený krok přidej záznam ve formátu:
   - `GetOrganizerSessionStateAsync_ValidToken_ReturnsSnapshotVersionMetadata`
   - `HeartbeatOrganizerAsync_ValidAuth_WritesHeartbeatAudit`
   - `GetOrganizerSessionStateAsync_StaleOrganizer_WritesSingleDisconnectedAudit`
-
-## R10 — Provozní observabilita reconnectu
-- Vytvořen `QuizApp.Server/Application/Sessions/ReconnectMetrics.cs` — in-memory singleton s thread-safe čítači (`TeamReconnectCount`, `OrganizerReconnectCount`, `SnapshotServedCount`, `DuplicateSubmitRetryCount`, `FailedResyncCount`), sledováním resync doby a kruhovou frontou posledních 200 `ReconnectEvent`.
-- Vytvořen `QuizApp.Server/Application/Sessions/DiagnosticsEndpoints.cs` — REST endpointy `GET /api/diagnostics/reconnect-metrics` a `POST /api/diagnostics/reconnect-metrics/reset`.
-- V `SessionParticipationService` doplněn `IReconnectMetrics` a `ILogger`; instrumentace v 6 bodech: team reconnect, failed resync, snapshot served, resync duration, duplicate submit retry, organizer reconnect.
-- V `SessionHub` doplněn `ILogger` s logy pro subscribe/unsubscribe/connect/disconnect.
-- V `SessionRealtimePublisher` doplněn `ILogger` s debug logem před každým publish eventem.
-- V `SessionProgressionBackgroundService` doplněn `ILogger`, try/catch s error logováním a info logy pro start/stop.
-- V `Program.cs` registrován `IReconnectMetrics` jako singleton a namapovány diagnostické endpointy.
-- V `SessionParticipationServiceTests.cs` aktualizován helper o `new ReconnectMetrics()` a `NullLogger`.
-- Doporučené alert prahy dokumentovány v XML komentářích.
-- Ověřeno: build OK, 124/124 testů prochází.

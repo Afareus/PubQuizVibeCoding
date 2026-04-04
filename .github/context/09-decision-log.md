@@ -39,6 +39,13 @@ Každý záznam má mít:
 ## Další záznamy
 Sem přidávej další rozhodnutí průběžně.
 
+### D-203 — R11 release hardening checklist struktura
+- **Datum/čas (UTC):** 2026-04-04T00:00:00Z
+- **Krok:** R11
+- **Rozhodnutí:** Reconnect test matrix v release checklistu je strukturována jako kombinace platforem (6) × síťových podmínek (7) × kritických scénářů (9), nikoli jako plochý seznam. Rollback plán má 3 eskalační úrovně (monitoring → fallback REST-only → rollback deployment).
+- **Důvod:** Kombinatorická matrice zajistí systematické pokrytí bez opomenutí edge-case kombinací (např. mobilní Safari + tab sleep + submit retry). Eskalační úrovně umožňují graduální reakci bez nutnosti okamžitého rollbacku.
+- **Dopad:** Manuální QA má jasný checklist pro ověření reconnect odolnosti; operations má definovaný postup pro produkční incidenty v realtime vrstvě.
+
 ### D-202 — R09 oprava QuizStartLocked: autorizovaný organizátor obchází flag
 - **Datum/čas (UTC):** 2026-04-04T00:00:00Z
 - **Krok:** R09

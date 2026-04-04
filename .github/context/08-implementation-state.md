@@ -35,10 +35,12 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R10 — Provozní observabilita reconnectu: vytvořen singleton `ReconnectMetrics` (in-memory čítače reconnect/snapshot/dedup/failed-resync + průměrný resync čas + 200 posledních eventů), diagnostické endpointy `GET/POST /api/diagnostics/reconnect-metrics`, strukturované logy v `SessionParticipationService`, `SessionHub`, `SessionRealtimePublisher` a `SessionProgressionBackgroundService`. Alert prahy dokumentovány v XML komentářích. Build OK, 124/124 testů prochází.
+- R11 — Release hardening checklist pro reconnect: aktualizován `.github/context/11-release-checklist.md` o reconnect test matrix (6 platforem × 7 síťových podmínek × 9 kritických scénářů), rollback plán pro realtime vrstvu (3 eskalační úrovně + bezpečnostní záruky) a tabulku finálního ověření kroků R01–R10. Build OK, 124/124 testů prochází.
 
 ## Aktuální poznámky
-- Reconnect hardening R10: vytvořen `QuizApp.Server/Application/Sessions/ReconnectMetrics.cs` s rozhraním `IReconnectMetrics` a implementací `ReconnectMetrics` — in-memory singleton s thread-safe čítači (`TeamReconnectCount`, `OrganizerReconnectCount`, `SnapshotServedCount`, `DuplicateSubmitRetryCount`, `FailedResyncCount`), sledováním resync doby a kruhovou frontou posledních 200 `ReconnectEvent`.
+- Reconnect hardening R11: aktualizován `.github/context/11-release-checklist.md` — přidána sekce 6 (reconnect test matrix: 6 platforem, 7 síťových podmínek, 9 kritických scénářů), sekce 6.3 (tabulka finálního ověření R01–R10) a sekce 7 (rollback plán pro realtime vrstvu s 3 eskalačními úrovněmi a bezpečnostními zárukami).
+- Reconnect hardening R11: celý backlog R01–R11 je dokončen. Zbývá pouze manuální E2E ověření v reálném prostředí dle smoke test matrice.
+- Reconnect hardening R10: vytvořen `QuizApp.Server/Application/Sessions/ReconnectMetrics.cs`
 - Reconnect hardening R10: vytvořen `QuizApp.Server/Application/Sessions/DiagnosticsEndpoints.cs` s endpointy `GET /api/diagnostics/reconnect-metrics` (vrací snapshot metrik) a `POST /api/diagnostics/reconnect-metrics/reset` (resetuje čítače).
 - Reconnect hardening R10: v `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` doplněn `IReconnectMetrics` a `ILogger<SessionParticipationService>` do konstruktoru; instrumentace v `GetSessionStateAsync` (team reconnect, failed resync, snapshot served, resync duration), `SubmitAnswerAsync` (duplicate submit retry), `GetOrganizerSessionStateAsync` (snapshot served), `HeartbeatTeamAsync` (team reconnect), `HeartbeatOrganizerAsync` (organizer reconnect).
 - Reconnect hardening R10: v `QuizApp.Server/Application/Sessions/SessionHub.cs` doplněn `ILogger<SessionHub>` s logy pro subscribe/unsubscribe/connect/disconnect s `SessionId` a `ConnectionId`.
@@ -258,16 +260,17 @@ Po každém kroku jej aktualizuj.
   - Strukturované logy s `SessionId`, `TeamId`, `ConnectionId`, `SnapshotVersion`.
   - Definovat alert prahy (např. vysoká míra failed reconnect ve 5 min okně).
 
-- [ ] R11 — Release hardening checklist pro reconnect
+- [x] R11 — Release hardening checklist pro reconnect
   - Aktualizovat `.github/context/11-release-checklist.md` o reconnect test matrix (desktop/mobile, throttling, tab sleep).
   - Přidat rollback plán pro případ regresí v realtime vrstvě.
   - Zapsat finální ověření do `context/08-implementation-state.md` po dokončení každého kroku R01–R10.
 
 ## Rizika / dluh
 - Test suite stabilní: 124/124 testů prochází. Pre-existující nestabilita `QuizStartLocked` vyřešena v R09 (oprava autorizační logiky v `CreateSessionAsync`).
+- Reconnect hardening backlog R01–R11 kompletní. Zbývá manuální E2E smoke test v reálném browser/SignalR prostředí dle matrice v `11-release-checklist.md`.
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`) — po R10
-- Testy: 124/124 passed (`run_tests`, `Project=QuizApp.Tests`) — po R10
+- Build: úspěšný (`run_build`) — po R11
+- Testy: 124/124 passed (`run_tests`, `Project=QuizApp.Tests`) — po R11
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)
