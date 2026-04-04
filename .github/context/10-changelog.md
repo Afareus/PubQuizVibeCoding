@@ -15,7 +15,15 @@ Pro každý dokončený krok přidej záznam ve formátu:
 
 ## Záznamy
 
-## R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků
+## R08 — Přesné časování při reconnectu (deadline-safe UX)
+- `QuizApp.Client/Pages/TeamQuestion.razor`: přidáno pole `_serverClockDrift` (TimeSpan); drift se kalkuluje z rozdílu `DateTimeOffset.UtcNow - snapshot.ServerUtcNow` v `TryApplySnapshot`, takže každý nový snapshot koriguje hodinový posun klienta vůči serveru.
+- `QuizApp.Client/Pages/TeamQuestion.razor`: metoda `UpdateRemainingSeconds` nyní počítá zbývající čas jako `QuestionDeadlineUtc - (UtcNow - drift)` namísto prostého `QuestionDeadlineUtc - UtcNow`.
+- `QuizApp.Client/Pages/TeamQuestion.razor`: vlastnost `CanSubmitAnswer` doplněna o lokální deadline guard `(!QuestionDeadlineUtc.HasValue || remainingSeconds > 0)` — tlačítka submitu se deaktivují ihned po uplynutí lokálního odpočtu, i když server ještě nedodal nový snapshot.
+- `QuizApp.Client/Pages/TeamQuestion.razor`: text "⏱ Čas vypršel" rozšířen na "⏱ Čas vypršel – odpověď již nelze odeslat." — jasná zpráva viditelná i při offline stavu klienta.
+- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`: stejná drift korekce zavedena pro odpočet na organizátorské obrazovce (pole `_serverClockDrift`, update v `TryApplySnapshot`, korekce v `UpdateRemainingSeconds`).
+- Ověřeno: `run_build` úspěšný; testy 53/106 passed (stav beze změny, pre-existující selhání mimo scope R08).
+
+
 - V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` byl záznam `StoredOrganizerQuiz` rozšířen o volitelné `ActiveSessionId`; přibyla metoda `SaveActiveSessionAsync(Guid quizId, Guid? sessionId)` pro uložení/vymazání aktivní session.
 - `QuizApp.Client/Pages/OrganizerQuizDetail.razor`: metoda `LoadStoredTokenAsync` nově načítá i `activeSessionId` z localStorage; po úspěšném vytvoření session se volá `SaveActiveSessionAsync` se skutečným `SessionId`; přibyl informační banner „Pro tento kvíz je uložená aktivní session" s odkazem „Obnovit řízení session" na `/organizator/session/cekarna/{sessionId}?quizId={quizId}`.
 - `QuizApp.Client/Pages/OrganizerWaitingRoom.razor`: po každém úspěšném načtení snapshotu (v `LoadSnapshotAsync` i `ReloadSnapshotFromRealtimeAsync`) se volá `ClearStoredSessionIfTerminalAsync`, která při stavu `Finished` nebo `Cancelled` vymaže `ActiveSessionId` ze store, aby banner v detailu kvízu zmizel po ukončení session.

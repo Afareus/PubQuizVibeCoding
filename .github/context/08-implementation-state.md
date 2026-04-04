@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- R07 — Organizer flow: návrat do aktivní session bez manuálních mezikroků (`ActiveSessionId` v `StoredOrganizerQuiz`, `SaveActiveSessionAsync`, banner v `OrganizerQuizDetail`, mazání ze store při terminálním stavu v `OrganizerWaitingRoom`).
+- R08 — Přesné časování při reconnectu: drift korekce hodin klienta vs. serveru (`_serverClockDrift`), lokální deadline guard v `CanSubmitAnswer`, jasná hláška "odpověď již nelze odeslat" v `TeamQuestion`; stejná korekce v `OrganizerWaitingRoom`.
 
 ## Aktuální poznámky
 - Reconnect hardening R07: `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` rozšiřuje `StoredOrganizerQuiz` o `ActiveSessionId` a novou metodu `SaveActiveSessionAsync`.
@@ -230,7 +230,7 @@ Po každém kroku jej aktualizuj.
   - `OrganizerWaitingRoom` musí po reconnectu obnovit snapshot + realtime subscription automaticky.
   - Akce `Start/Cancel` chránit proti double-click/retry (idempotence + disabled state během in-flight requestu).
 
-- [ ] R08 — Přesné časování při reconnectu (deadline-safe UX)
+- [x] R08 — Přesné časování při reconnectu (deadline-safe UX)
   - V UI odpočtu používat serverové hodnoty (`QuestionDeadlineUtc`, `ServerUtcNow`) a klientský drift korigovat.
   - Po reconnectu vždy přepočítat zbývající čas z nového snapshotu, ne z lokálního timeru.
   - Jasně zobrazit stav po deadline („odpověď už nelze odeslat“), i když klient byl offline.
@@ -254,7 +254,7 @@ Po každém kroku jej aktualizuj.
 - Test suite je aktuálně nestabilní mimo scope kroku R01 (`run_tests`, `Project=QuizApp.Tests`: 47/99 passed, 52 failed; opakující se selhání navázaná na flow vytvoření session vracející `QuizStartLocked`).
 
 ## Poslední ověření
-- Build: úspěšný (`run_build`) — po R07
-- Testy: cílený test R05
+- Build: úspěšný (`run_build`) — po R08
+- Testy: 53/106 passed (stav konzistentní s před-R08; pre-existující selhání mimo scope)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

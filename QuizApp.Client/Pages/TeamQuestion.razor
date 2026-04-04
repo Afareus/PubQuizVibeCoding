@@ -84,7 +84,7 @@ else
                 }
                 else
                 {
-                    <p class="mb-0 fs-4 text-danger"><strong>⏱ Čas vypršel</strong></p>
+                    <p class="mb-0 fs-4 text-danger"><strong>⏱ Čas vypršel</strong> – odpověď již nelze odeslat.</p>
                 }
             }
         </div>
@@ -160,6 +160,7 @@ else
     private System.Threading.Timer? fallbackPollTimer;
     private System.Threading.Timer? pendingSubmitRetryTimer;
     private int remainingSeconds;
+    private TimeSpan _serverClockDrift;
     private bool isHeartbeatInFlight;
     private bool isFallbackPolling;
     private bool isFallbackPollInFlight;
@@ -171,6 +172,7 @@ else
 
     private bool CanSubmitAnswer => snapshot?.Status == SessionStatus.Running
         && !snapshot.IsCurrentQuestionAnsweringClosed
+        && (!snapshot.QuestionDeadlineUtc.HasValue || remainingSeconds > 0)
         && !submittedOption.HasValue
         && !submittedNumericValue.HasValue
         && pendingSubmit is null;
@@ -546,7 +548,8 @@ else
             return;
         }
 
-        var diff = snapshot.QuestionDeadlineUtc.Value - DateTimeOffset.UtcNow;
+        var correctedNow = DateTimeOffset.UtcNow - _serverClockDrift;
+        var diff = snapshot.QuestionDeadlineUtc.Value - correctedNow;
         remainingSeconds = Math.Max(0, (int)Math.Ceiling(diff.TotalSeconds));
     }
 
@@ -726,6 +729,7 @@ else
             return false;
         }
 
+        _serverClockDrift = DateTimeOffset.UtcNow - incomingSnapshot.ServerUtcNow;
         snapshot = incomingSnapshot;
         return true;
     }

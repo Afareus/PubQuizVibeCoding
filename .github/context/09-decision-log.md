@@ -536,3 +536,10 @@ Sem přidávej další rozhodnutí průběžně.
 - **Rozhodnutí:** SignalR subscribe metoda `SubscribeToSessionAsync` vrací explicitní potvrzení (`bool`) a klient považuje realtime za obnovené až po úspěšném ack; při výpadku/reconnectu klientské stránky přechází do fallback `REST` poll režimu s intervalem 3 s a po obnovení hubu se vrací zpět na realtime.
 - **Důvod:** Backlog R04 vyžaduje deterministické potvrzení resubscribe, odolnost při výpadku realtime vrstvy a prevenci duplicitních UI aktualizací.
 - **Dopad:** Waiting room i question obrazovky zůstávají konzistentní i při dočasně nedostupném hubu; realtime eventy se zpracují idempotentně díky guardu `incoming.Version <= current.Version`.
+
+### D-068 — R08: Korekce hodinového posunu klienta vůči serveru pro deadline countdown
+- **Datum/čas (UTC):** 2026-04-03T00:00:00Z
+- **Krok:** R08
+- **Rozhodnutí:** Klientský odpočet koriguje hodinový posun vůči serveru pomocí pole `_serverClockDrift = DateTimeOffset.UtcNow - snapshot.ServerUtcNow`, zachyceného při každé aplikaci snapshotu v `TryApplySnapshot`. Metoda `UpdateRemainingSeconds` počítá zbývající čas jako `QuestionDeadlineUtc - (UtcNow - _serverClockDrift)`. `CanSubmitAnswer` v `TeamQuestion` obsahuje lokální deadline guard `(!QuestionDeadlineUtc.HasValue || remainingSeconds > 0)`, který blokuje submit i bez čekání na serverový snapshot. Totéž `_serverClockDrift` schéma je aplikováno v `OrganizerWaitingRoom` pro zobrazení odpočtu organizátorovi.
+- **Důvod:** Klientské hodiny mohou být posunuty vůči serveru (typicky jednotky sekund, výjimečně desítky sekund); bez korekce by odpočet zobrazoval nesprávný čas a tlačítko `Odeslat` by zůstalo aktivní i po reálném vypršení deadline na serveru. `ServerUtcNow` je dostupný v každém snapshotu od kroku R03.
+- **Dopad:** Klient vždy zobrazuje přesný odpočet korigovaný o drift; lokální deadline guard zabraňuje submitu bez nutnosti čekat na serverový snapshot (důležité při offline výpadku); hláška „⏱ Čas vypršel – odpověď již nelze odeslat." je zobrazena okamžitě po dosažení nuly, nikoliv až po serverovém potvrzení. Korekce je zcela klientská – server zůstává autoritou pro vyhodnocení odpovědí.

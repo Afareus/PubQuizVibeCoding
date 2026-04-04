@@ -168,6 +168,7 @@
     private System.Threading.Timer? heartbeatTimer;
     private System.Threading.Timer? fallbackPollTimer;
     private int remainingSeconds;
+    private TimeSpan _serverClockDrift;
     private Guid? revealedQuestionId;
     private OptionKey? revealedCorrectOption;
     private decimal? revealedCorrectNumericValue;
@@ -890,6 +891,7 @@
             return false;
         }
 
+        _serverClockDrift = DateTimeOffset.UtcNow - incomingSnapshot.ServerUtcNow;
         snapshot = incomingSnapshot;
         return true;
     }
@@ -932,7 +934,8 @@
             return;
         }
 
-        var diff = snapshot.QuestionDeadlineUtc.Value - DateTimeOffset.UtcNow;
+        var correctedNow = DateTimeOffset.UtcNow - _serverClockDrift;
+        var diff = snapshot.QuestionDeadlineUtc.Value - correctedNow;
         remainingSeconds = Math.Max(0, (int)Math.Ceiling(diff.TotalSeconds));
     }
 
