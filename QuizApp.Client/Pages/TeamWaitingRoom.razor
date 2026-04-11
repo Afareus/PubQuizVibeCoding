@@ -23,7 +23,15 @@
     <div class="alert alert-danger" role="alert">@apiError.Message</div>
 }
 
-@if (identity is null)
+@if (isInitializing)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Načítám...</span>
+        </div>
+    </div>
+}
+else if (identity is null)
 {
     <div class="alert alert-warning" role="alert">
         Pro tuto session není uložená týmová identita. Nejprve proveďte připojení týmu.
@@ -99,15 +107,18 @@ else
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
     private bool hasNavigatedToQuestion;
+    private bool isInitializing = true;
 
     protected override async Task OnParametersSetAsync()
     {
         apiError = null;
         infoMessage = null;
         hasNavigatedToQuestion = false;
+        isInitializing = true;
 
         if (!SessionId.HasValue)
         {
+            isInitializing = false;
             return;
         }
 
@@ -115,11 +126,13 @@ else
         if (identity is null)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí uložená týmová identita pro tuto session.");
+            isInitializing = false;
             return;
         }
 
         await LoadSnapshotAsync();
         await EnsureRealtimeConnectionAsync(SessionId.Value);
+        isInitializing = false;
     }
 
     private async Task LoadSnapshotAsync()

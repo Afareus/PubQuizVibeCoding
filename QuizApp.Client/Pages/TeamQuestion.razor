@@ -27,7 +27,15 @@
     <div class="alert alert-danger" role="alert">@apiError.Message</div>
 }
 
-@if (identity is null)
+@if (isInitializing)
+{
+    <div class="d-flex justify-content-center my-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Načítám...</span>
+        </div>
+    </div>
+}
+else if (identity is null)
 {
     <div class="alert alert-warning" role="alert">
         Chybí uložená týmová identita. Nejprve se připojte do session.
@@ -157,6 +165,7 @@ else
     private Guid? realtimeSessionId;
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
+    private bool isInitializing = true;
 
     private string PageHeading => snapshot?.Status is SessionStatus.Finished ? "Konec kvízu" : "Otázka";
 
@@ -169,9 +178,11 @@ else
     {
         apiError = null;
         infoMessage = null;
+        isInitializing = true;
 
         if (!SessionId.HasValue)
         {
+            isInitializing = false;
             return;
         }
 
@@ -179,12 +190,14 @@ else
         if (identity is null)
         {
             apiError = new ApiErrorResponse(ApiErrorCode.MissingAuthToken, "Chybí uložená týmová identita pro tuto session.");
+            isInitializing = false;
             return;
         }
 
         await LoadSnapshotAsync();
         await EnsureRealtimeConnectionAsync(SessionId.Value);
         RestartCountdownTimer();
+        isInitializing = false;
     }
 
     private async Task LoadSnapshotAsync()
