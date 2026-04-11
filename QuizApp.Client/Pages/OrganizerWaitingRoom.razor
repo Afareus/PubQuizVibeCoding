@@ -89,7 +89,7 @@
     <section class="card mb-4">
         <div class="card-body">
             <h2 class="h5 mb-3">Detail hry</h2>
-            <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName)</p>
+            <p class="mb-1"><strong>Název kvízu:</strong> @(string.IsNullOrWhiteSpace(snapshot.QuizName) ? (string.IsNullOrWhiteSpace(storedQuizName) ? "(neznámý název)" : storedQuizName) : snapshot.QuizName)</p>
             @if (snapshot.Status == SessionStatus.Waiting)
             {
                 <div class="alert alert-primary mb-2" role="alert">

@@ -55,6 +55,7 @@ public sealed record SessionStateSnapshotResponse(
 public sealed record OrganizerSessionSnapshotResponse(
     Guid SessionId,
     Guid QuizId,
+    string QuizName,
     string JoinCode,
     SessionStatus Status,
     DateTimeOffset CreatedAtUtc,

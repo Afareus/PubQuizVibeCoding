@@ -198,6 +198,8 @@ public class QuizManagementServiceTests
         var service = CreateService(dbContext);
         var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Session test", "heslo"), CancellationToken.None);
 
+        await service.UpdateQuizStartPermissionAsync(createResult.Response!.QuizId, new UpdateQuizStartPermissionRequest(true), "heslo", CancellationToken.None);
+
         var sessionResult = await service.CreateSessionAsync(createResult.Response!.QuizId, new CreateSessionRequest("ABCD2345"), createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
 
         Assert.False(sessionResult.IsSuccess);
@@ -217,6 +219,8 @@ public class QuizManagementServiceTests
             "Kolik je 2+2?;3;4;5;6;B;30\n";
 
         await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+
+        await service.UpdateQuizStartPermissionAsync(createResult.Response!.QuizId, new UpdateQuizStartPermissionRequest(true), "heslo123", CancellationToken.None);
 
         var sessionResult = await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("MNPR2345"), null, "heslo123", CancellationToken.None);
 
@@ -245,6 +249,8 @@ public class QuizManagementServiceTests
             "Kolik je 2+2?;3;4;5;6;B;30\n";
 
         await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+
+        await service.UpdateQuizStartPermissionAsync(createResult.Response!.QuizId, new UpdateQuizStartPermissionRequest(true), "heslo", CancellationToken.None);
 
         var firstSession = await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("ABCD2345"), createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
         var secondSession = await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("EFGH2345"), createResult.Response.QuizOrganizerToken, null, CancellationToken.None);
@@ -319,6 +325,8 @@ public class QuizManagementServiceTests
 
         Assert.True(firstQuestion.IsSuccess);
         Assert.True(thirdQuestion.IsSuccess);
+
+        await service.UpdateQuizStartPermissionAsync(createResult.Response.QuizId, new UpdateQuizStartPermissionRequest(true), "heslo123", CancellationToken.None);
 
         var sessionResult = await service.CreateSessionAsync(
             createResult.Response.QuizId,
@@ -468,6 +476,7 @@ public class QuizManagementServiceTests
             "Kolik je 2+2?;3;4;5;6;B;30\n";
 
         await service.ImportQuizCsvAsync(createResult.Response!.QuizId, createResult.Response.QuizOrganizerToken, null, csv, CancellationToken.None);
+        await service.UpdateQuizStartPermissionAsync(createResult.Response!.QuizId, new UpdateQuizStartPermissionRequest(true), "heslo123", CancellationToken.None);
         await service.CreateSessionAsync(createResult.Response.QuizId, new CreateSessionRequest("AKTIVNI01"), null, "heslo123", CancellationToken.None);
 
         var addResult = await service.AddQuestionAsync(

@@ -446,7 +446,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
 
         if (session.Teams.Count == 0)
         {
-            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Session nelze spustit bez připojeného týmu."));
+            return OrganizerSessionStateOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.SessionStateChanged, "Hru nelze spustit bez připojeného týmu."));
         }
 
         var nowUtc = DateTime.UtcNow;
@@ -1091,6 +1091,7 @@ public sealed class SessionParticipationService : ISessionParticipationService
         return new OrganizerSessionSnapshotResponse(
             session.SessionId,
             session.QuizId,
+            session.Quiz?.Name ?? string.Empty,
             session.JoinCode,
             session.Status,
             new DateTimeOffset(session.CreatedAtUtc, TimeSpan.Zero),

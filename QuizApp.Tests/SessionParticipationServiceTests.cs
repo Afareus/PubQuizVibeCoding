@@ -1195,6 +1195,8 @@ public class SessionParticipationServiceTests
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
 
+        await quizService.UpdateQuizStartPermissionAsync(quizId, new UpdateQuizStartPermissionRequest(true), "heslo", cancellationToken);
+
         var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("ABCD2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
@@ -1215,6 +1217,8 @@ public class SessionParticipationServiceTests
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
 
+        await quizService.UpdateQuizStartPermissionAsync(quizId, new UpdateQuizStartPermissionRequest(true), deletePassword, cancellationToken);
+
         var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("EFGH2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
 
@@ -1234,6 +1238,8 @@ public class SessionParticipationServiceTests
 
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
+
+        await quizService.UpdateQuizStartPermissionAsync(quizId, new UpdateQuizStartPermissionRequest(true), deletePassword, cancellationToken);
 
         var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("NUME2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);
@@ -1284,6 +1290,8 @@ public class SessionParticipationServiceTests
 
         var importResult = await quizService.ImportQuizCsvAsync(quizId, organizerToken, null, csv, cancellationToken);
         Assert.True(importResult.IsSuccess);
+
+        await quizService.UpdateQuizStartPermissionAsync(quizId, new UpdateQuizStartPermissionRequest(true), deletePassword, cancellationToken);
 
         var createSessionResult = await quizService.CreateSessionAsync(quizId, new CreateSessionRequest("JKLM2345"), organizerToken, null, cancellationToken);
         Assert.True(createSessionResult.IsSuccess);

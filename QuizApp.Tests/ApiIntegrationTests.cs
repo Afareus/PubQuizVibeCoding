@@ -56,6 +56,14 @@ public class ApiIntegrationTests
         using var importResponse = await client.SendAsync(importMessage);
         Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
 
+        using var unlockMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{createQuizResponse.QuizId}/start-permission")
+        {
+            Content = JsonContent.Create(new UpdateQuizStartPermissionRequest(true))
+        };
+        unlockMessage.Headers.Add("X-Quiz-Password", "tajneheslo");
+        using var unlockResponse = await client.SendAsync(unlockMessage);
+        Assert.Equal(HttpStatusCode.OK, unlockResponse.StatusCode);
+
         using var createSessionMessage = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{createQuizResponse.QuizId}/sessions");
         createSessionMessage.Content = JsonContent.Create(new CreateSessionRequest("ABCD2345"));
         createSessionMessage.Headers.Add("X-Quiz-Password", "tajneheslo");
@@ -309,6 +317,14 @@ public class ApiIntegrationTests
 
     private static async Task<CreateSessionResponse> CreateSessionAsync(HttpClient client, Guid quizId, string password, string joinCode)
     {
+        using var unlockMessage = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId}/start-permission")
+        {
+            Content = JsonContent.Create(new UpdateQuizStartPermissionRequest(true))
+        };
+        unlockMessage.Headers.Add("X-Quiz-Password", password);
+        using var unlockResponse = await client.SendAsync(unlockMessage);
+        Assert.Equal(HttpStatusCode.OK, unlockResponse.StatusCode);
+
         using var message = new HttpRequestMessage(HttpMethod.Post, $"/api/quizzes/{quizId}/sessions");
         message.Content = JsonContent.Create(new CreateSessionRequest(joinCode));
         message.Headers.Add("X-Quiz-Password", password);

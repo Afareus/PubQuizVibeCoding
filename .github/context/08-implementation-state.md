@@ -171,12 +171,18 @@ Po každém kroku jej aktualizuj.
 - Post-S21 UX/API tweak: `QuizApp.Server/Application/QuizImport/QuizCsvParser.cs` používá delimiter `;` a akceptuje volitelný první řádek `sep=;`; šablona `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv` je upravena na semicolon formát a v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je zobrazena informace o oddělovači `;`.
 - Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po kliknutí na `Vygenerovat kód` už nezobrazuje info hláška „Byl vygenerován volný join kód.“; vygenerovaná hodnota se pouze vyplní do pole join kódu.
 
+- Post-S21 bugfix: `QuizApp.Shared/Contracts/SessionContracts.cs` — `OrganizerSessionSnapshotResponse` rozšířen o property `QuizName` (3. pozičný parametr za `QuizId`), aby organizátorská čekárna zobrazovala název kvízu místo „(neznámý název)".
+- Post-S21 bugfix: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` — `ToOrganizerSnapshot()` nyní předává `session.Quiz?.Name ?? string.Empty` jako `QuizName`.
+- Post-S21 bugfix: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` — zobrazuje `snapshot.QuizName` s `storedQuizName` jako fallback.
+- Post-S21 product rule: `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` — `CreateSessionAsync` kontroluje `IsStartAllowedForEveryone` bez výjimky pro organizátora; ani zakladatel kvízu nemůže spustit session, pokud kvíz nemá zapnutý příznak. Kvíz defaultně vzniká uzamčený (`IsStartAllowedForEveryone = false`).
+- Post-S21 test fix: `QuizApp.Tests/SessionParticipationServiceTests.cs`, `QuizApp.Tests/QuizManagementServiceTests.cs`, `QuizApp.Tests/ApiIntegrationTests.cs` — všechny testy vyžadující session creation nyní explicitně volají `UpdateQuizStartPermissionAsync(true)` (unit testy) nebo `PUT /api/quizzes/{id}/start-permission` (integrační testy) před `CreateSessionAsync`.
+
 ## Rizika / dluh
 - Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.
 
 ## Poslední ověření
 - Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 95/95 passed)
+- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 99/99 passed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
 - Post-S21 QR kód feature: build úspěšný, `Net.Codecrete.QrCodeGenerator 2.0.3` přidán a zkompilován v WASM klientu
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)
