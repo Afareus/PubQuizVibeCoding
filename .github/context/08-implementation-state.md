@@ -35,7 +35,7 @@ Po každém kroku jej aktualizuj.
 - [x] S21 — Testy a release readiness
 
 ## Naposledy dokončeno
-- Post-S21 feature — organizátorský dashboard načítá globální seznam všech kvízů přes nový endpoint `GET /api/quizzes`, takže každý uživatel vidí i kvízy vytvořené jinými uživateli.
+- Post-S21 feature — QR kód na čekárně organizátora: pod join kódem se zobrazuje QR kód (generovaný přes `Net.Codecrete.QrCodeGenerator` přímo v WASM, bez externích služeb), který odkazuje na `/tym/pripojeni?joinCode=XXX`; stránka `TeamJoin.razor` předvyplní join kód z query stringu pomocí `[SupplyParameterFromQuery]`.
 
 ## Aktuální poznámky
 - V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` a `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` přibyla operace/endpoint `GET /api/quizzes` vracející veřejný seznam kvízů (`QuizId`, `Name`, `CreatedAtUtc`) bez organizátorské autentizace.
@@ -178,4 +178,5 @@ Po každém kroku jej aktualizuj.
 - Build: úspěšný (`run_build`)
 - Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 95/95 passed)
 - Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
+- Post-S21 QR kód feature: build úspěšný, `Net.Codecrete.QrCodeGenerator 2.0.3` přidán a zkompilován v WASM klientu
 - Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)

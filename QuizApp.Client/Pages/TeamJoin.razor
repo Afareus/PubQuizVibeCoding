@@ -38,11 +38,22 @@
 </section>
 
 @code {
+    [SupplyParameterFromQuery(Name = "joinCode")]
+    public string? JoinCodeParam { get; set; }
+
     private string joinCode = string.Empty;
     private string teamName = string.Empty;
     private bool isLoading;
     private string? infoMessage;
     private ApiErrorResponse? apiError;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(JoinCodeParam) && string.IsNullOrWhiteSpace(joinCode))
+        {
+            joinCode = JoinCodeParam;
+        }
+    }
 
     private async Task JoinSessionAsync()
     {
