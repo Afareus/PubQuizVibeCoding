@@ -113,7 +113,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: ResolveOrganizerKey(httpContext),
             factory: static _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = 50,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
