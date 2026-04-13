@@ -444,6 +444,11 @@
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
     {
+        if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests)
+        {
+            return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Příliš mnoho požadavků. Počkejte chvíli a zkuste to znovu.");
+        }
+
         var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
         if (apiError is not null)
         {
