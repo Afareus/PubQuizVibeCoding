@@ -27,6 +27,8 @@ public interface IQuizManagementService
 
     Task<DeleteQuizQuestionOperationResult> DeleteQuestionAsync(Guid quizId, Guid questionId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
 
+    Task<ReorderQuizQuestionOperationResult> ReorderQuestionAsync(Guid quizId, ReorderQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
+
     Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken);
 
     Task<QuizDetailOperationResult> GetQuizDetailAsync(Guid quizId, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken);
@@ -301,13 +303,7 @@ public sealed class QuizManagementService : IQuizManagementService
 
         foreach (var nextQuestion in quiz.Questions.Where(x => x.QuestionId != questionId && x.OrderIndex > deletedOrderIndex))
         {
-            nextQuestion.Update(
-                nextQuestion.OrderIndex - 1,
-                nextQuestion.Text,
-                nextQuestion.TimeLimitSec,
-                nextQuestion.QuestionType,
-                nextQuestion.CorrectOption,
-                nextQuestion.CorrectNumericValue);
+            nextQuestion.SetOrderIndex(nextQuestion.OrderIndex - 1);
         }
 
         var nowUtc = DateTime.UtcNow;
@@ -417,6 +413,56 @@ public sealed class QuizManagementService : IQuizManagementService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return AddQuizQuestionOperationResult.Success(new AddQuizQuestionResponse(question.QuestionId, question.OrderIndex, question.QuestionType));
+    }
+
+    public async Task<ReorderQuizQuestionOperationResult> ReorderQuestionAsync(Guid quizId, ReorderQuizQuestionRequest request, string? organizerToken, string? organizerPassword, CancellationToken cancellationToken)
+    {
+        if (request.Direction is not (1 or -1))
+        {
+            return ReorderQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Směr přesunu musí být -1 (nahoru) nebo 1 (dolů)."));
+        }
+
+        var quiz = await _dbContext.Quizzes
+            .Include(x => x.Questions)
+            .Include(x => x.Sessions)
+            .SingleOrDefaultAsync(x => x.QuizId == quizId, cancellationToken);
+
+        if (quiz is null)
+        {
+            return ReorderQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
+        }
+
+        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
+        {
+            return ReorderQuizQuestionOperationResult.Fail(authError!);
+        }
+
+        if (quiz.Sessions.Any(session => session.Status is SessionStatus.Waiting or SessionStatus.Running))
+        {
+            return ReorderQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.QuizHasActiveSessions, "Pořadí otázek nelze měnit, protože kvíz má aktivní hru."));
+        }
+
+        var question = quiz.Questions.SingleOrDefault(x => x.QuestionId == request.QuestionId);
+        if (question is null)
+        {
+            return ReorderQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Otázka nebyla nalezena."));
+        }
+
+        var targetOrderIndex = question.OrderIndex + request.Direction;
+        var neighbor = quiz.Questions.SingleOrDefault(x => x.OrderIndex == targetOrderIndex);
+
+        if (neighbor is null)
+        {
+            return ReorderQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Otázku nelze přesunout tímto směrem."));
+        }
+
+        var originalIndex = question.OrderIndex;
+        question.SetOrderIndex(targetOrderIndex);
+        neighbor.SetOrderIndex(originalIndex);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return ReorderQuizQuestionOperationResult.Success();
     }
 
     public async Task<ImportQuizCsvOperationResult> ImportQuizCsvAsync(Guid quizId, string? organizerToken, string? organizerPassword, string csvContent, CancellationToken cancellationToken)
@@ -1069,6 +1115,15 @@ public sealed record DeleteQuizQuestionOperationResult(
     public static DeleteQuizQuestionOperationResult Success() => new(true, null);
 
     public static DeleteQuizQuestionOperationResult Fail(ApiErrorResponse error) => new(false, error);
+}
+
+public sealed record ReorderQuizQuestionOperationResult(
+    bool IsSuccess,
+    ApiErrorResponse? Error)
+{
+    public static ReorderQuizQuestionOperationResult Success() => new(true, null);
+
+    public static ReorderQuizQuestionOperationResult Fail(ApiErrorResponse error) => new(false, error);
 }
 
 public sealed record DeleteQuizOperationResult(

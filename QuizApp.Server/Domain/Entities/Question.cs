@@ -105,4 +105,9 @@ public sealed class Question
         CorrectOption = null;
         CorrectNumericValue = correctNumericValue ?? throw new ArgumentException("Correct numeric value is required for numeric questions.", nameof(correctNumericValue));
     }
+
+    public void SetOrderIndex(int orderIndex)
+    {
+        OrderIndex = EntityGuards.Range(orderIndex, 0, int.MaxValue, nameof(orderIndex), "Question order index must be non-negative.");
+    }
 }

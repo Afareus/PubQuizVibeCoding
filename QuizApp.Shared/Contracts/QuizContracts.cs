@@ -48,6 +48,10 @@ public sealed record UpdateQuizQuestionRequest(
     string? OptionD,
     int Order);
 
+public sealed record ReorderQuizQuestionRequest(
+    Guid QuestionId,
+    int Direction);
+
 public sealed record AddQuizQuestionResponse(
     Guid QuestionId,
     int OrderIndex,

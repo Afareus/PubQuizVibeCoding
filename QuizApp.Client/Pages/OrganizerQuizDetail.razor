@@ -779,6 +779,11 @@
         questionApiError = null;
         questionInfoMessage = null;
 
+        if (!question.QuestionId.HasValue)
+        {
+            return;
+        }
+
         var ordered = questionEditors.OrderBy(x => x.Order).ToList();
         var currentIndex = ordered.FindIndex(x => x.ClientId == question.ClientId);
         if (currentIndex < 0)
@@ -791,17 +796,6 @@
         {
             return;
         }
-
-        (ordered[currentIndex], ordered[targetIndex]) = (ordered[targetIndex], ordered[currentIndex]);
-        questionEditors = ordered;
-        NormalizeQuestionOrders();
-
-        await SaveQuestionOrderAsync();
-    }
-
-    private async Task SaveQuestionOrderAsync()
-    {
-        questionApiError = null;
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
@@ -820,90 +814,30 @@
         isDeletingQuestionAction = false;
         isSavingQuestionId = null;
 
-        var persistedEditors = questionEditors
-            .Where(x => x.QuestionId.HasValue)
-            .OrderBy(x => x.Order)
-            .ToList();
-
-        for (var index = 0; index < persistedEditors.Count; index++)
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/reorder")
         {
-            var editor = persistedEditors[index];
-            var temporaryOrder = persistedEditors.Count + index + 1;
+            Content = JsonContent.Create(new ReorderQuizQuestionRequest(question.QuestionId.Value, step))
+        };
 
-            using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{editor.QuestionId!.Value}")
-            {
-                Content = JsonContent.Create(new UpdateQuizQuestionRequest(
-                    editor.Text.Trim(),
-                    editor.TimeLimitSec ?? 30,
-                    editor.QuestionType,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.CorrectOption : null,
-                    editor.QuestionType == QuestionType.NumericClosest ? editor.CorrectNumericValue : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionA.Trim() : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionB.Trim() : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionC.Trim() : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionD.Trim() : null,
-                    temporaryOrder))
-            };
-
-            if (!string.IsNullOrWhiteSpace(questionsPassword))
-            {
-                request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
-            }
-
-            ApplyOrganizerAuth(request);
-
-            using var response = await HttpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                questionApiError = await ReadApiErrorAsync(response);
-                isSavingQuestionId = null;
-                isDeletingQuestionAction = false;
-                isSavingQuestion = false;
-                return;
-            }
+        if (!string.IsNullOrWhiteSpace(questionsPassword))
+        {
+            request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
         }
 
-        for (var index = 0; index < persistedEditors.Count; index++)
+        ApplyOrganizerAuth(request);
+
+        using var response = await HttpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
         {
-            var editor = persistedEditors[index];
-            var finalOrder = index + 1;
-
-            using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{editor.QuestionId!.Value}")
-            {
-                Content = JsonContent.Create(new UpdateQuizQuestionRequest(
-                    editor.Text.Trim(),
-                    editor.TimeLimitSec ?? 30,
-                    editor.QuestionType,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.CorrectOption : null,
-                    editor.QuestionType == QuestionType.NumericClosest ? editor.CorrectNumericValue : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionA.Trim() : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionB.Trim() : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionC.Trim() : null,
-                    editor.QuestionType == QuestionType.MultipleChoice ? editor.OptionD.Trim() : null,
-                    finalOrder))
-            };
-
-            if (!string.IsNullOrWhiteSpace(questionsPassword))
-            {
-                request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
-            }
-
-            ApplyOrganizerAuth(request);
-
-            using var response = await HttpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                questionApiError = await ReadApiErrorAsync(response);
-                isSavingQuestionId = null;
-                isDeletingQuestionAction = false;
-                isSavingQuestion = false;
-                return;
-            }
+            questionApiError = await ReadApiErrorAsync(response);
+            isSavingQuestion = false;
+            return;
         }
 
-        questionInfoMessage = "Pořadí otázek bylo uloženo.";
-        isSavingQuestionId = null;
-        isDeletingQuestionAction = false;
+        (ordered[currentIndex], ordered[targetIndex]) = (ordered[targetIndex], ordered[currentIndex]);
+        questionEditors = ordered;
+        NormalizeQuestionOrders();
+
         isSavingQuestion = false;
     }
 

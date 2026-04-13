@@ -27,6 +27,8 @@ public static class QuizManagementEndpoints
             .RequireRateLimiting("OrganizerMutations");
         group.MapDelete("/{quizId:guid}/questions/{questionId:guid}", DeleteQuestionAsync)
             .RequireRateLimiting("OrganizerMutations");
+        group.MapPut("/{quizId:guid}/questions/reorder", ReorderQuestionAsync)
+            .RequireRateLimiting("OrganizerMutations");
         group.MapPost("/{quizId:guid}/import-csv", ImportQuizCsvAsync)
             .RequireRateLimiting("OrganizerMutations");
         group.MapGet("/{quizId:guid}", GetQuizDetailAsync);
@@ -106,6 +108,25 @@ public static class QuizManagementEndpoints
         var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.DeleteQuestionAsync(quizId, questionId, organizerToken, organizerPassword, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
+        }
+
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> ReorderQuestionAsync(
+        Guid quizId,
+        ReorderQuizQuestionRequest request,
+        HttpContext httpContext,
+        IQuizManagementService quizManagementService,
+        CancellationToken cancellationToken)
+    {
+        var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
+        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+
+        var result = await quizManagementService.ReorderQuestionAsync(quizId, request, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
         {
             return TypedResults.Json(result.Error!, statusCode: ResolveStatusCode(result.Error!));
