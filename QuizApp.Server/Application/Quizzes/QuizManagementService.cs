@@ -457,10 +457,31 @@ public sealed class QuizManagementService : IQuizManagementService
         }
 
         var originalIndex = question.OrderIndex;
-        question.SetOrderIndex(targetOrderIndex);
-        neighbor.SetOrderIndex(originalIndex);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        if (_dbContext.Database.IsRelational())
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE "Questions" SET "OrderIndex" = -1 WHERE "QuestionId" = {question.QuestionId}
+                """, cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE "Questions" SET "OrderIndex" = {originalIndex} WHERE "QuestionId" = {neighbor.QuestionId}
+                """, cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE "Questions" SET "OrderIndex" = {targetOrderIndex} WHERE "QuestionId" = {question.QuestionId}
+                """, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        else
+        {
+            question.SetOrderIndex(targetOrderIndex);
+            neighbor.SetOrderIndex(originalIndex);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         return ReorderQuizQuestionOperationResult.Success();
     }

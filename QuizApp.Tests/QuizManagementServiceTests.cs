@@ -697,6 +697,42 @@ public class QuizManagementServiceTests
         Assert.Equal(quiz.QuizId, deletedAudit.QuizId);
     }
 
+    [Fact]
+    public async Task ReorderQuestionAsync_SwapsOrderIndexOfAdjacentQuestions()
+    {
+        await using var dbContext = CreateDbContext();
+        var service = CreateService(dbContext);
+        var createResult = await service.CreateQuizAsync(new CreateQuizRequest("Řazení", "heslo123"), CancellationToken.None);
+        var quizId = createResult.Response!.QuizId;
+
+        var q1 = await service.AddQuestionAsync(quizId, new AddQuizQuestionRequest("Q1", 30, QuestionType.MultipleChoice, OptionKey.A, null, "A1", "B1", "C1", "D1", 1), null, "heslo123", CancellationToken.None);
+        var q2 = await service.AddQuestionAsync(quizId, new AddQuizQuestionRequest("Q2", 30, QuestionType.MultipleChoice, OptionKey.B, null, "A2", "B2", "C2", "D2", 2), null, "heslo123", CancellationToken.None);
+        var q3 = await service.AddQuestionAsync(quizId, new AddQuizQuestionRequest("Q3", 30, QuestionType.MultipleChoice, OptionKey.C, null, "A3", "B3", "C3", "D3", 3), null, "heslo123", CancellationToken.None);
+
+        Assert.True(q1.IsSuccess);
+        Assert.True(q2.IsSuccess);
+        Assert.True(q3.IsSuccess);
+
+        var reorderResult = await service.ReorderQuestionAsync(
+            quizId,
+            new ReorderQuizQuestionRequest(q1.Response!.QuestionId, 1),
+            null,
+            "heslo123",
+            CancellationToken.None);
+
+        Assert.True(reorderResult.IsSuccess);
+
+        var questions = await dbContext.Questions
+            .Where(x => x.QuizId == quizId)
+            .OrderBy(x => x.OrderIndex)
+            .ToListAsync();
+
+        Assert.Equal(3, questions.Count);
+        Assert.Equal(q2.Response!.QuestionId, questions[0].QuestionId);
+        Assert.Equal(q1.Response.QuestionId, questions[1].QuestionId);
+        Assert.Equal(q3.Response!.QuestionId, questions[2].QuestionId);
+    }
+
     private static QuizManagementService CreateService(QuizAppDbContext dbContext)
     {
         return new QuizManagementService(dbContext, new QuizCsvParser());

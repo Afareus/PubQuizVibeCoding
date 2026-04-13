@@ -255,7 +255,7 @@
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
               "RelativeToolTip": "QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
-              "ViewState": "AgIAACcBAAAAAAAAAAD4vwAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAALcBAAAAAAAAAAD4vwAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-04T07:19:32.516Z",
               "EditorCaption": ""
@@ -424,9 +424,10 @@
               "RelativeDocumentMoniker": "QuizApp.Server\\Program.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Program.cs",
               "RelativeToolTip": "QuizApp.Server\\Program.cs",
-              "ViewState": "AgIAACMAAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACAAAAAAAAAAAEBVwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-03T19:30:56.121Z"
+              "WhenOpened": "2026-04-03T19:30:56.121Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
