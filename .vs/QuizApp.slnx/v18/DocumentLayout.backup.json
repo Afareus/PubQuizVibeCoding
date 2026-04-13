@@ -3,6 +3,26 @@
   "WorkspaceRootPath": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\quizzes\\quizmanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\quizzes\\quizmanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A0A69F71-BCB9-87FB-A7D4-5D6A70F3C310}|QuizApp.Client\\QuizApp.Client.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.client\\pages\\organizerquizdetail.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{A0A69F71-BCB9-87FB-A7D4-5D6A70F3C310}|QuizApp.Client\\QuizApp.Client.csproj|solutionrelative:quizapp.client\\pages\\organizerquizdetail.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\quizzes\\quizmanagementendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\quizzes\\quizmanagementendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{5806A4DD-5CD5-7BB7-5930-EB3F0F667E68}|QuizApp.Shared\\QuizApp.Shared.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.shared\\contracts\\quizcontracts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5806A4DD-5CD5-7BB7-5930-EB3F0F667E68}|QuizApp.Shared\\QuizApp.Shared.csproj|solutionrelative:quizapp.shared\\contracts\\quizcontracts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\domain\\entities\\question.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\domain\\entities\\question.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\sessions\\sessionparticipationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\sessions\\sessionparticipationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -82,16 +102,8 @@
       "RelativeMoniker": "D:0:0:{A0A69F71-BCB9-87FB-A7D4-5D6A70F3C310}|QuizApp.Client\\QuizApp.Client.csproj|solutionrelative:quizapp.client\\organizer\\organizerquizlocalstore.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A0A69F71-BCB9-87FB-A7D4-5D6A70F3C310}|QuizApp.Client\\QuizApp.Client.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.client\\pages\\organizerquizdetail.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{A0A69F71-BCB9-87FB-A7D4-5D6A70F3C310}|QuizApp.Client\\QuizApp.Client.csproj|solutionrelative:quizapp.client\\pages\\organizerquizdetail.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{D8B093DE-BD71-89B6-53EC-4552B92C2136}|QuizApp.Tests\\QuizApp.Tests.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.tests\\apiintegrationtests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D8B093DE-BD71-89B6-53EC-4552B92C2136}|QuizApp.Tests\\QuizApp.Tests.csproj|solutionrelative:quizapp.tests\\apiintegrationtests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\quizzes\\quizmanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\quizzes\\quizmanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\sessions\\sessionrealtimepublisher.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -119,18 +131,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{D8B093DE-BD71-89B6-53EC-4552B92C2136}|QuizApp.Tests\\QuizApp.Tests.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.tests\\quizmanagementservicetests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{D8B093DE-BD71-89B6-53EC-4552B92C2136}|QuizApp.Tests\\QuizApp.Tests.csproj|solutionrelative:quizapp.tests\\quizmanagementservicetests.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\domain\\entities\\question.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\domain\\entities\\question.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{5806A4DD-5CD5-7BB7-5930-EB3F0F667E68}|QuizApp.Shared\\QuizApp.Shared.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.shared\\contracts\\quizcontracts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{5806A4DD-5CD5-7BB7-5930-EB3F0F667E68}|QuizApp.Shared\\QuizApp.Shared.csproj|solutionrelative:quizapp.shared\\contracts\\quizcontracts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|c:\\users\\gabri\\desktop\\pubkviz\\quizapp\\quizapp.server\\application\\quizzes\\quizmanagementendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{CA683461-2A4C-8C56-D633-A95C22267F8A}|QuizApp.Server\\QuizApp.Server.csproj|solutionrelative:quizapp.server\\application\\quizzes\\quizmanagementendpoints.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -140,7 +140,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 7,
+          "SelectedChildIndex": 11,
           "Children": [
             {
               "$type": "Bookmark",
@@ -160,46 +160,46 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 32,
+              "DocumentIndex": 2,
               "Title": "QuizManagementEndpoints.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementEndpoints.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Quizzes\\QuizManagementEndpoints.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementEndpoints.cs",
               "RelativeToolTip": "QuizApp.Server\\Application\\Quizzes\\QuizManagementEndpoints.cs",
-              "ViewState": "AgIAAIcAAAAAAAAAAIBQwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAGkAAAAAAAAAAAD4vwAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-13T05:22:42.356Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 31,
+              "DocumentIndex": 3,
               "Title": "QuizContracts.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Shared\\Contracts\\QuizContracts.cs",
               "RelativeDocumentMoniker": "QuizApp.Shared\\Contracts\\QuizContracts.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Shared\\Contracts\\QuizContracts.cs",
               "RelativeToolTip": "QuizApp.Shared\\Contracts\\QuizContracts.cs",
-              "ViewState": "AgIAADIAAAAAAAAAAIBQwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAABwAAAAAAAAAAIAwwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-13T05:21:42.174Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 30,
+              "DocumentIndex": 4,
               "Title": "Question.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Domain\\Entities\\Question.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Domain\\Entities\\Question.cs",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Domain\\Entities\\Question.cs",
               "RelativeToolTip": "QuizApp.Server\\Domain\\Entities\\Question.cs",
-              "ViewState": "AgIAAG4AAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAFcAAAAAAAAAAAD4vwAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-13T05:21:34.767Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 5,
               "Title": "SessionParticipationService.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionParticipationService.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionParticipationService.cs",
@@ -212,31 +212,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "08-implementation-state.md",
-              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\08-implementation-state.md",
-              "RelativeDocumentMoniker": ".github\\context\\08-implementation-state.md",
-              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\08-implementation-state.md",
-              "RelativeToolTip": ".github\\context\\08-implementation-state.md",
-              "ViewState": "AgIAAJkAAAAAAAAAAAArwKYAAABCAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
-              "WhenOpened": "2026-04-02T17:37:22.246Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 29,
-              "Title": "QuizManagementServiceTests.cs",
-              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\QuizManagementServiceTests.cs",
-              "RelativeDocumentMoniker": "QuizApp.Tests\\QuizManagementServiceTests.cs",
-              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\QuizManagementServiceTests.cs",
-              "RelativeToolTip": "QuizApp.Tests\\QuizManagementServiceTests.cs",
-              "ViewState": "AgIAAMgAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T13:59:19.792Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 28,
+              "DocumentIndex": 31,
               "Title": "TeamJoin.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\TeamJoin.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\TeamJoin.razor",
@@ -248,7 +224,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 27,
+              "DocumentIndex": 30,
               "Title": "QuizApp.Client.csproj",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\QuizApp.Client.csproj",
               "RelativeDocumentMoniker": "QuizApp.Client\\QuizApp.Client.csproj",
@@ -260,20 +236,57 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 1,
               "Title": "OrganizerQuizDetail.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerQuizDetail.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\OrganizerQuizDetail.razor",
               "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerQuizDetail.razor",
               "RelativeToolTip": "QuizApp.Client\\Pages\\OrganizerQuizDetail.razor",
-              "ViewState": "AgIAABADAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAsDAAAAAAAAAAAawAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2026-04-03T20:44:08.455Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 0,
+              "Title": "QuizManagementService.cs",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
+              "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
+              "RelativeToolTip": "QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
+              "ViewState": "AgIAACcBAAAAAAAAAAD4vwAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-04T07:19:32.516Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 32,
+              "Title": "QuizManagementServiceTests.cs",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\QuizManagementServiceTests.cs",
+              "RelativeDocumentMoniker": "QuizApp.Tests\\QuizManagementServiceTests.cs",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\QuizManagementServiceTests.cs",
+              "RelativeToolTip": "QuizApp.Tests\\QuizManagementServiceTests.cs",
+              "ViewState": "AgIAAMgAAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-11T13:59:19.792Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "08-implementation-state.md",
+              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\08-implementation-state.md",
+              "RelativeDocumentMoniker": ".github\\context\\08-implementation-state.md",
+              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\08-implementation-state.md",
+              "RelativeToolTip": ".github\\context\\08-implementation-state.md",
+              "ViewState": "AgIAAJkAAAAAAAAAAAArwKYAAABCAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-04-02T17:37:22.246Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 24,
               "Title": "OrganizerQuizLocalStore.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Organizer\\OrganizerQuizLocalStore.cs",
               "RelativeDocumentMoniker": "QuizApp.Client\\Organizer\\OrganizerQuizLocalStore.cs",
@@ -285,7 +298,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 23,
               "Title": "Home.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\Home.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\Home.razor",
@@ -297,7 +310,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 22,
               "Title": "SessionResults.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\SessionResults.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\SessionResults.razor",
@@ -309,7 +322,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 21,
               "Title": "TeamSessionLocalStore.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Team\\TeamSessionLocalStore.cs",
               "RelativeDocumentMoniker": "QuizApp.Client\\Team\\TeamSessionLocalStore.cs",
@@ -321,7 +334,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 20,
               "Title": "SessionHub.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionHub.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionHub.cs",
@@ -333,7 +346,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 26,
+              "DocumentIndex": 29,
               "Title": "11-release-checklist.md",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\11-release-checklist.md",
               "RelativeDocumentMoniker": ".github\\context\\11-release-checklist.md",
@@ -345,7 +358,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 25,
+              "DocumentIndex": 28,
               "Title": "DiagnosticsEndpoints.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\AppData\\Local\\Temp\\CopilotBaseline\\Deleted\\-1028054937\\DiagnosticsEndpoints.cs",
               "RelativeDocumentMoniker": "..\\..\\..\\AppData\\Local\\Temp\\CopilotBaseline\\Deleted\\-1028054937\\DiagnosticsEndpoints.cs",
@@ -357,7 +370,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 24,
+              "DocumentIndex": 27,
               "Title": "SessionProgressionBackgroundService.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionProgressionBackgroundService.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionProgressionBackgroundService.cs",
@@ -369,7 +382,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 26,
               "Title": "SessionRealtimePublisher.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionRealtimePublisher.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionRealtimePublisher.cs",
@@ -381,20 +394,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
-              "Title": "QuizManagementService.cs",
-              "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
-              "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
-              "ToolTip": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
-              "RelativeToolTip": "QuizApp.Server\\Application\\Quizzes\\QuizManagementService.cs",
-              "ViewState": "AgIAADABAAAAAAAAAIBJwAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-04T07:19:32.516Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 25,
               "Title": "ApiIntegrationTests.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\ApiIntegrationTests.cs",
               "RelativeDocumentMoniker": "QuizApp.Tests\\ApiIntegrationTests.cs",
@@ -406,7 +406,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 19,
               "Title": "SessionParticipationServiceTests.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Tests\\SessionParticipationServiceTests.cs",
               "RelativeDocumentMoniker": "QuizApp.Tests\\SessionParticipationServiceTests.cs",
@@ -418,7 +418,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 18,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Program.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Program.cs",
@@ -430,7 +430,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 17,
               "Title": "SessionParticipationEndpoints.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Server\\Application\\Sessions\\SessionParticipationEndpoints.cs",
               "RelativeDocumentMoniker": "QuizApp.Server\\Application\\Sessions\\SessionParticipationEndpoints.cs",
@@ -442,7 +442,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 16,
               "Title": "SessionContracts.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Shared\\Contracts\\SessionContracts.cs",
               "RelativeDocumentMoniker": "QuizApp.Shared\\Contracts\\SessionContracts.cs",
@@ -454,7 +454,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 15,
               "Title": "SharedEnums.cs",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Shared\\Enums\\SharedEnums.cs",
               "RelativeDocumentMoniker": "QuizApp.Shared\\Enums\\SharedEnums.cs",
@@ -466,7 +466,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 7,
               "Title": "copilot-instructions.md",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\copilot-instructions.md",
               "RelativeDocumentMoniker": ".github\\copilot-instructions.md",
@@ -478,7 +478,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 11,
               "Title": "TeamWaitingRoom.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\TeamWaitingRoom.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\TeamWaitingRoom.razor",
@@ -490,7 +490,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 12,
               "Title": "TeamQuestion.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\TeamQuestion.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\TeamQuestion.razor",
@@ -502,7 +502,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 13,
               "Title": "OrganizerWaitingRoom.razor",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
               "RelativeDocumentMoniker": "QuizApp.Client\\Pages\\OrganizerWaitingRoom.razor",
@@ -514,7 +514,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 14,
               "Title": "10-changelog.md",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\10-changelog.md",
               "RelativeDocumentMoniker": ".github\\context\\10-changelog.md",
@@ -526,7 +526,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 10,
               "Title": "09-decision-log.md",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\.github\\context\\09-decision-log.md",
               "RelativeDocumentMoniker": ".github\\context\\09-decision-log.md",
@@ -538,7 +538,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 8,
               "Title": "Dockerfile",
               "DocumentMoniker": "C:\\Users\\gabri\\Desktop\\PubKviz\\QuizApp\\Dockerfile",
               "RelativeDocumentMoniker": "Dockerfile",
@@ -550,7 +550,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 9,
               "Title": "copilot-instructions.md",
               "DocumentMoniker": "C:\\Users\\gabri\\copilot-instructions.md",
               "RelativeDocumentMoniker": "..\\..\\..\\copilot-instructions.md",

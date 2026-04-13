@@ -1,4 +1,4 @@
-@page "/organizator/kviz"
+﻿@page "/organizator/kviz"
 @page "/organizator/kviz/{QuizId:guid}"
 @inject HttpClient HttpClient
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
@@ -841,9 +841,9 @@
             questionEditors = ordered;
             NormalizeQuestionOrders();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Při změně pořadí otázky došlo k neočekávané chybě.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, $"Při změně pořadí otázky došlo k neočekávané chybě: {ex.Message}");
         }
         finally
         {
@@ -1345,12 +1345,18 @@
 
     private static async Task<ApiErrorResponse> ReadApiErrorAsync(HttpResponseMessage response)
     {
-        var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
-        if (apiError is not null)
+        try
         {
-            return apiError;
+            var apiError = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+            if (apiError is not null && apiError.Message is not null)
+            {
+                return apiError;
+            }
+        }
+        catch
+        {
         }
 
-        return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Operace selhala.");
+        return new ApiErrorResponse(ApiErrorCode.ValidationFailed, $"Operace selhala (HTTP {(int)response.StatusCode}).");
     }
 }
