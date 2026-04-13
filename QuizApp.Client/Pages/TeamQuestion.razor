@@ -217,6 +217,10 @@ else
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+            submittedOption = null;
+            submittedNumericValue = null;
+            numericTip = null;
+            numericTipInput = string.Empty;
             await ReloadSubmittedAnswerAsync();
             UpdateActiveSessionState();
         }
