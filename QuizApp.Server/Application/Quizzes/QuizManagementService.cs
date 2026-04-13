@@ -491,11 +491,6 @@ public sealed class QuizManagementService : IQuizManagementService
             return ImportQuizCsvOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Kvíz nebyl nalezen."));
         }
 
-        if (!TryAuthorizeOrganizer(quiz, organizerToken, organizerPassword, out var authError))
-        {
-            return ImportQuizCsvOperationResult.Fail(authError!);
-        }
-
         if (quiz.Questions.Count > 0)
         {
             return ImportQuizCsvOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Kvíz už obsahuje otázky a nelze ho importovat znovu."));

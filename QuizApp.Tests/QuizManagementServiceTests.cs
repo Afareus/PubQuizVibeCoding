@@ -110,7 +110,7 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
-    public async Task ImportQuizCsvAsync_InvalidOrganizerToken_ReturnsInvalidAuthError()
+    public async Task ImportQuizCsvAsync_EmptyQuiz_AllowsImportWithoutAnyAuth()
     {
         await using var dbContext = CreateDbContext();
         var service = CreateService(dbContext);
@@ -120,13 +120,12 @@ public class QuizManagementServiceTests
             "question_text;option_a;option_b;option_c;option_d;correct_option;time_limit_sec\n" +
             "Kolik je 2+2?;3;4;5;6;B;30\n";
 
-        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, "spatny-token", null, csv, CancellationToken.None);
+        var importResult = await service.ImportQuizCsvAsync(createResult.Response!.QuizId, null, null, csv, CancellationToken.None);
 
-        Assert.False(importResult.IsSuccess);
-        Assert.NotNull(importResult.Error);
-        Assert.Equal(ApiErrorCode.InvalidAuthToken, importResult.Error!.Code);
-        Assert.Null(importResult.Response);
-        Assert.Empty(await dbContext.Questions.ToListAsync());
+        Assert.True(importResult.IsSuccess);
+        Assert.NotNull(importResult.Response);
+        Assert.Equal(1, importResult.Response!.ImportedQuestionsCount);
+        Assert.Single(await dbContext.Questions.ToListAsync());
     }
 
     [Fact]
