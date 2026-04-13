@@ -6,6 +6,7 @@
 @inject TeamSessionLocalStore TeamSessionLocalStore
 @inject NavigationManager NavigationManager
 @inject ActiveSessionState ActiveSessionState
+@inject IJSRuntime JS
 
 <PageTitle>@PageHeading</PageTitle>
 
@@ -210,6 +211,8 @@ else
         isLoading = true;
         apiError = null;
 
+        var previousQuestionId = snapshot?.CurrentQuestion?.QuestionId;
+
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sessions/{SessionId.Value}/state?teamId={identity.TeamId}");
         request.Headers.Add("X-Team-Reconnect-Token", identity.TeamReconnectToken);
 
@@ -217,6 +220,11 @@ else
         if (response.IsSuccessStatusCode)
         {
             snapshot = await response.Content.ReadFromJsonAsync<SessionStateSnapshotResponse>();
+            if (previousQuestionId.HasValue && snapshot?.CurrentQuestion?.QuestionId != previousQuestionId)
+            {
+                await JS.InvokeVoidAsync("eval", "document.activeElement?.blur()");
+            }
+
             submittedOption = null;
             submittedNumericValue = null;
             numericTip = null;
