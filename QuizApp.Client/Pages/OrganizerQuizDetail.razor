@@ -797,6 +797,13 @@
             return;
         }
 
+        var neighbor = ordered[targetIndex];
+        if (!neighbor.QuestionId.HasValue)
+        {
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Sousední otázka ještě nebyla uložena. Nejprve ji uložte.");
+            return;
+        }
+
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
@@ -814,31 +821,34 @@
         isDeletingQuestionAction = false;
         isSavingQuestionId = null;
 
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/reorder")
+        try
         {
-            Content = JsonContent.Create(new ReorderQuizQuestionRequest(question.QuestionId.Value, step))
-        };
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/reorder")
+            {
+                Content = JsonContent.Create(new ReorderQuizQuestionRequest(question.QuestionId.Value, step))
+            };
 
-        if (!string.IsNullOrWhiteSpace(questionsPassword))
-        {
-            request.Headers.Add("X-Quiz-Password", questionsPassword.Trim());
+            ApplyOrganizerAuth(request);
+
+            using var response = await HttpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                questionApiError = await ReadApiErrorAsync(response);
+                return;
+            }
+
+            (ordered[currentIndex], ordered[targetIndex]) = (ordered[targetIndex], ordered[currentIndex]);
+            questionEditors = ordered;
+            NormalizeQuestionOrders();
         }
-
-        ApplyOrganizerAuth(request);
-
-        using var response = await HttpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
+        catch (Exception)
         {
-            questionApiError = await ReadApiErrorAsync(response);
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Při změně pořadí otázky došlo k neočekávané chybě.");
+        }
+        finally
+        {
             isSavingQuestion = false;
-            return;
         }
-
-        (ordered[currentIndex], ordered[targetIndex]) = (ordered[targetIndex], ordered[currentIndex]);
-        questionEditors = ordered;
-        NormalizeQuestionOrders();
-
-        isSavingQuestion = false;
     }
 
     private static void OnQuestionTypeChanged(QuestionEditorModel question)
