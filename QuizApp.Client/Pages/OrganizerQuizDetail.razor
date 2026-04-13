@@ -593,8 +593,7 @@
                 question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionA : null,
                 question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionB : null,
                 question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionC : null,
-                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionD : null,
-                question.Order);
+                question.QuestionType == QuestionType.MultipleChoice ? normalizedOptionD : null);
 
             request = new HttpRequestMessage(HttpMethod.Put, $"/api/quizzes/{quizId.Value}/questions/{question.QuestionId.Value}")
             {

@@ -549,7 +549,7 @@ public class QuizManagementServiceTests
     }
 
     [Fact]
-    public async Task UpdateQuestionAsync_ValidRequest_UpdatesQuestionAndOrder()
+    public async Task UpdateQuestionAsync_ValidRequest_UpdatesQuestionContentAndPreservesOrderIndex()
     {
         await using var dbContext = CreateDbContext();
         var service = CreateService(dbContext);
@@ -584,8 +584,7 @@ public class QuizManagementServiceTests
                 null,
                 null,
                 null,
-                null,
-                3),
+                null),
             null,
             "heslo123",
             CancellationToken.None);
@@ -594,7 +593,7 @@ public class QuizManagementServiceTests
 
         var storedQuestion = await dbContext.Questions.SingleAsync(x => x.QuestionId == secondQuestion.Response.QuestionId);
         Assert.Equal("Q2 upravená", storedQuestion.Text);
-        Assert.Equal(2, storedQuestion.OrderIndex);
+        Assert.Equal(1, storedQuestion.OrderIndex);
         Assert.Equal(QuestionType.NumericClosest, storedQuestion.QuestionType);
 
         var optionsCount = await dbContext.QuestionOptions.CountAsync(x => x.QuestionId == storedQuestion.QuestionId);

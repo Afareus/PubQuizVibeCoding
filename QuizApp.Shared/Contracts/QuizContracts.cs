@@ -45,8 +45,7 @@ public sealed record UpdateQuizQuestionRequest(
     string? OptionA,
     string? OptionB,
     string? OptionC,
-    string? OptionD,
-    int Order);
+    string? OptionD);
 
 public sealed record ReorderQuizQuestionRequest(
     Guid QuestionId,

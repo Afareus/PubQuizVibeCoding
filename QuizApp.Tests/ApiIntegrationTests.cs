@@ -195,12 +195,12 @@ public class ApiIntegrationTests
     }
 
     [Fact]
-    public async Task UpdateQuestionEndpoint_ValidatesDuplicateOrder()
+    public async Task UpdateQuestionEndpoint_UpdatesContentAndPreservesOrderIndex()
     {
         await using var factory = new QuizAppApiFactory();
         using var client = factory.CreateClient();
 
-        var createQuizResponse = await CreateQuizAsync(client, "Editace pořadí", "heslo");
+        var createQuizResponse = await CreateQuizAsync(client, "Editace obsahu", "heslo");
 
         await AddManualQuestionAsync(client, createQuizResponse.QuizId, "heslo", "Q1", 1);
         await AddManualQuestionAsync(client, createQuizResponse.QuizId, "heslo", "Q2", 2);
@@ -219,13 +219,17 @@ public class ApiIntegrationTests
                 "A",
                 "B",
                 "C",
-                "D",
-                1))
+                "D"))
         };
         updateMessage.Headers.Add("X-Quiz-Password", "heslo");
 
         using var updateResponse = await client.SendAsync(updateMessage);
-        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        var updatedDetail = await GetQuizDetailAsync(client, createQuizResponse.QuizId, "heslo");
+        var updatedQuestion = updatedDetail.Questions.Single(x => x.QuestionId == secondQuestion.QuestionId);
+        Assert.Equal("Q2 upravená", updatedQuestion.Text);
+        Assert.Equal(secondQuestion.OrderIndex, updatedQuestion.OrderIndex);
     }
 
     [Fact]

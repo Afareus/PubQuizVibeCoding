@@ -355,15 +355,9 @@ public sealed class QuizManagementService : IQuizManagementService
             return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ResourceNotFound, "Otázka nebyla nalezena."));
         }
 
-        var desiredOrderIndex = request.Order - 1;
-        if (quiz.Questions.Any(existingQuestion => existingQuestion.QuestionId != questionId && existingQuestion.OrderIndex == desiredOrderIndex))
-        {
-            return AddQuizQuestionOperationResult.Fail(new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Otázka se zadaným pořadím už existuje."));
-        }
-
         var sanitizedText = TextInputSanitizer.SanitizeSingleLine(request.Text);
         question.Update(
-            desiredOrderIndex,
+            question.OrderIndex,
             sanitizedText,
             request.TimeLimitSec,
             request.QuestionType,
@@ -814,11 +808,6 @@ public sealed class QuizManagementService : IQuizManagementService
             nameof(UpdateQuizQuestionRequest.OptionB),
             nameof(UpdateQuizQuestionRequest.OptionC),
             nameof(UpdateQuizQuestionRequest.OptionD));
-
-        if (request.Order < 1)
-        {
-            errors[nameof(UpdateQuizQuestionRequest.Order)] = ["Pořadí otázky musí být alespoň 1."];
-        }
 
         return errors.Count == 0 ? null : errors;
     }
