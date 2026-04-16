@@ -493,6 +493,15 @@ else
             }
 
             RestartCountdownTimer();
+            try
+            {
+                // Ensure no element remains focused after realtime-driven UI updates
+                await JsRuntime.InvokeVoidAsync("pubquiz.focusAndBlur");
+            }
+            catch
+            {
+                // ignore JS errors
+            }
             StateHasChanged();
         });
     }

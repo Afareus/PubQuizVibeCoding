@@ -143,7 +143,27 @@
                 // swallow
             }
         };
+        // Provide a focus-sink element and a helper that focuses it then blurs
+        // to ensure no interactive element remains focused across browsers.
+        window.pubquiz.focusAndBlur = function () {
+            try {
+                var sink = document.getElementById('pq-focus-sink');
+                if (sink) {
+                    sink.focus();
+                    sink.blur();
+                } else {
+                    // Fallback: blur active element
+                    var el = document.activeElement;
+                    if (el && typeof el.blur === 'function') el.blur();
+                }
+            }
+            catch (e) {
+                // swallow
+            }
+        };
     </script>
+    <!-- hidden focus sink used to steal and release focus reliably across browsers -->
+    <div id="pq-focus-sink" tabindex="-1" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true"></div>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 
