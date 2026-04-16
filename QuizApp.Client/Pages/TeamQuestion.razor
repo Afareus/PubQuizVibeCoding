@@ -6,6 +6,7 @@
 @inject TeamSessionLocalStore TeamSessionLocalStore
 @inject NavigationManager NavigationManager
 @inject ActiveSessionState ActiveSessionState
+@inject IJSRuntime JsRuntime
 
 <PageTitle>@PageHeading</PageTitle>
 
@@ -165,6 +166,7 @@ else
 
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
+    private Guid? lastQuestionId;
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
     private bool isInitializing = true;
@@ -225,6 +227,22 @@ else
             numericTipInput = string.Empty;
             await ReloadSubmittedAnswerAsync();
             UpdateActiveSessionState();
+            // If the question changed, remove focus from any focused element to
+            // avoid browsers (Firefox, Safari) auto-focusing answers when the
+            // UI is re-rendered.
+            var currentId = snapshot?.CurrentQuestion?.QuestionId;
+            if (currentId.HasValue && currentId != lastQuestionId)
+            {
+                try
+                {
+                    await JsRuntime.InvokeVoidAsync("pubquiz.blurActiveElement");
+                }
+                catch
+                {
+                    // ignore JS errors
+                }
+                lastQuestionId = currentId;
+            }
         }
         else
         {
@@ -233,6 +251,7 @@ else
             submittedNumericValue = null;
             apiError = await ReadApiErrorAsync(response);
             UpdateActiveSessionState();
+            lastQuestionId = null;
         }
 
         isLoading = false;

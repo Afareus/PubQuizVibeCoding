@@ -127,6 +127,23 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
+    <script>
+        // Small helper to remove focus from any currently focused element.
+        // This is used to avoid browsers (Firefox, Safari) auto-focusing
+        // buttons or inputs after Blazor re-renders components.
+        window.pubquiz = window.pubquiz || {};
+        window.pubquiz.blurActiveElement = function () {
+            try {
+                var el = document.activeElement;
+                if (el && typeof el.blur === 'function') {
+                    el.blur();
+                }
+            }
+            catch (e) {
+                // swallow
+            }
+        };
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 
