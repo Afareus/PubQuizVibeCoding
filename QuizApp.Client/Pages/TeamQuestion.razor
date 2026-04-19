@@ -67,9 +67,20 @@ else if (snapshot.Status is SessionStatus.Finished)
         <div class="alert alert-info mb-2" role="alert">Výsledky zatím nebyly zveřejněny organizátorem.</div>
     }
 
-    <button class="btn btn-primary" type="button" disabled="@(!snapshot.ResultsPublished)" @onclick="GoToResults">
-        Zobrazit výsledky
-    </button>
+    @if (isNavigatingToResults)
+    {
+        <div class="d-flex justify-content-center my-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Načítám výsledky...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <button class="btn btn-primary" type="button" disabled="@(!snapshot.ResultsPublished)" @onclick="GoToResults">
+            Zobrazit výsledky
+        </button>
+    }
 }
 else if (snapshot.CurrentQuestion is null)
 {
@@ -171,6 +182,7 @@ else
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
     private bool isInitializing = true;
+    private bool isNavigatingToResults;
 
     private string PageHeading => snapshot?.Status is SessionStatus.Finished ? "Konec kvízu" : "Otázka";
 
@@ -397,6 +409,7 @@ else
             return;
         }
 
+        isNavigatingToResults = true;
         NavigationManager.NavigateTo($"/session/vysledky/{snapshot.SessionId}?teamId={identity.TeamId}");
     }
 
@@ -446,7 +459,7 @@ else
             hubConnection.On(RealtimeEventName.QuestionChanged.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
             hubConnection.On(RealtimeEventName.SessionFinished.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Hra byla ukončena."));
             hubConnection.On(RealtimeEventName.SessionCancelled.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
-            hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync("Výsledky jsou připravené."));
+            hubConnection.On(RealtimeEventName.ResultsReady.ToWireName(), async () => await ReloadSnapshotFromRealtimeAsync(string.Empty));
 
             hubConnection.Reconnecting += _ =>
             {
