@@ -4,11 +4,11 @@
 @inject OrganizerQuizLocalStore OrganizerQuizLocalStore
 @inject NavigationManager NavigationManager
 
-<PageTitle>Detail kvÌzu</PageTitle>
+<PageTitle>Detail kv√≠zu</PageTitle>
 
-<h1>Detail kvÌzu</h1>
+<h1>Detail kv√≠zu</h1>
 
-<p class="text-muted">Spr·va vybranÈho kvÌzu.</p>
+<p class="text-muted">Spr√°va vybran√©ho kv√≠zu.</p>
 
 @if (!string.IsNullOrWhiteSpace(infoMessage))
 {
@@ -17,7 +17,7 @@
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5 fw-bold mb-3">@(quizDetail?.Name ?? "(NaËÌt·m n·zev kvÌzu...)")</h2>
+        <h2 class="h5 fw-bold mb-3">@(quizDetail?.Name ?? "(Na√®√≠t√°m n√°zev kv√≠zu...)")</h2>
 
         @if (detailApiError is not null)
         {
@@ -33,13 +33,13 @@
         {
             <div class="form-check mb-3">
                 <input id="allowStartForEveryone" class="form-check-input" type="checkbox" checked="@isStartAllowedForEveryoneToggle" @onchange="OnStartPermissionToggleChanged" disabled="@(isUpdatingStartPermission || isLoadingDetail)" />
-                <label class="form-check-label" for="allowStartForEveryone">Povolit spuötÏnÌ kvÌzu</label>
+                <label class="form-check-label" for="allowStartForEveryone">Povolit spu≈°t√¨n√≠ kv√≠zu</label>
             </div>
         }
 
         <div class="form-check mb-3">
             <InputCheckbox id="quizWithTimer" class="form-check-input" @bind-Value="isQuizTimerEnabled" />
-            <label class="form-check-label" for="quizWithTimer">KvÌz s ËasomÌrou</label>
+            <label class="form-check-label" for="quizWithTimer">Kv√≠z s √®asom√≠rou</label>
         </div>
 
         @if (isStartPermissionPromptVisible)
@@ -48,7 +48,7 @@
                 <div class="modal-dialog" role="document">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">PotvrzenÌ zmÏny</h5>
+                            <h5 class="modal-title">Potvrzen√≠ zm√¨ny</h5>
                         </div>
                         <div class="modal-body">
                             @if (!string.IsNullOrWhiteSpace(startPermissionPromptErrorMessage))
@@ -56,12 +56,12 @@
                                 <div class="alert alert-danger" role="alert">@startPermissionPromptErrorMessage</div>
                             }
 
-                            <label class="form-label" for="startPermissionPassword">Administr·torskÈ heslo kvÌzu</label>
+                            <label class="form-label" for="startPermissionPassword">Administr√°torsk√© heslo kv√≠zu</label>
                             <InputText id="startPermissionPassword" class="form-control" type="password" @bind-Value="startPermissionPasswordPrompt" />
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-outline-primary" type="button" disabled="@isUpdatingStartPermission" @onclick="ConfirmStartPermissionChangeAsync">@(isUpdatingStartPermission ? "Ukl·d·m..." : "Potvrdit")</button>
-                            <button class="btn btn-outline-secondary" type="button" disabled="@isUpdatingStartPermission" @onclick="CancelStartPermissionChange">Zruöit</button>
+                            <button class="btn btn-outline-primary" type="button" disabled="@isUpdatingStartPermission" @onclick="ConfirmStartPermissionChangeAsync">@(isUpdatingStartPermission ? "Ukl√°d√°m..." : "Potvrdit")</button>
+                            <button class="btn btn-outline-secondary" type="button" disabled="@isUpdatingStartPermission" @onclick="CancelStartPermissionChange">Zru≈°it</button>
                         </div>
                     </div>
                 </div>
@@ -70,24 +70,24 @@
         }
 
         <div class="mb-3">
-            <label class="form-label" for="joinCode">Join kÛd pro hr·Ëe</label>
+            <label class="form-label" for="joinCode">Join k√≥d pro hr√°√®e</label>
             <div class="input-group">
                 <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
-                <button class="btn btn-outline-secondary" type="button" disabled="@(isGeneratingJoinCode || isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="GenerateJoinCodeAsync">@(isGeneratingJoinCode ? "Generuji..." : "Vygenerovat kÛd")</button>
+                <button class="btn btn-outline-secondary" type="button" disabled="@(isGeneratingJoinCode || isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="GenerateJoinCodeAsync">@(isGeneratingJoinCode ? "Generuji..." : "Vygenerovat k√≥d")</button>
             </div>
-            <div class="form-text">Join kÛd musÌ mÌt alespoÚ 4 znaky.</div>
+            <div class="form-text">Join k√≥d mus√≠ m√≠t alespo√≤ 4 znaky.</div>
         </div>
 
-        <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null || !quizDetail.IsStartAllowedForEveryone)" @onclick="StartQuizAsync">@(isCreatingSession ? "SpouötÌm..." : "Spustit kvÌz")</button>
+        <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null || !quizDetail.IsStartAllowedForEveryone)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spou≈°t√≠m..." : "Spustit kv√≠z")</button>
     </div>
 </section>
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5">Ot·zky kvÌzu</h2>
+        <h2 class="h5">Ot√°zky kv√≠zu</h2>
         @if ((quizDetail?.QuestionCount ?? 0) > 0)
         {
-            <p class="text-muted">Ot·zky je moûnÈ editovat aû po zad·nÌ Administr·torskÈho hesla kvÌzu.</p>
+            <p class="text-muted">Ot√°zky je mo≈æn√© editovat a≈æ po zad√°n√≠ Administr√°torsk√©ho hesla kv√≠zu.</p>
         }
 
         @if (questionApiError is not null)
@@ -103,11 +103,11 @@
         @if (!hasLoadedQuestions && (quizDetail?.QuestionCount ?? 0) > 0 && !allowManualAddWithoutPassword)
         {
             <div class="mb-3">
-                <label class="form-label" for="questionsPassword">Administr·torskÈ heslo kvÌzu</label>
+                <label class="form-label" for="questionsPassword">Administr√°torsk√© heslo kv√≠zu</label>
                 <InputText id="questionsPassword" class="form-control" type="password" @bind-Value="questionsPassword" />
             </div>
 
-            <button class="btn btn-outline-primary mb-3" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "NaËÌt·m ot·zky..." : "Zobrazit ot·zky")</button>
+            <button class="btn btn-outline-primary mb-3" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "Na√®√≠t√°m ot√°zky..." : "Zobrazit ot√°zky")</button>
         }
 
         @if (quizDetail is not null && (hasLoadedQuestions || quizDetail.QuestionCount == 0 || allowManualAddWithoutPassword))
@@ -130,16 +130,16 @@
                         }
 
                         <div class="d-flex align-items-center justify-content-between mb-2">
-                            <h3 class="h5 fw-normal mb-0">Ot·zka ËÌslo: <span class="quiz-order-number">@question.Order</span></h3>
+                            <h3 class="h5 fw-normal mb-0">Ot√°zka √®√≠slo: <span class="quiz-order-number">@question.Order</span></h3>
                             <div class="d-flex gap-1">
                                 <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveUp || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionUpAsync(question)">^</button>
-                                <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveDown || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionDownAsync(question)">°</button>
+                                <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveDown || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionDownAsync(question)">¬°</button>
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label mb-1">Text ot·zky</label>
-                            <InputText class="form-control quiz-question-live-text" @bind-Value="question.Text" placeholder="DoplÚte text ot·zky" />
+                            <label class="form-label mb-1">Text ot√°zky</label>
+                            <InputText class="form-control quiz-question-live-text" @bind-Value="question.Text" placeholder="Dopl√≤te text ot√°zky" />
                             @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.Text), out var textError))
                             {
                                 <div class="text-danger small mt-1">@textError</div>
@@ -151,7 +151,7 @@
                             <div class="d-grid gap-2 mb-3">
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">A</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionA" placeholder="OdpovÏÔ A" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionA" placeholder="Odpov√¨√Ø A" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionA), out var optionAError))
                                 {
@@ -160,7 +160,7 @@
 
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">B</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionB" placeholder="OdpovÏÔ B" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionB" placeholder="Odpov√¨√Ø B" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionB), out var optionBError))
                                 {
@@ -169,7 +169,7 @@
 
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">C</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionC" placeholder="OdpovÏÔ C" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionC" placeholder="Odpov√¨√Ø C" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionC), out var optionCError))
                                 {
@@ -178,7 +178,7 @@
 
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">D</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionD" placeholder="OdpovÏÔ D" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionD" placeholder="Odpov√¨√Ø D" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionD), out var optionDError))
                                 {
@@ -189,8 +189,8 @@
                         else
                         {
                             <div class="mb-3">
-                                <p class="mb-2 text-muted">Bod zÌsk· nejbliûöÌ odpovÏÔ.</p>
-                                <label class="form-label">Spr·vn· odpovÏÔ:</label>
+                                <p class="mb-2 text-muted">Bod z√≠sk√° nejbli≈æ≈°√≠ odpov√¨√Ø.</p>
+                                <label class="form-label">Spr√°vn√° odpov√¨√Ø:</label>
                                 <InputNumber class="form-control" @bind-Value="question.CorrectNumericValue" />
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.CorrectNumericValue), out var correctNumericError))
                                 {
@@ -201,14 +201,14 @@
 
                         <div class="row g-2 align-items-end">
                             <div class="col-12 col-md-4">
-                                <label class="form-label">Typ ot·zky</label>
+                                <label class="form-label">Typ ot√°zky</label>
                                 <InputSelect class="form-select" @bind-Value="question.QuestionType" @bind-Value:after="() => OnQuestionTypeChanged(question)">
-                                    <option value="@QuestionType.MultipleChoice">V˝bÏr A-D</option>
-                                    <option value="@QuestionType.NumericClosest">»Ìseln˝ tip</option>
+                                    <option value="@QuestionType.MultipleChoice">V√Ωb√¨r A-D</option>
+                                    <option value="@QuestionType.NumericClosest">√à√≠seln√Ω tip</option>
                                 </InputSelect>
                             </div>
                             <div class="col-12 col-md-4">
-                                <label class="form-label">»asov˝ limit (sekundy)</label>
+                                <label class="form-label">√àasov√Ω limit (sekundy)</label>
                                 <InputNumber class="form-control" @bind-Value="question.TimeLimitSec" />
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.TimeLimitSec), out var timeLimitError))
                                 {
@@ -218,9 +218,9 @@
                             @if (question.QuestionType == QuestionType.MultipleChoice)
                             {
                                 <div class="col-12 col-md-4">
-                                    <label class="form-label">Spr·vn· odpovÏÔ</label>
+                                    <label class="form-label">Spr√°vn√° odpov√¨√Ø</label>
                                     <InputSelect class="form-select" @bind-Value="question.CorrectOption">
-                                        <option value="">Vyberte spr·vnou odpovÏÔ</option>
+                                        <option value="">Vyberte spr√°vnou odpov√¨√Ø</option>
                                         <option value="@OptionKey.A">A</option>
                                         <option value="@OptionKey.B">B</option>
                                         <option value="@OptionKey.C">C</option>
@@ -235,8 +235,8 @@
                         </div>
 
                         <div class="d-flex justify-content-end gap-2 mt-3">
-                            <button class="btn btn-outline-danger" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="() => DeleteQuestionAsync(question)">@(isSavingQuestionId == question.ClientId && isDeletingQuestionAction ? "Maûu..." : "Smazat")</button>
-                            <button class="btn btn-outline-primary" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="() => SaveQuestionAsync(question)">@(isSavingQuestionId == question.ClientId ? "Ukl·d·m..." : "Uloûit")</button>
+                            <button class="btn btn-outline-danger" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="() => DeleteQuestionAsync(question)">@(isSavingQuestionId == question.ClientId && isDeletingQuestionAction ? "Ma≈æu..." : "Smazat")</button>
+                            <button class="btn btn-outline-primary" type="button" disabled="@(isSavingQuestion || isLoadingQuestions)" @onclick="() => SaveQuestionAsync(question)">@(isSavingQuestionId == question.ClientId ? "Ukl√°d√°m..." : "Ulo≈æit")</button>
                         </div>
                     </article>
                 }
@@ -249,11 +249,11 @@
 
 <section class="card mb-4">
     <div class="card-body text-start">
-        <h2 class="h5">Import ot·zek CSV</h2>
+        <h2 class="h5">Import ot√°zek CSV</h2>
         <p class="mb-2">
-            <a class="link-primary" href="@($"templates/quiz-question-import-template.csv?v={CsvTemplateVersion}")" download>St·hnout CSV p¯edpis (öablonu)</a>
+            <a class="link-primary" href="@($"templates/quiz-question-import-template.csv?v={CsvTemplateVersion}")" download>St√°hnout CSV p√∏edpis (≈°ablonu)</a>
         </p>
-        <p class="form-text mt-0">CSV import pouûÌv· oddÏlovaË <strong>st¯ednÌk (;)</strong>.</p>
+        <p class="form-text mt-0">CSV import pou≈æ√≠v√° odd√¨lova√® <strong>st√∏edn√≠k (;)</strong>.</p>
 
         @if (importApiError is not null)
         {
@@ -267,12 +267,12 @@
 
         <InputFile OnChange="ReadCsvFileAsync" accept=".csv,text/csv" />
 
-        <button class="btn btn-outline-primary" type="button" disabled="@isImporting" @onclick="ImportCsvAsync">@(isImporting ? "Importuji..." : "Nahr·t CSV")</button>
+        <button class="btn btn-outline-primary" type="button" disabled="@isImporting" @onclick="ImportCsvAsync">@(isImporting ? "Importuji..." : "Nahr√°t CSV")</button>
 
         @if (importResult is not null)
         {
             <div class="mt-3">
-                <p class="mb-2">Importov·no ot·zek: <strong>@importResult.ImportedQuestionsCount</strong></p>
+                <p class="mb-2">Importov√°no ot√°zek: <strong>@importResult.ImportedQuestionsCount</strong></p>
 
                 @if (importResult.ValidationIssues.Count > 0)
                 {
@@ -280,7 +280,7 @@
                         <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th>ÿ·dek</th>
+                                    <th>√ò√°dek</th>
                                     <th>Sloupec</th>
                                     <th>Chyba</th>
                                 </tr>
@@ -305,8 +305,8 @@
 
 <section class="card border-danger mb-4">
     <div class="card-body">
-        <h2 class="h5 text-danger">Smaz·nÌ kvÌzu</h2>
-        <p>Zad·nÌ spr·vnÈho Administr·torkÈho hesla kvÌzu je povinnÈ.</p>
+        <h2 class="h5 text-danger">Smaz√°n√≠ kv√≠zu</h2>
+        <p>Zad√°n√≠ spr√°vn√©ho Administr√°tork√©ho hesla kv√≠zu je povinn√©.</p>
 
         @if (deleteApiError is not null)
         {
@@ -314,11 +314,11 @@
         }
 
         <div class="mb-3">
-            <label class="form-label" for="deletePassword">Administr·torkÈ heslo kvÌzu</label>
+            <label class="form-label" for="deletePassword">Administr√°tork√© heslo kv√≠zu</label>
             <InputText id="deletePassword" class="form-control" type="password" @bind-Value="deletePassword" />
         </div>
 
-        <button class="btn btn-danger" type="button" disabled="@isDeleting" @onclick="DeleteQuizAsync">@(isDeleting ? "Maûu..." : "Smazat kvÌz")</button>
+        <button class="btn btn-danger" type="button" disabled="@isDeleting" @onclick="DeleteQuizAsync">@(isDeleting ? "Ma≈æu..." : "Smazat kv√≠z")</button>
     </div>
 </section>
 
@@ -375,7 +375,7 @@
         }
 
         quizDetail = null;
-        detailApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "ChybÌ ID kvÌzu v URL.");
+        detailApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Chyb√≠ ID kv√≠zu v URL.");
     }
 
     private async Task LoadDetailAsync(bool showSuccessMessage)
@@ -387,7 +387,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            detailApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            detailApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             isLoadingDetail = false;
             return;
         }
@@ -412,7 +412,7 @@
 
             if (showSuccessMessage)
             {
-                infoMessage = "Detail kvÌzu byl naËten.";
+                infoMessage = "Detail kv√≠zu byl na√®ten.";
             }
         }
         else
@@ -423,7 +423,7 @@
             if (detailApiError.Code == ApiErrorCode.ResourceNotFound)
             {
                 await OrganizerQuizLocalStore.RemoveAsync(quizId.Value);
-                infoMessage = "KvÌz nebyl nalezen a byl odebr·n z lok·lnÌho seznamu. PravdÏpodobnÏ byl smaz·n nebo pouûÌv·te jinou datab·zi.";
+                infoMessage = "Kv√≠z nebyl nalezen a byl odebr√°n z lok√°ln√≠ho seznamu. Pravd√¨podobn√¨ byl smaz√°n nebo pou≈æ√≠v√°te jinou datab√°zi.";
             }
         }
 
@@ -446,7 +446,7 @@
         await stream.CopyToAsync(memoryStream);
 
         csvContent = DecodeCsvContent(memoryStream.ToArray());
-        importInfoMessage = "CSV soubor je naËten˝ a p¯ipraven˝ k importu.";
+        importInfoMessage = "CSV soubor je na√®ten√Ω a p√∏ipraven√Ω k importu.";
     }
 
     private async Task ImportCsvAsync()
@@ -459,7 +459,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            importApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            importApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             isImporting = false;
             return;
         }
@@ -481,7 +481,7 @@
         if (response.IsSuccessStatusCode)
         {
             importResult = await response.Content.ReadFromJsonAsync<ImportQuizCsvResponse>();
-            infoMessage = "Import CSV byl dokonËen.";
+            infoMessage = "Import CSV byl dokon√®en.";
             await LoadDetailAsync(false);
 
             if ((importResult?.ImportedQuestionsCount ?? 0) > 0)
@@ -507,7 +507,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             isLoadingQuestions = false;
             return;
         }
@@ -533,7 +533,7 @@
             revealedQuestions = detail?.Questions ?? [];
             SyncQuestionEditorsFromRevealedQuestions();
             hasLoadedQuestions = true;
-            questionInfoMessage = $"NaËteno ot·zek: {revealedQuestions.Count}.";
+            questionInfoMessage = $"Na√®teno ot√°zek: {revealedQuestions.Count}.";
         }
         else
         {
@@ -555,20 +555,20 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             return;
         }
 
         question.ValidationErrors = ValidateQuestionEditor(question);
         if (question.ValidationErrors is not null)
         {
-            question.InlineErrorMessage = "Formul·¯ obsahuje chyby. Opravte prosÌm zv˝raznÏn· pole.";
+            question.InlineErrorMessage = "Formul√°√∏ obsahuje chyby. Opravte pros√≠m zv√Ωrazn√¨n√° pole.";
             return;
         }
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro ˙pravu ot·zky zadejte Administr·torskÈ heslo kvÌzu nebo pouûijte uloûen˝ organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro √∫pravu ot√°zky zadejte Administr√°torsk√© heslo kv√≠zu nebo pou≈æijte ulo≈æen√Ω organizer token.");
             return;
         }
 
@@ -672,11 +672,11 @@
             {
                 if (wasEditing)
                 {
-                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Ot·zka byla ˙spÏönÏ upravena.");
+                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Ot√°zka byla √∫sp√¨≈°n√¨ upravena.");
                 }
                 else
                 {
-                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Ot·zka byla ˙spÏönÏ p¯id·na.");
+                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Ot√°zka byla √∫sp√¨≈°n√¨ p√∏id√°na.");
                 }
             }
         }
@@ -705,13 +705,13 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smaz·nÌ ot·zky zadejte Administr·torskÈ heslo kvÌzu nebo pouûijte uloûen˝ organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smaz√°n√≠ ot√°zky zadejte Administr√°torsk√© heslo kv√≠zu nebo pou≈æijte ulo≈æen√Ω organizer token.");
             return;
         }
 
@@ -753,7 +753,7 @@
                 }
             }
 
-            questionInfoMessage = "Ot·zka byla ˙spÏönÏ smaz·na.";
+            questionInfoMessage = "Ot√°zka byla √∫sp√¨≈°n√¨ smaz√°na.";
         }
         else
         {
@@ -819,20 +819,20 @@
         var neighbor = ordered[targetIndex];
         if (!neighbor.QuestionId.HasValue)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "SousednÌ ot·zka jeötÏ nebyla uloûena. Nejprve ji uloûte.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Sousedn√≠ ot√°zka je≈°t√¨ nebyla ulo≈æena. Nejprve ji ulo≈æte.");
             return;
         }
 
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro ˙pravu po¯adÌ ot·zek zadejte Administr·torskÈ heslo kvÌzu nebo pouûijte uloûen˝ organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro √∫pravu po√∏ad√≠ ot√°zek zadejte Administr√°torsk√© heslo kv√≠zu nebo pou≈æijte ulo≈æen√Ω organizer token.");
             return;
         }
 
@@ -862,7 +862,7 @@
         }
         catch (Exception ex)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, $"P¯i zmÏnÏ po¯adÌ ot·zky doölo k neoËek·vanÈ chybÏ: {ex.Message}");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, $"P√∏i zm√¨n√¨ po√∏ad√≠ ot√°zky do≈°lo k neo√®ek√°van√© chyb√¨: {ex.Message}");
         }
         finally
         {
@@ -895,14 +895,14 @@
         var normalizedJoinCode = joinCode.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(normalizedJoinCode))
         {
-            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuötÏnÌ zadejte join kÛd.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spu≈°t√¨n√≠ zadejte join k√≥d.");
             isCreatingSession = false;
             return;
         }
 
         if (normalizedJoinCode.Length < 4)
         {
-            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kÛd musÌ mÌt alespoÚ 4 znaky.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join k√≥d mus√≠ m√≠t alespo√≤ 4 znaky.");
             isCreatingSession = false;
             return;
         }
@@ -910,7 +910,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             isCreatingSession = false;
             return;
         }
@@ -930,7 +930,7 @@
             var createdSession = await response.Content.ReadFromJsonAsync<CreateSessionResponse>();
             if (createdSession is null)
             {
-                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepoda¯ilo se naËÌst zaloûenou session.");
+                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepoda√∏ilo se na√®√≠st zalo≈æenou session.");
                 isCreatingSession = false;
                 return;
             }
@@ -974,7 +974,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            startPermissionPromptErrorMessage = "Quiz ID nenÌ ve validnÌm form·tu GUID.";
+            startPermissionPromptErrorMessage = "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.";
             isUpdatingStartPermission = false;
             return;
         }
@@ -1010,7 +1010,7 @@
             isStartAllowedForEveryoneToggle = isAllowed;
         }
 
-        infoMessage = "NastavenÌ spouötÏnÌ kvÌzu bylo zmÏnÏno.";
+        infoMessage = "Nastaven√≠ spou≈°t√¨n√≠ kv√≠zu bylo zm√¨n√¨no.";
         isStartPermissionPromptVisible = false;
         startPermissionPasswordPrompt = string.Empty;
         startPermissionPromptErrorMessage = null;
@@ -1034,7 +1034,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             isGeneratingJoinCode = false;
             return;
         }
@@ -1050,7 +1050,7 @@
             var payload = await response.Content.ReadFromJsonAsync<GenerateJoinCodeResponse>();
             if (payload is null || string.IsNullOrWhiteSpace(payload.JoinCode))
             {
-                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepoda¯ilo se vygenerovat voln˝ join kÛd.");
+                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepoda√∏ilo se vygenerovat voln√Ω join k√≥d.");
             }
             else
             {
@@ -1075,8 +1075,8 @@
 
         NormalizeQuestionOrders();
         questionInfoMessage = removedCount == 1
-            ? "Neuloûen· nov· ot·zka byla p¯ed spuötÏnÌm kvÌzu odebr·na."
-            : "NeuloûenÈ novÈ ot·zky byly p¯ed spuötÏnÌm kvÌzu odebr·ny.";
+            ? "Neulo≈æen√° nov√° ot√°zka byla p√∏ed spu≈°t√¨n√≠m kv√≠zu odebr√°na."
+            : "Neulo≈æen√© nov√© ot√°zky byly p√∏ed spu≈°t√¨n√≠m kv√≠zu odebr√°ny.";
     }
 
     private async Task DeleteQuizAsync()
@@ -1088,7 +1088,7 @@
         var quizId = GetQuizId();
         if (!quizId.HasValue)
         {
-            deleteApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nenÌ ve validnÌm form·tu GUID.");
+            deleteApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Quiz ID nen√≠ ve validn√≠m form√°tu GUID.");
             isDeleting = false;
             return;
         }
@@ -1233,38 +1233,38 @@
 
         if (question.Order < 1)
         {
-            errors[nameof(QuestionEditorModel.Order)] = ["Po¯adÌ ot·zky musÌ b˝t alespoÚ 1."];
+            errors[nameof(QuestionEditorModel.Order)] = ["Po√∏ad√≠ ot√°zky mus√≠ b√Ωt alespo√≤ 1."];
         }
 
         if (string.IsNullOrWhiteSpace(question.Text))
         {
-            errors[nameof(QuestionEditorModel.Text)] = ["Zadejte text ot·zky."];
+            errors[nameof(QuestionEditorModel.Text)] = ["Zadejte text ot√°zky."];
         }
         else if (question.Text.Trim().Length > 1500)
         {
-            errors[nameof(QuestionEditorModel.Text)] = ["Text ot·zky je p¯Ìliö dlouh˝ (max. 1500 znak˘)."];
+            errors[nameof(QuestionEditorModel.Text)] = ["Text ot√°zky je p√∏√≠li≈° dlouh√Ω (max. 1500 znak√π)."];
         }
 
         if (!question.TimeLimitSec.HasValue || question.TimeLimitSec.Value < 10 || question.TimeLimitSec.Value > 300)
         {
-            errors[nameof(QuestionEditorModel.TimeLimitSec)] = ["»asov˝ limit musÌ b˝t mezi 10 a 300 sekundami."];
+            errors[nameof(QuestionEditorModel.TimeLimitSec)] = ["√àasov√Ω limit mus√≠ b√Ωt mezi 10 a 300 sekundami."];
         }
 
         if (question.QuestionType == QuestionType.MultipleChoice)
         {
-            ValidateOption(question.OptionA, nameof(QuestionEditorModel.OptionA), "VyplÚte odpovÏÔ A.", errors);
-            ValidateOption(question.OptionB, nameof(QuestionEditorModel.OptionB), "VyplÚte odpovÏÔ B.", errors);
-            ValidateOption(question.OptionC, nameof(QuestionEditorModel.OptionC), "VyplÚte odpovÏÔ C.", errors);
-            ValidateOption(question.OptionD, nameof(QuestionEditorModel.OptionD), "VyplÚte odpovÏÔ D.", errors);
+            ValidateOption(question.OptionA, nameof(QuestionEditorModel.OptionA), "Vypl√≤te odpov√¨√Ø A.", errors);
+            ValidateOption(question.OptionB, nameof(QuestionEditorModel.OptionB), "Vypl√≤te odpov√¨√Ø B.", errors);
+            ValidateOption(question.OptionC, nameof(QuestionEditorModel.OptionC), "Vypl√≤te odpov√¨√Ø C.", errors);
+            ValidateOption(question.OptionD, nameof(QuestionEditorModel.OptionD), "Vypl√≤te odpov√¨√Ø D.", errors);
 
             if (!question.CorrectOption.HasValue)
             {
-                errors[nameof(QuestionEditorModel.CorrectOption)] = ["Vyberte spr·vnou odpovÏÔ."];
+                errors[nameof(QuestionEditorModel.CorrectOption)] = ["Vyberte spr√°vnou odpov√¨√Ø."];
             }
         }
         else if (!question.CorrectNumericValue.HasValue)
         {
-            errors[nameof(QuestionEditorModel.CorrectNumericValue)] = ["Zadejte spr·vnou ËÌselnou hodnotu."];
+            errors[nameof(QuestionEditorModel.CorrectNumericValue)] = ["Zadejte spr√°vnou √®√≠selnou hodnotu."];
         }
 
         return errors.Count == 0 ? null : errors;
@@ -1280,7 +1280,7 @@
 
         if (optionValue.Trim().Length > 500)
         {
-            errors[fieldName] = ["Text odpovÏdi je p¯Ìliö dlouh˝ (max. 500 znak˘)."];
+            errors[fieldName] = ["Text odpov√¨di je p√∏√≠li≈° dlouh√Ω (max. 500 znak√π)."];
         }
     }
 
@@ -1379,7 +1379,7 @@
     {
         if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests)
         {
-            return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "P¯Ìliö mnoho poûadavk˘. PoËkejte chvÌli a zkuste to znovu.");
+            return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "P√∏√≠li≈° mnoho po≈æadavk√π. Po√®kejte chv√≠li a zkuste to znovu.");
         }
 
         try
