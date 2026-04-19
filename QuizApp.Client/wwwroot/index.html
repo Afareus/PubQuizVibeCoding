@@ -128,42 +128,28 @@
         <a class="dismiss">🗙</a>
     </div>
     <script>
-        // Small helper to remove focus from any currently focused element.
-        // This is used to avoid browsers (Firefox, Safari) auto-focusing
-        // buttons or inputs after Blazor re-renders components.
         window.pubquiz = window.pubquiz || {};
-        window.pubquiz.blurActiveElement = function () {
-            try {
-                var el = document.activeElement;
-                if (el && typeof el.blur === 'function') {
-                    el.blur();
-                }
-            }
-            catch (e) {
-                // swallow
-            }
-        };
-        // Provide a focus-sink element and a helper that focuses it then blurs
-        // to ensure no interactive element remains focused across browsers.
-        window.pubquiz.focusAndBlur = function () {
-            try {
-                var sink = document.getElementById('pq-focus-sink');
-                if (sink) {
-                    sink.focus();
-                    sink.blur();
-                } else {
-                    // Fallback: blur active element
-                    var el = document.activeElement;
-                    if (el && typeof el.blur === 'function') el.blur();
-                }
-            }
-            catch (e) {
-                // swallow
-            }
+
+        // Blur any currently focused interactive element.
+        // Uses setTimeout so the blur happens AFTER the browser finishes its
+        // own post-render focus assignment (Firefox and Safari assign focus
+        // asynchronously after DOM mutations, so a synchronous blur is too early).
+        window.pubquiz.blurAfterRender = function () {
+            // First setTimeout pushes past Blazor's render; second pushes past
+            // the browser's own focus-restoration that Firefox/Safari do after
+            // a DOM mutation that removes the previously focused element.
+            setTimeout(function () {
+                setTimeout(function () {
+                    try {
+                        var el = document.activeElement;
+                        if (el && el !== document.body && typeof el.blur === 'function') {
+                            el.blur();
+                        }
+                    } catch (e) { /* swallow */ }
+                }, 0);
+            }, 0);
         };
     </script>
-    <!-- hidden focus sink used to steal and release focus reliably across browsers -->
-    <div id="pq-focus-sink" tabindex="-1" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true"></div>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

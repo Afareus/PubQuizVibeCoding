@@ -167,6 +167,7 @@ else
     private HubConnection? hubConnection;
     private Guid? realtimeSessionId;
     private Guid? lastQuestionId;
+    private bool shouldBlurAfterRender;
     private System.Threading.Timer? countdownTimer;
     private int remainingSeconds;
     private bool isInitializing = true;
@@ -177,6 +178,25 @@ else
         && !snapshot.IsCurrentQuestionAnsweringClosed
         && !submittedOption.HasValue
         && !submittedNumericValue.HasValue;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (shouldBlurAfterRender)
+        {
+            shouldBlurAfterRender = false;
+            try
+            {
+                // Called after DOM is committed — the double-setTimeout in JS
+                // pushes the blur past the browser's own post-mutation focus
+                // assignment that Firefox and Safari perform.
+                await JsRuntime.InvokeVoidAsync("pubquiz.blurAfterRender");
+            }
+            catch
+            {
+                // ignore JS interop errors
+            }
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -227,21 +247,14 @@ else
             numericTipInput = string.Empty;
             await ReloadSubmittedAnswerAsync();
             UpdateActiveSessionState();
-            // If the question changed, remove focus from any focused element to
-            // avoid browsers (Firefox, Safari) auto-focusing answers when the
-            // UI is re-rendered.
+            // Track question change — actual blur happens in OnAfterRenderAsync
+            // so that it fires after the DOM is fully updated (Firefox/Safari
+            // assign focus asynchronously after DOM mutations).
             var currentId = snapshot?.CurrentQuestion?.QuestionId;
             if (currentId.HasValue && currentId != lastQuestionId)
             {
-                try
-                {
-                    await JsRuntime.InvokeVoidAsync("pubquiz.blurActiveElement");
-                }
-                catch
-                {
-                    // ignore JS errors
-                }
                 lastQuestionId = currentId;
+                shouldBlurAfterRender = true;
             }
         }
         else
@@ -493,15 +506,6 @@ else
             }
 
             RestartCountdownTimer();
-            try
-            {
-                // Ensure no element remains focused after realtime-driven UI updates
-                await JsRuntime.InvokeVoidAsync("pubquiz.focusAndBlur");
-            }
-            catch
-            {
-                // ignore JS errors
-            }
             StateHasChanged();
         });
     }
