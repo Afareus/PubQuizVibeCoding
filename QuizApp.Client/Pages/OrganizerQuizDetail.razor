@@ -33,7 +33,7 @@
         {
             <div class="form-check mb-3">
                 <input id="allowStartForEveryone" class="form-check-input" type="checkbox" checked="@isStartAllowedForEveryoneToggle" @onchange="OnStartPermissionToggleChanged" disabled="@(isUpdatingStartPermission || isLoadingDetail)" />
-                <label class="form-check-label" for="allowStartForEveryone">Povolit spuštìní kvízu</label>
+                <label class="form-check-label" for="allowStartForEveryone">Povolit spuštění kvízu</label>
             </div>
         }
 
@@ -48,7 +48,7 @@
                 <div class="modal-dialog" role="document">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">Potvrzení zmìny</h5>
+                            <h5 class="modal-title">Potvrzení změny</h5>
                         </div>
                         <div class="modal-body">
                             @if (!string.IsNullOrWhiteSpace(startPermissionPromptErrorMessage))
@@ -70,12 +70,12 @@
         }
 
         <div class="mb-3">
-            <label class="form-label" for="joinCode">Join kód pro hráèe</label>
+            <label class="form-label" for="joinCode">Join kód pro hráče</label>
             <div class="input-group">
                 <InputText id="joinCode" class="form-control" @bind-Value="joinCode" />
                 <button class="btn btn-outline-secondary" type="button" disabled="@(isGeneratingJoinCode || isCreatingSession || isLoadingDetail || quizDetail is null)" @onclick="GenerateJoinCodeAsync">@(isGeneratingJoinCode ? "Generuji..." : "Vygenerovat kód")</button>
             </div>
-            <div class="form-text">Join kód musí mít alespoò 4 znaky.</div>
+            <div class="form-text">Join kód musí mít alespoň 4 znaky.</div>
         </div>
 
         <button class="btn btn-success" type="button" disabled="@(isCreatingSession || isLoadingDetail || quizDetail is null || !quizDetail.IsStartAllowedForEveryone)" @onclick="StartQuizAsync">@(isCreatingSession ? "Spouštím..." : "Spustit kvíz")</button>
@@ -130,7 +130,7 @@
                         }
 
                         <div class="d-flex align-items-center justify-content-between mb-2">
-                            <h3 class="h5 fw-normal mb-0">Otázka èíslo: <span class="quiz-order-number">@question.Order</span></h3>
+                            <h3 class="h5 fw-normal mb-0">Otázka číslo: <span class="quiz-order-number">@question.Order</span></h3>
                             <div class="d-flex gap-1">
                                 <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveUp || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionUpAsync(question)">^</button>
                                 <button class="btn btn-sm btn-outline-secondary quiz-order-move-button" type="button" disabled="@(!canMoveDown || isSavingQuestion || isLoadingQuestions)" @onclick="() => MoveQuestionDownAsync(question)">¡</button>
@@ -189,8 +189,8 @@
                         else
                         {
                             <div class="mb-3">
-                                <p class="mb-2 text-muted">Bod získá nejbližší odpovìï.</p>
-                                <label class="form-label">Správná odpovìï:</label>
+                                <p class="mb-2 text-muted">Bod získá nejbližší odpověď.</p>
+                                <label class="form-label">Správná odpověď:</label>
                                 <InputNumber class="form-control" @bind-Value="question.CorrectNumericValue" />
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.CorrectNumericValue), out var correctNumericError))
                                 {
@@ -208,7 +208,7 @@
                                 </InputSelect>
                             </div>
                             <div class="col-12 col-md-4">
-                                <label class="form-label">Èasový limit (sekundy)</label>
+                                <label class="form-label">Časový limit (sekundy)</label>
                                 <InputNumber class="form-control" @bind-Value="question.TimeLimitSec" />
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.TimeLimitSec), out var timeLimitError))
                                 {
@@ -218,9 +218,9 @@
                             @if (question.QuestionType == QuestionType.MultipleChoice)
                             {
                                 <div class="col-12 col-md-4">
-                                    <label class="form-label">Správná odpovìï</label>
+                                    <label class="form-label">Správná odpověď</label>
                                     <InputSelect class="form-select" @bind-Value="question.CorrectOption">
-                                        <option value="">Vyberte správnou odpovìï</option>
+                                        <option value="">Vyberte správnou odpověď</option>
                                         <option value="@OptionKey.A">A</option>
                                         <option value="@OptionKey.B">B</option>
                                         <option value="@OptionKey.C">C</option>
@@ -533,7 +533,7 @@
             revealedQuestions = detail?.Questions ?? [];
             SyncQuestionEditorsFromRevealedQuestions();
             hasLoadedQuestions = true;
-            questionInfoMessage = $"Naèteno otázek: {revealedQuestions.Count}.";
+            questionInfoMessage = $"Načteno otázek: {revealedQuestions.Count}.";
         }
         else
         {
@@ -562,13 +562,13 @@
         question.ValidationErrors = ValidateQuestionEditor(question);
         if (question.ValidationErrors is not null)
         {
-            question.InlineErrorMessage = "Formuláø obsahuje chyby. Opravte prosím zvýraznìná pole.";
+            question.InlineErrorMessage = "Formulář obsahuje chyby. Opravte prosím zvýrazněná pole.";
             return;
         }
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro úpravu otázky zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro úpravu otázky zadejte Administrátorské heslo kvízu.");
             return;
         }
 
@@ -672,11 +672,11 @@
             {
                 if (wasEditing)
                 {
-                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Otázka byla úspìšnì upravena.");
+                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Otázka byla úspěšně upravena.");
                 }
                 else
                 {
-                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Otázka byla úspìšnì pøidána.");
+                    SetInlineInfoMessageForQuestion(question.QuestionId, question.ClientId, question.Order, "Otázka byla úspěšně přidána.");
                 }
             }
         }
@@ -711,7 +711,7 @@
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání otázky zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro smazání otázky zadejte Administrátorské heslo kvízu.");
             return;
         }
 
@@ -753,7 +753,7 @@
                 }
             }
 
-            questionInfoMessage = "Otázka byla úspìšnì smazána.";
+            questionInfoMessage = "Otázka byla úspěšně smazána.";
         }
         else
         {
@@ -819,7 +819,7 @@
         var neighbor = ordered[targetIndex];
         if (!neighbor.QuestionId.HasValue)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Sousední otázka ještì nebyla uložena. Nejprve ji uložte.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Sousední otázka ještě nebyla uložena. Nejprve ji uložte.");
             return;
         }
 
@@ -832,7 +832,7 @@
 
         if (string.IsNullOrWhiteSpace(questionsPassword) && string.IsNullOrWhiteSpace(storedOrganizerToken))
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro úpravu poøadí otázek zadejte Administrátorské heslo kvízu nebo použijte uložený organizer token.");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro úpravu pořadí otázek zadejte Administrátorské heslo.");
             return;
         }
 
@@ -862,7 +862,7 @@
         }
         catch (Exception ex)
         {
-            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, $"Pøi zmìnì poøadí otázky došlo k neoèekávané chybì: {ex.Message}");
+            questionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, $"Při změně pořadí otázky došlo k neočekávané chybě: {ex.Message}");
         }
         finally
         {
@@ -895,14 +895,14 @@
         var normalizedJoinCode = joinCode.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(normalizedJoinCode))
         {
-            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuštìní zadejte join kód.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pro spuštění zadejte join kód.");
             isCreatingSession = false;
             return;
         }
 
         if (normalizedJoinCode.Length < 4)
         {
-            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kód musí mít alespoò 4 znaky.");
+            sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Join kód musí mít alespoň 4 znaky.");
             isCreatingSession = false;
             return;
         }
@@ -930,7 +930,7 @@
             var createdSession = await response.Content.ReadFromJsonAsync<CreateSessionResponse>();
             if (createdSession is null)
             {
-                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodaøilo se naèíst založenou session.");
+                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se načíst založenou session.");
                 isCreatingSession = false;
                 return;
             }
@@ -1010,7 +1010,7 @@
             isStartAllowedForEveryoneToggle = isAllowed;
         }
 
-        infoMessage = "Nastavení spouštìní kvízu bylo zmìnìno.";
+        infoMessage = "Nastavení spouštění kvízu bylo změněno.";
         isStartPermissionPromptVisible = false;
         startPermissionPasswordPrompt = string.Empty;
         startPermissionPromptErrorMessage = null;
@@ -1050,7 +1050,7 @@
             var payload = await response.Content.ReadFromJsonAsync<GenerateJoinCodeResponse>();
             if (payload is null || string.IsNullOrWhiteSpace(payload.JoinCode))
             {
-                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodaøilo se vygenerovat volný join kód.");
+                sessionApiError = new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Nepodařilo se vygenerovat volný join kód.");
             }
             else
             {
@@ -1075,8 +1075,8 @@
 
         NormalizeQuestionOrders();
         questionInfoMessage = removedCount == 1
-            ? "Neuložená nová otázka byla pøed spuštìním kvízu odebrána."
-            : "Neuložené nové otázky byly pøed spuštìním kvízu odebrány.";
+            ? "Neuložená nová otázka byla před spuštěním kvízu odebrána."
+            : "Neuložené nové otázky byly před spuštěním kvízu odebrány.";
     }
 
     private async Task DeleteQuizAsync()
@@ -1233,7 +1233,7 @@
 
         if (question.Order < 1)
         {
-            errors[nameof(QuestionEditorModel.Order)] = ["Poøadí otázky musí být alespoò 1."];
+            errors[nameof(QuestionEditorModel.Order)] = ["Pořadí otázky musí být alespoň 1."];
         }
 
         if (string.IsNullOrWhiteSpace(question.Text))
@@ -1242,29 +1242,29 @@
         }
         else if (question.Text.Trim().Length > 1500)
         {
-            errors[nameof(QuestionEditorModel.Text)] = ["Text otázky je pøíliš dlouhý (max. 1500 znakù)."];
+            errors[nameof(QuestionEditorModel.Text)] = ["Text otázky je příliš dlouhý (max. 1500 znaků)."];
         }
 
         if (!question.TimeLimitSec.HasValue || question.TimeLimitSec.Value < 10 || question.TimeLimitSec.Value > 300)
         {
-            errors[nameof(QuestionEditorModel.TimeLimitSec)] = ["Èasový limit musí být mezi 10 a 300 sekundami."];
+            errors[nameof(QuestionEditorModel.TimeLimitSec)] = ["Časový limit musí být mezi 10 a 300 sekundami."];
         }
 
         if (question.QuestionType == QuestionType.MultipleChoice)
         {
-            ValidateOption(question.OptionA, nameof(QuestionEditorModel.OptionA), "Vyplòte odpovìï A.", errors);
-            ValidateOption(question.OptionB, nameof(QuestionEditorModel.OptionB), "Vyplòte odpovìï B.", errors);
-            ValidateOption(question.OptionC, nameof(QuestionEditorModel.OptionC), "Vyplòte odpovìï C.", errors);
-            ValidateOption(question.OptionD, nameof(QuestionEditorModel.OptionD), "Vyplòte odpovìï D.", errors);
+            ValidateOption(question.OptionA, nameof(QuestionEditorModel.OptionA), "Vyplňte odpověď A.", errors);
+            ValidateOption(question.OptionB, nameof(QuestionEditorModel.OptionB), "Vyplňte odpověď B.", errors);
+            ValidateOption(question.OptionC, nameof(QuestionEditorModel.OptionC), "Vyplňte odpověď C.", errors);
+            ValidateOption(question.OptionD, nameof(QuestionEditorModel.OptionD), "Vyplňte odpověď D.", errors);
 
             if (!question.CorrectOption.HasValue)
             {
-                errors[nameof(QuestionEditorModel.CorrectOption)] = ["Vyberte správnou odpovìï."];
+                errors[nameof(QuestionEditorModel.CorrectOption)] = ["Vyberte správnou odpověď."];
             }
         }
         else if (!question.CorrectNumericValue.HasValue)
         {
-            errors[nameof(QuestionEditorModel.CorrectNumericValue)] = ["Zadejte správnou èíselnou hodnotu."];
+            errors[nameof(QuestionEditorModel.CorrectNumericValue)] = ["Zadejte správnou číselnou hodnotu."];
         }
 
         return errors.Count == 0 ? null : errors;
@@ -1280,7 +1280,7 @@
 
         if (optionValue.Trim().Length > 500)
         {
-            errors[fieldName] = ["Text odpovìdi je pøíliš dlouhý (max. 500 znakù)."];
+            errors[fieldName] = ["Text odpovědi je příliš dlouhý (max. 500 znaků)."];
         }
     }
 
@@ -1379,7 +1379,7 @@
     {
         if (response.StatusCode is System.Net.HttpStatusCode.TooManyRequests)
         {
-            return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Pøíliš mnoho požadavkù. Poèkejte chvíli a zkuste to znovu.");
+            return new ApiErrorResponse(ApiErrorCode.ValidationFailed, "Příliš mnoho požadavků. Počkejte chvíli a zkuste to znovu.");
         }
 
         try
