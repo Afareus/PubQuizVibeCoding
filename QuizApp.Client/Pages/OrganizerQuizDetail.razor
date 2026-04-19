@@ -17,7 +17,7 @@
 
 <section class="card mb-4">
     <div class="card-body">
-        <h2 class="h5 fw-bold mb-3">@(quizDetail?.Name ?? "(Naèítám název kvízu...)")</h2>
+        @(quizDetail?.Name ?? "(Načítám název kvízu...)")
 
         @if (detailApiError is not null)
         {
@@ -107,7 +107,7 @@
                 <InputText id="questionsPassword" class="form-control" type="password" @bind-Value="questionsPassword" />
             </div>
 
-            <button class="btn btn-outline-primary mb-3" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "Naèítám otázky..." : "Zobrazit otázky")</button>
+            @(isLoadingQuestions ? "Načítám otázky..." : "Zobrazit otázky")
         }
 
         @if (quizDetail is not null && (hasLoadedQuestions || quizDetail.QuestionCount == 0 || allowManualAddWithoutPassword))
@@ -139,7 +139,7 @@
 
                         <div class="mb-3">
                             <label class="form-label mb-1">Text otázky</label>
-                            <InputText class="form-control quiz-question-live-text" @bind-Value="question.Text" placeholder="Doplòte text otázky" />
+                            <InputText class="form-control quiz-question-live-text" @bind-Value="question.Text" placeholder="Doplňte text otázky" />
                             @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.Text), out var textError))
                             {
                                 <div class="text-danger small mt-1">@textError</div>
@@ -151,7 +151,7 @@
                             <div class="d-grid gap-2 mb-3">
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">A</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionA" placeholder="Odpovìï A" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionA" placeholder="Odpověď A" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionA), out var optionAError))
                                 {
@@ -160,7 +160,7 @@
 
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">B</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionB" placeholder="Odpovìï B" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionB" placeholder="Odpověď B" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionB), out var optionBError))
                                 {
@@ -169,7 +169,7 @@
 
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">C</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionC" placeholder="Odpovìï C" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionC" placeholder="Odpověď C" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionC), out var optionCError))
                                 {
@@ -178,7 +178,7 @@
 
                                 <div class="quiz-option-live-edit">
                                     <span class="quiz-option-live-key">D</span>
-                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionD" placeholder="Odpovìï D" />
+                                    <InputText class="form-control quiz-option-live-input" @bind-Value="question.OptionD" placeholder="Odpověď D" />
                                 </div>
                                 @if (TryGetQuestionValidationMessage(question, nameof(QuestionEditorModel.OptionD), out var optionDError))
                                 {
@@ -203,8 +203,8 @@
                             <div class="col-12 col-md-4">
                                 <label class="form-label">Typ otázky</label>
                                 <InputSelect class="form-select" @bind-Value="question.QuestionType" @bind-Value:after="() => OnQuestionTypeChanged(question)">
-                                    <option value="@QuestionType.MultipleChoice">Výbìr A-D</option>
-                                    <option value="@QuestionType.NumericClosest">Èíselný tip</option>
+                                    <option value="@QuestionType.MultipleChoice">Výběr A-D</option>
+                                    <option value="@QuestionType.NumericClosest">Číselný tip</option>
                                 </InputSelect>
                             </div>
                             <div class="col-12 col-md-4">
@@ -280,7 +280,7 @@
                         <table class="table table-sm">
                             <thead>
                                 <tr>
-                                    <th>Øádek</th>
+                                    <th>Řádek</th>
                                     <th>Sloupec</th>
                                     <th>Chyba</th>
                                 </tr>
@@ -306,7 +306,7 @@
 <section class="card border-danger mb-4">
     <div class="card-body">
         <h2 class="h5 text-danger">Smazání kvízu</h2>
-        <p>Zadání správného Administrátorkého hesla kvízu je povinné.</p>
+        <p>Zadání správného Administrátorského hesla kvízu je povinné.</p>
 
         @if (deleteApiError is not null)
         {
@@ -314,7 +314,7 @@
         }
 
         <div class="mb-3">
-            <label class="form-label" for="deletePassword">Administrátorké heslo kvízu</label>
+            <label class="form-label" for="deletePassword">Administrátorské heslo kvízu</label>
             <InputText id="deletePassword" class="form-control" type="password" @bind-Value="deletePassword" />
         </div>
 
@@ -412,7 +412,7 @@
 
             if (showSuccessMessage)
             {
-                infoMessage = "Detail kvízu byl naèten.";
+                infoMessage = "Detail kvízu byl načten.";
             }
         }
         else
@@ -423,7 +423,7 @@
             if (detailApiError.Code == ApiErrorCode.ResourceNotFound)
             {
                 await OrganizerQuizLocalStore.RemoveAsync(quizId.Value);
-                infoMessage = "Kvíz nebyl nalezen a byl odebrán z lokálního seznamu. Pravdìpodobnì byl smazán nebo používáte jinou databázi.";
+                infoMessage = "Kvíz nebyl nalezen a byl odebrán z lokálního seznamu. Pravděpodobně byl smazán nebo používáte jinou databázi.";
             }
         }
 
@@ -446,7 +446,7 @@
         await stream.CopyToAsync(memoryStream);
 
         csvContent = DecodeCsvContent(memoryStream.ToArray());
-        importInfoMessage = "CSV soubor je naètený a pøipravený k importu.";
+        importInfoMessage = "CSV soubor je načtený a připravený k importu.";
     }
 
     private async Task ImportCsvAsync()
@@ -481,7 +481,7 @@
         if (response.IsSuccessStatusCode)
         {
             importResult = await response.Content.ReadFromJsonAsync<ImportQuizCsvResponse>();
-            infoMessage = "Import CSV byl dokonèen.";
+            infoMessage = "Import CSV byl dokončen.";
             await LoadDetailAsync(false);
 
             if ((importResult?.ImportedQuestionsCount ?? 0) > 0)
