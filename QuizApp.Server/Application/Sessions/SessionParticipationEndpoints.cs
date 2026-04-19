@@ -61,7 +61,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.GetCurrentCorrectAnswerAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -96,7 +96,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.PauseSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -114,7 +114,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.ResumeSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -149,7 +149,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.StartSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -167,7 +167,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.StartSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken, useQuestionTimer: false);
         if (!result.IsSuccess)
@@ -185,7 +185,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.AdvanceSessionAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -204,7 +204,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.CancelSessionAsync(sessionId, organizerToken, organizerPassword, request.ConfirmCancellation, cancellationToken);
         if (!result.IsSuccess)
@@ -222,7 +222,7 @@ public static class SessionParticipationEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.GetOrganizerSessionStateAsync(sessionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -259,7 +259,7 @@ public static class SessionParticipationEndpoints
     {
         var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.GetSessionResultsAsync(sessionId, teamId, teamReconnectToken, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -279,7 +279,7 @@ public static class SessionParticipationEndpoints
     {
         var teamReconnectToken = ReadHeader(httpContext, TeamReconnectTokenHeaderName);
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await sessionParticipationService.GetCorrectAnswersAsync(sessionId, teamId, teamReconnectToken, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -298,6 +298,25 @@ public static class SessionParticipationEndpoints
         }
 
         return null;
+    }
+
+    private static string? ReadHeaderBase64Decoded(HttpContext httpContext, string headerName)
+    {
+        if (!httpContext.Request.Headers.TryGetValue(headerName, out var headerValue))
+        {
+            return null;
+        }
+
+        var raw = headerValue.ToString();
+        try
+        {
+            var bytes = Convert.FromBase64String(raw);
+            return System.Text.Encoding.UTF8.GetString(bytes);
+        }
+        catch
+        {
+            return raw;
+        }
     }
 
     private static int ResolveStatusCode(ApiErrorResponse error)

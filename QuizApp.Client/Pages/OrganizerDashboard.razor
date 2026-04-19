@@ -463,7 +463,7 @@
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Název kvízu je povinný.")]
         public string Name { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Administrátorké heslo kvízu je povinné.")]
+        [QuizApp.Shared.Validation.QuizPassword]
         public string DeletePassword { get; set; } = string.Empty;
 
         public void Clear()

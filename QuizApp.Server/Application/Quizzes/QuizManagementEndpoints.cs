@@ -68,7 +68,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.ImportQuizCsvAsync(quizId, organizerToken, organizerPassword, request.CsvContent, cancellationToken);
         if (!result.IsSuccess)
@@ -86,7 +86,7 @@ public static class QuizManagementEndpoints
         IQuizManagementService quizManagementService,
         CancellationToken cancellationToken)
     {
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.UpdateQuizStartPermissionAsync(quizId, request, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -105,7 +105,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.DeleteQuestionAsync(quizId, questionId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -124,7 +124,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.ReorderQuestionAsync(quizId, request, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -143,7 +143,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.CreateSessionAsync(quizId, request, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -161,7 +161,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.GenerateJoinCodeAsync(quizId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -180,7 +180,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.AddQuestionAsync(quizId, request, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -200,7 +200,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.UpdateQuestionAsync(quizId, questionId, request, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -218,7 +218,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.GetQuizDetailAsync(quizId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -236,7 +236,7 @@ public static class QuizManagementEndpoints
         CancellationToken cancellationToken)
     {
         var organizerToken = ReadHeader(httpContext, OrganizerTokenHeaderName);
-        var organizerPassword = ReadHeader(httpContext, QuizPasswordHeaderName);
+        var organizerPassword = ReadHeaderBase64Decoded(httpContext, QuizPasswordHeaderName);
 
         var result = await quizManagementService.DeleteQuizAsync(quizId, organizerToken, organizerPassword, cancellationToken);
         if (!result.IsSuccess)
@@ -255,6 +255,25 @@ public static class QuizManagementEndpoints
         }
 
         return null;
+    }
+
+    private static string? ReadHeaderBase64Decoded(HttpContext httpContext, string headerName)
+    {
+        if (!httpContext.Request.Headers.TryGetValue(headerName, out var headerValue))
+        {
+            return null;
+        }
+
+        var raw = headerValue.ToString();
+        try
+        {
+            var bytes = Convert.FromBase64String(raw);
+            return System.Text.Encoding.UTF8.GetString(bytes);
+        }
+        catch
+        {
+            return raw;
+        }
     }
 
     private static int ResolveStatusCode(ApiErrorResponse error)

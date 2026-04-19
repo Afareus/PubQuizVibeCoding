@@ -706,9 +706,10 @@ public sealed class QuizManagementService : IQuizManagementService
             errors[nameof(CreateQuizRequest.Name)] = [$"Název kvízu může mít maximálně {MaxQuizNameLength} znaků."];
         }
 
-        if (string.IsNullOrWhiteSpace(request.DeletePassword))
+        var passwordError = QuizApp.Shared.Validation.QuizPasswordValidator.GetErrorMessage(request.DeletePassword);
+        if (passwordError is not null)
         {
-            errors[nameof(CreateQuizRequest.DeletePassword)] = ["Administrátorké heslo kvízu je povinné."];
+            errors[nameof(CreateQuizRequest.DeletePassword)] = [passwordError];
         }
 
         return errors.Count == 0 ? null : errors;
