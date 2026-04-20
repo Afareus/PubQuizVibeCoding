@@ -107,7 +107,7 @@
                 <InputText id="questionsPassword" class="form-control" type="password" @bind-Value="questionsPassword" />
             </div>
 
-            @(isLoadingQuestions ? "Načítám otázky..." : "Zobrazit otázky")
+            <button class="btn btn-outline-primary" type="button" disabled="@isLoadingQuestions" @onclick="LoadQuestionsAsync">@(isLoadingQuestions ? "Načítám otázky..." : "Zobrazit otázky")</button>
         }
 
         @if (quizDetail is not null && (hasLoadedQuestions || quizDetail.QuestionCount == 0 || allowManualAddWithoutPassword))
