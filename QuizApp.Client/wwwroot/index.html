@@ -110,6 +110,15 @@
         .app-page-content div.mb-4 {
             width: 100%;
         }
+
+        /* iOS Safari – potlačit přetrvávající modrý focus styl po klepnutí na tlačítko */
+        button, .btn {
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:focus:not(:focus-visible) {
+            outline: none;
+            box-shadow: none;
+        }
     </style>
 </head>
 
