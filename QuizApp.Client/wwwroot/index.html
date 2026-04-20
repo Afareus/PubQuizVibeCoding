@@ -158,6 +158,18 @@
                 }, 0);
             }, 0);
         };
+
+        // Blur synchronně před DOM mutací – zabrání Firefoxu (Android) v automatickém
+        // přesunutí focusu na první tlačítko v novém DOM po odebrání fokusovaného elementu.
+        window.pubquiz.blurNow = function () {
+            try {
+                var el = document.activeElement;
+                if (el && el !== document.body && typeof el.blur === 'function') {
+                    el.blur();
+                    document.body.focus();
+                }
+            } catch (e) { /* swallow */ }
+        };
     </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>

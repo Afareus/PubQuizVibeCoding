@@ -512,6 +512,10 @@ else
     {
         await InvokeAsync(async () =>
         {
+            // Blur před DOM mutací – zabrání Firefoxu (Android) v automatickém
+            // přesunutí focusu na první tlačítko v novém DOM.
+            try { await JsRuntime.InvokeVoidAsync("pubquiz.blurNow"); } catch { }
+
             await LoadSnapshotAsync();
             if (snapshot is not null)
             {
