@@ -1,6 +1,7 @@
 @page "/challenge/{PublicCode}"
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 
 <PageTitle>@(challenge?.Title ?? "Challenge")</PageTitle>
 
@@ -108,6 +109,22 @@
 
     <section class="card mb-4">
         <div class="card-body">
+            <h2 class="h5">Sdílejte výsledek!</h2>
+            <p class="mb-2">Pošlete challenge dalším přátelům:</p>
+            <div class="input-group mb-2">
+                <input class="form-control" readonly value="@ShareUrl" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="() => CopyToClipboardAsync(ShareUrl)">Kopírovat odkaz</button>
+            </div>
+            <button class="btn btn-outline-primary" type="button" @onclick="() => CopyToClipboardAsync(ShareText)">Kopírovat text se sdílením</button>
+            @if (!string.IsNullOrEmpty(copiedMessage))
+            {
+                <div class="alert alert-success py-2 mt-2">@copiedMessage</div>
+            }
+        </div>
+    </section>
+
+    <section class="card mb-4">
+        <div class="card-body">
             <h2 class="h5">Vytvořte vlastní challenge!</h2>
             <p>Nechte přátele hádat vaše odpovědi a zjistěte, kdo vás zná nejlíp.</p>
             <a class="btn btn-success" href="/challenge/create">Vytvořit vlastní kvíz</a>
@@ -126,6 +143,10 @@
     private string? loadError;
     private string? submitError;
     private SubmitChallengeAnswersResponse? submissionResult;
+    private string copiedMessage = string.Empty;
+
+    private string ShareUrl => NavigationManager.ToAbsoluteUri($"/challenge/{PublicCode}").ToString();
+    private string ShareText => $"Uhádneš moje odpovědi? Zkus to: {ShareUrl}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -183,6 +204,19 @@
         finally
         {
             isSubmitting = false;
+        }
+    }
+
+    private async Task CopyToClipboardAsync(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            copiedMessage = "Zkopírováno do schránky.";
+        }
+        catch
+        {
+            copiedMessage = "Kopírování se nepodařilo. Zkopírujte ručně.";
         }
     }
 }

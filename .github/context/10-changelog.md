@@ -1,6 +1,17 @@
 # Changelog
 
-## 2026-05-XX — CH-06 UI pro hraní challenge
+## 2026-05-XX — CH-07 Výsledek, leaderboard a virální CTA
+
+Změny:
+- Do `ChallengePlay.razor` přidána sdílecí sekce výsledkové obrazovky.
+- Zobrazuje odkaz na challenge s tlačítkem "Kopírovat odkaz".
+- Tlačítko "Kopírovat text se sdílením" kopíruje celý text s odkazem.
+- Přidán `IJSRuntime` inject a `CopyToClipboardAsync` metoda.
+- Build prošel.
+
+---
+
+
 
 Změny:
 - Přidána stránka `QuizApp.Client/Pages/ChallengePlay.razor`, route `/challenge/{publicCode}`.
