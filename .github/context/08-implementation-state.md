@@ -20,7 +20,7 @@ Nově se má implementovat:
 
 | Krok | Stav | Poznámka |
 |---|---:|---|
-| CH-01 Datový model a EF Core migrace | Nezahájeno | První další krok |
+| CH-01 Datový model a EF Core migrace | ✅ Hotovo | Entity vytvořeny, migrace `AddChallengeMode` vygenerována |
 | CH-02 Shared DTO a validační kontrakty | Nezahájeno | Čeká na CH-01 |
 | CH-03 Challenge aplikační služba | Nezahájeno | Čeká na CH-02 |
 | CH-04 HTTP API endpointy | Nezahájeno | Čeká na CH-03 |
@@ -33,7 +33,7 @@ Nově se má implementovat:
 ## První další krok
 
 ```text
-CH-01 — Datový model a EF Core migrace
+CH-02 — Shared DTO a validační kontrakty
 ```
 
 Agent má začít tímto krokem a nemá implementovat UI ani API endpointy ve stejném kroku.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-25 — CH-01 Datový model a EF Core migrace
+
+Změny:
+- Přidány entity: `Challenge`, `ChallengeQuestion`, `ChallengeAnswerOption`, `ChallengeSubmission`, `ChallengeSubmissionAnswer`.
+- Přidána EF Core konfigurace v `QuizAppDbContext` (indexy, unikátní omezení, kaskádové mazání).
+- Vygenerována migrace `AddChallengeMode` — pouze nové tabulky, bez zásahu do starých tabulek.
+- Build prošel.
+
 ## 2026-04-25 — Reset vývojové dokumentace pro Challenge mód
 
 Změny:

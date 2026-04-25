@@ -26,6 +26,16 @@ public sealed class QuizAppDbContext : DbContext
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<Challenge> Challenges => Set<Challenge>();
+
+    public DbSet<ChallengeQuestion> ChallengeQuestions => Set<ChallengeQuestion>();
+
+    public DbSet<ChallengeAnswerOption> ChallengeAnswerOptions => Set<ChallengeAnswerOption>();
+
+    public DbSet<ChallengeSubmission> ChallengeSubmissions => Set<ChallengeSubmission>();
+
+    public DbSet<ChallengeSubmissionAnswer> ChallengeSubmissionAnswers => Set<ChallengeSubmissionAnswer>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Quiz>(entity =>
@@ -180,6 +190,79 @@ public sealed class QuizAppDbContext : DbContext
 
             entity.HasIndex(x => x.OccurredAtUtc);
             entity.HasIndex(x => x.ActionType);
+        });
+
+        modelBuilder.Entity<Challenge>(entity =>
+        {
+            entity.HasKey(x => x.ChallengeId);
+            entity.Property(x => x.PublicCode).IsRequired().HasMaxLength(32);
+            entity.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.CreatorName).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.CreatorTokenHash).HasMaxLength(512);
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.IsDeleted).IsRequired();
+
+            entity.HasIndex(x => x.PublicCode).IsUnique();
+
+            entity.HasQueryFilter(x => !x.IsDeleted);
+
+            entity.HasMany(x => x.Questions)
+                .WithOne(x => x.Challenge)
+                .HasForeignKey(x => x.ChallengeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.Submissions)
+                .WithOne(x => x.Challenge)
+                .HasForeignKey(x => x.ChallengeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChallengeQuestion>(entity =>
+        {
+            entity.HasKey(x => x.ChallengeQuestionId);
+            entity.Property(x => x.OrderIndex).IsRequired();
+            entity.Property(x => x.Text).IsRequired().HasMaxLength(1500);
+            entity.Property(x => x.CreatorSelectedOptionKey).IsRequired().HasMaxLength(4);
+
+            entity.HasIndex(x => new { x.ChallengeId, x.OrderIndex }).IsUnique();
+
+            entity.HasMany(x => x.Options)
+                .WithOne(x => x.Question)
+                .HasForeignKey(x => x.ChallengeQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChallengeAnswerOption>(entity =>
+        {
+            entity.HasKey(x => x.ChallengeAnswerOptionId);
+            entity.Property(x => x.OptionKey).IsRequired().HasMaxLength(4);
+            entity.Property(x => x.Text).IsRequired().HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ChallengeSubmission>(entity =>
+        {
+            entity.HasKey(x => x.ChallengeSubmissionId);
+            entity.Property(x => x.ParticipantName).IsRequired().HasMaxLength(120);
+            entity.Property(x => x.Score).IsRequired();
+            entity.Property(x => x.MaxScore).IsRequired();
+            entity.Property(x => x.SubmittedAtUtc).IsRequired();
+
+            entity.HasMany(x => x.Answers)
+                .WithOne(x => x.Submission)
+                .HasForeignKey(x => x.ChallengeSubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChallengeSubmissionAnswer>(entity =>
+        {
+            entity.HasKey(x => x.ChallengeSubmissionAnswerId);
+            entity.Property(x => x.SelectedOptionKey).IsRequired().HasMaxLength(4);
+            entity.Property(x => x.IsCorrect).IsRequired();
+
+            entity.HasOne(x => x.Question)
+                .WithMany()
+                .HasForeignKey(x => x.ChallengeQuestionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
