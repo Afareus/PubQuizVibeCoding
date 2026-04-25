@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-05-XX — CH-08 Vstup do Challenge módu z aplikace
+
+Změny:
+- `QuizApp.Client/Pages/Home.razor`: přidána sekce s nadpisem „Kdo mě zná nejlíp?", textem „Vytvořit zábavný kvíz pro přátele" a tlačítkem „Vytvořit challenge" odkazujícím na `/challenge/create`.
+- Existující Pub kvíz tlačítka zachována beze změny.
+- Build prošel.
+
+---
+
 ## 2026-05-XX — CH-07 Výsledek, leaderboard a virální CTA
 
 Změny:

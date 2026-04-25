@@ -27,16 +27,14 @@ Nově se má implementovat:
 | CH-05 UI pro vytvoření challenge | ✅ Hotovo | `ChallengeCreate.razor`, route `/challenge/create` |
 | CH-06 UI pro hraní challenge | ✅ Hotovo | `ChallengePlay.razor`, route `/challenge/{publicCode}` |
 | CH-07 Výsledek, leaderboard a virální CTA | ✅ Hotovo | Sdílecí sekce přidána do ChallengePlay.razor |
-| CH-08 Vstup do Challenge módu z aplikace | Nezahájeno | Čeká na CH-07 |
+| CH-08 Vstup do Challenge módu z aplikace | ✅ Hotovo | Dlaždice na Home.razor |
 | CH-09 Stabilizace, testy a release checklist | Nezahájeno | Finální krok |
 
 ## První další krok
 
 ```text
-CH-08 — Vstup do Challenge módu z aplikace
+CH-09 — Stabilizace, testy a release checklist
 ```
-
-Agent má začít tímto krokem a nemá implementovat UI ve stejném kroku.
 
 ## Poznámky pro agenta
 
