@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-05-XX — CH-05 UI pro vytvoření challenge
+
+Změny:
+- Přidána stránka `QuizApp.Client/Pages/ChallengeCreate.razor`, route `/challenge/create`.
+- Formulář: jméno tvůrce, název challenge, 10 otázek se výběrem odpovědi (tlačítka).
+- Po odeslání zobrazí sdílecí odkaz s tlačítkem kopírovat do schránky.
+- Validace: inline pod příslušnými poli, ukáže se po prvním pokusu o odeslání.
+- Build prošel.
+
+---
+
 ## 2026-05-01 — CH-04 HTTP API endpointy
 
 Změny:

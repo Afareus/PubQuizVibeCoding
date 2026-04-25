@@ -24,7 +24,7 @@ Nově se má implementovat:
 | CH-02 Shared DTO a validační kontrakty | ✅ Hotovo | `ChallengeContracts.cs` přidáno do `QuizApp.Shared/Contracts` |
 | CH-03 Challenge aplikační služba | ✅ Hotovo | `ChallengeService`, `ChallengeTemplate`, 12 unit testů |
 | CH-04 HTTP API endpointy | ✅ Hotovo | `ChallengeEndpoints.cs`, 6 endpointů, zaregistrováno v Program.cs |
-| CH-05 UI pro vytvoření challenge | Nezahájeno | Čeká na CH-04 |
+| CH-05 UI pro vytvoření challenge | ✅ Hotovo | `ChallengeCreate.razor`, route `/challenge/create` |
 | CH-06 UI pro hraní challenge | Nezahájeno | Čeká na CH-04 |
 | CH-07 Výsledek, leaderboard a virální CTA | Nezahájeno | Čeká na CH-06 |
 | CH-08 Vstup do Challenge módu z aplikace | Nezahájeno | Čeká na CH-07 |
@@ -33,7 +33,7 @@ Nově se má implementovat:
 ## První další krok
 
 ```text
-CH-05 — UI pro vytvoření challenge
+CH-06 — UI pro hraní challenge
 ```
 
 Agent má začít tímto krokem a nemá implementovat UI ve stejném kroku.
