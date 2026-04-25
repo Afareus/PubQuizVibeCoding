@@ -25,7 +25,7 @@ Nově se má implementovat:
 | CH-03 Challenge aplikační služba | ✅ Hotovo | `ChallengeService`, `ChallengeTemplate`, 12 unit testů |
 | CH-04 HTTP API endpointy | ✅ Hotovo | `ChallengeEndpoints.cs`, 6 endpointů, zaregistrováno v Program.cs |
 | CH-05 UI pro vytvoření challenge | ✅ Hotovo | `ChallengeCreate.razor`, route `/challenge/create` |
-| CH-06 UI pro hraní challenge | Nezahájeno | Čeká na CH-04 |
+| CH-06 UI pro hraní challenge | ✅ Hotovo | `ChallengePlay.razor`, route `/challenge/{publicCode}` |
 | CH-07 Výsledek, leaderboard a virální CTA | Nezahájeno | Čeká na CH-06 |
 | CH-08 Vstup do Challenge módu z aplikace | Nezahájeno | Čeká na CH-07 |
 | CH-09 Stabilizace, testy a release checklist | Nezahájeno | Finální krok |
@@ -33,7 +33,7 @@ Nově se má implementovat:
 ## První další krok
 
 ```text
-CH-06 — UI pro hraní challenge
+CH-07 — Výsledek, leaderboard a virální CTA
 ```
 
 Agent má začít tímto krokem a nemá implementovat UI ve stejném kroku.

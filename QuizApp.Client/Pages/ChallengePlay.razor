@@ -1,0 +1,188 @@
+@page "/challenge/{PublicCode}"
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(challenge?.Title ?? "Challenge")</PageTitle>
+
+@if (loadError is not null)
+{
+    <div class="alert alert-danger" role="alert">@loadError</div>
+}
+
+@if (challenge is null && loadError is null)
+{
+    <p>Načítám challenge...</p>
+}
+
+@if (challenge is not null && submissionResult is null)
+{
+    <h1>@challenge.Title</h1>
+    <p class="text-muted">Vytvořil/a: @challenge.CreatorName</p>
+    <p>Uhádnete správné odpovědi? Zadejte jméno a zkuste to!</p>
+
+    @if (submitError is not null)
+    {
+        <div class="alert alert-danger" role="alert">@submitError</div>
+    }
+
+    <section class="card mb-4">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label" for="participantName">Vaše jméno</label>
+                <input id="participantName" class="form-control" @bind="participantName" placeholder="Zadejte vaše jméno" />
+                @if (showValidation && string.IsNullOrWhiteSpace(participantName))
+                {
+                    <div class="text-danger small mt-1">Zadejte vaše jméno.</div>
+                }
+            </div>
+        </div>
+    </section>
+
+    @for (int i = 0; i < challenge.Questions.Count; i++)
+    {
+        var q = challenge.Questions[i];
+        var idx = i;
+        <section class="card mb-3">
+            <div class="card-body">
+                <p class="fw-normal mb-2">Otázka číslo: @(idx + 1)</p>
+                <p class="mb-3">@q.Text</p>
+                @if (showValidation && !selectedOptions.ContainsKey(q.QuestionId))
+                {
+                    <div class="text-danger small mb-2">Vyberte odpověď.</div>
+                }
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var opt in q.Options)
+                    {
+                        var optKey = opt.OptionKey;
+                        var isSelected = selectedOptions.TryGetValue(q.QuestionId, out var sel) && sel == optKey;
+                        <button type="button"
+                                class="btn @(isSelected ? "btn-primary" : "btn-outline-primary")"
+                                @onclick="() => SelectOption(q.QuestionId, optKey)">
+                            @opt.Text
+                        </button>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
+    <button class="btn btn-success mb-4" type="button" disabled="@isSubmitting" @onclick="SubmitAnswersAsync">
+        @(isSubmitting ? "Odesílám..." : "Odeslat odpovědi")
+    </button>
+}
+
+@if (submissionResult is not null)
+{
+    <h1>Výsledek</h1>
+    <p class="text-muted">@challenge?.Title &mdash; Vytvořil/a: @challenge?.CreatorName</p>
+
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Vaše skóre: @submissionResult.Score / @submissionResult.MaxScore</h2>
+            <p class="mb-0">Umístění: @submissionResult.Rank. místo</p>
+        </div>
+    </section>
+
+    <h2 class="h5 mb-3">Žebříček</h2>
+    <div class="table-responsive mb-4">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Jméno</th>
+                    <th>Skóre</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in submissionResult.Leaderboard)
+                {
+                    <tr class="@(entry.ParticipantName == participantName ? "table-primary fw-bold" : "")">
+                        <td>@entry.Rank</td>
+                        <td>@entry.ParticipantName</td>
+                        <td>@entry.Score / @entry.MaxScore</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <section class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Vytvořte vlastní challenge!</h2>
+            <p>Nechte přátele hádat vaše odpovědi a zjistěte, kdo vás zná nejlíp.</p>
+            <a class="btn btn-success" href="/challenge/create">Vytvořit vlastní kvíz</a>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string PublicCode { get; set; } = string.Empty;
+
+    private GetChallengeResponse? challenge;
+    private string participantName = string.Empty;
+    private Dictionary<Guid, string> selectedOptions = new();
+    private bool isSubmitting;
+    private bool showValidation;
+    private string? loadError;
+    private string? submitError;
+    private SubmitChallengeAnswersResponse? submissionResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            challenge = await HttpClient.GetFromJsonAsync<GetChallengeResponse>($"/api/challenges/{PublicCode}");
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Nepodařilo se načíst challenge: {ex.Message}";
+        }
+    }
+
+    private void SelectOption(Guid questionId, string optionKey)
+    {
+        selectedOptions[questionId] = optionKey;
+    }
+
+    private async Task SubmitAnswersAsync()
+    {
+        showValidation = true;
+        submitError = null;
+
+        if (string.IsNullOrWhiteSpace(participantName))
+            return;
+
+        if (challenge is not null && selectedOptions.Count < challenge.Questions.Count)
+            return;
+
+        isSubmitting = true;
+
+        var answers = challenge!.Questions
+            .Select(q => new SubmitChallengeAnswerDto(q.QuestionId, selectedOptions[q.QuestionId]))
+            .ToList();
+
+        var request = new SubmitChallengeAnswersRequest(participantName.Trim(), answers);
+
+        try
+        {
+            using var response = await HttpClient.PostAsJsonAsync($"/api/challenges/{PublicCode}/submissions", request);
+            if (response.IsSuccessStatusCode)
+            {
+                submissionResult = await response.Content.ReadFromJsonAsync<SubmitChallengeAnswersResponse>();
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<ApiErrorResponse>();
+                submitError = error?.Message ?? "Nepodařilo se odeslat odpovědi.";
+            }
+        }
+        catch (Exception ex)
+        {
+            submitError = $"Chyba při odesílání: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

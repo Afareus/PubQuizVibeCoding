@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-XX — CH-06 UI pro hraní challenge
+
+Změny:
+- Přidána stránka `QuizApp.Client/Pages/ChallengePlay.razor`, route `/challenge/{publicCode}`.
+- Krok 1: hráč vidí název challenge + jméno tvůrce, zadá své jméno.
+- Krok 2: hráč odpoví na 10 otázek (výběr tlačítkem).
+- Po odeslání: zobrazí se skóre, pořadí, leaderboard (aktuální hráč zvýrazněn), CTA „Vytvořit vlastní kvíz".
+- Validace inline pod formuláři.
+- Build prošel.
+
+---
+
 ## 2026-05-XX — CH-05 UI pro vytvoření challenge
 
 Změny:
