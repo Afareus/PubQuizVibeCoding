@@ -1,121 +1,114 @@
-# Repo-wide instrukce pro AI vývoj pub kvíz aplikace
+# Copilot/Codex instrukce pro tento repozitář
 
-## 1. Zdroj pravdy a priorita dokumentů
-Nejvyšší prioritu mají tyto soubory v tomto pořadí:
+## Kontext
 
-1. `context/00-source-of-truth.md`
-2. `context/01-product-spec.md`
-3. `context/02-architecture-and-data-model.md`
-4. `context/03-api-signalr-and-security.md`
-5. `context/04-roadmap.md`
-6. `context/05-workflow-rules.md`
-7. `context/06-risks-and-anti-drift.md`
-8. `context/08-implementation-state.md`
-9. `context/09-decision-log.md`
+Tento repozitář obsahuje hotovou Pub kvíz aplikaci. Nyní se pokračuje novou funkcí:
 
-Pokud narazíš na konflikt, zastav se u souboru s vyšší prioritou. Pokud dokumentace něco neřeší, zvol nejjednodušší řešení konzistentní s úzkým MVP, uveď to jako doplněný návrh a zapiš to do `context/09-decision-log.md`.
+```text
+Virální Challenge mód „Kdo mě zná nejlíp?“
+```
 
-## 2. Význam uživatelských příkazů
-Když uživatel napíše pouze nebo převážně jednu z následujících vět, interpretuj ji takto:
+Nejsi ve fázi budování původní aplikace od nuly.
 
-- **„Pokračuj k dalšímu kroku“**  
-  = proveď přesně jeden další nedokončený krok z roadmapy.
-- **„Zkontroluj aktuální krok“**  
-  = neprováděj nové feature změny, jen audit souladu, build, testy a případné drobné opravy nutné pro dokončení aktuálního kroku.
-- **„Oprav chyby a pokračuj“**  
-  = nejprve oprav aktuální rozbitý stav, ale nepřeskakuj do dalšího kroku, dokud není stávající krok opravdu hotový.
-- **„Shrň stav“**  
-  = bez implementace přečti stavové soubory a dej stručný report.
+## Priorita zdrojů
 
-Jestliže uživatel nenapíše nic dalšího než „Pokračuj k dalšímu kroku“, nevyžaduj doplňující informace, pokud tomu nebrání přímý rozpor ve specifikaci.
+1. Skutečný kód je zdroj pravdy pro existující Pub kvíz funkce.
+2. `.github/context/00-source-of-truth.md` je zdroj pravdy pro nový směr.
+3. `.github/context/01-product-spec.md` je produktová specifikace Challenge módu.
+4. `.github/context/04-roadmap.md` určuje pořadí kroků.
+5. `.github/context/08-implementation-state.md` říká aktuální stav.
 
-## 3. Hlavní pracovní režim
-Při příkazu pokračovat vždy postupuj takto:
+## Hlavní pravidlo
 
-1. Přečti `context/08-implementation-state.md`.
-2. Přečti odpovídající část v `context/04-roadmap.md`.
-3. Přečti relevantní soubory v `context/` a `instructions/` pro daný krok.
-4. Proveď **jen jeden** krok, ne více.
-5. Udrž změny malé, soudržné a reverzibilní.
-6. Po implementaci proveď build a relevantní testy.
-7. Aktualizuj:
-   - `context/08-implementation-state.md`
-   - `context/09-decision-log.md`
-   - `context/10-changelog.md`
-8. Zastav se. Nepřecházej do dalšího kroku v tomtéž tahu.
+Implementuj pouze první nedokončený krok z roadmapy.
 
-## 4. Co nesmíš dělat
-Nikdy bez výslovného pokynu:
-- nerozšiřuj scope mimo MVP,
-- nepřidávej login, Identity, role management, e-mailové účty ani správu uživatelů,
-- nepřidávej editaci otázek v UI,
-- nepřidávej open-ended odpovědi, multi-choice, obrázky, audio ani video,
-- nepřidávej průběžný leaderboard ani správné odpovědi během hry,
-- neměň stack na jinou databázi nebo jiný frontend model,
-- nepředělávej architekturu na mikroservisy,
-- nenasazuj patterny jen proto, že „jsou enterprise“,
-- neskrývej nehotový krok jako hotový,
-- nepřeskakuj testování a aktualizaci stavových souborů.
+Nepřidávej více funkcí najednou. Po dokončení kroku se zastav, zapiš stav a vypiš report.
 
-## 5. Požadovaný styl implementace
-- Preferuj jednoduché a čitelné řešení před frameworkovou složitostí.
-- Zachovej modulární monolit.
-- Server je autorita nad časem, session stavem a pořadím otázek.
-- Všechny časy ukládej a porovnávej v UTC.
-- Hesla a tokeny nikdy neukládej čitelně.
-- Nepoužívej provider-specific zkratky, které zhorší přenositelnost nebo čitelnost, pokud nejsou nezbytné.
-- U business pravidel preferuj explicitní aplikační služby a malé, dobře pojmenované metody.
-- U každé změny mysli na reconnect, souběh a determinismus.
-- Používej nejnovější dostupné verze závislostí/nástrojů, pokud jsou kompatibilní (např. PostgreSQL 18).
+## Co máš implementovat
 
-## 6. Definition of Done pro každý krok
-Krok je hotový jen tehdy, když:
-- odpovídá specifikaci,
-- build projde,
-- relevantní testy projdou,
-- ruční smoke-check popsaný v roadmapě dává smysl a je zaznamenán,
-- změna je zapsaná do stavového souboru,
-- nejsou otevřené TODO poznámky, které blokují další krok.
+Challenge mód:
+- `/challenge/create`
+- `/challenge/{publicCode}`
+- výsledek + leaderboard
+- sdílení odkazu
+- CTA `Vytvořit vlastní kvíz`
 
-Pokud build nebo relevantní testy nejdou spustit kvůli chybějícímu prostředí, uveď přesně co nešlo ověřit a proč. I v takovém případě aktualizuj stav poctivě.
+Podrobnosti jsou v `.github/context`.
 
-## 7. Požadovaný formát výstupu po každém kroku
-Na konci implementačního tahu vypiš přesně tyto sekce:
+## Co máš chránit
 
-### Hotový krok
-Identifikátor a název kroku.
+Nerozbíjej:
+- live Pub kvíz mód,
+- Organizer/Player flow,
+- CSV import,
+- SignalR session logiku,
+- existující deployment,
+- existující routy a API,
+- existující datový model, pokud změna není nutná.
 
-### Co bylo změněno
-Krátký seznam souborů nebo oblastí.
+## Co nemáš dělat bez výslovného zadání
 
-### Ověření
-- build
-- testy
-- případné limity ověření
+- nereimplementuj Pub kvíz od nuly,
+- nereorganizuj celý projekt,
+- nepřidávej login, Identity, účty ani role,
+- nepřidávej AI generování,
+- nepřidávej vlastní otázky,
+- nepřidávej platby,
+- nepřidávej reklamy,
+- nepřidávej veřejný katalog,
+- nepřidávej sociální login,
+- nepřidávej SignalR do Challenge módu.
 
-### Ruční kontrola pro uživatele
-1 až 3 konkrétní body.
+## Implementační styl
 
-### Stav
-Co je nyní hotové a jaký je další krok podle roadmapy.
+- Drž se aktuálního stylu repozitáře.
+- Preferuj jednoduchost.
+- Business pravidla dávej do služeb.
+- Endpointy drž tenké.
+- DTO používej tak, aby neunikaly interní entity.
+- Časy ukládej v UTC.
+- Neposílej správné odpovědi challenge před odesláním submission.
+- Při změně databáze kontroluj migraci, aby neobsahovala nečekané zásahy do starých tabulek.
 
-## 8. Jak řešit nejistotu
-Pokud něco není výslovně rozhodnuto:
-- zvol nejjednodušší variantu konzistentní s MVP,
-- neptej se na preference, které neblokují vývoj,
-- zapiš rozhodnutí do `context/09-decision-log.md`,
-- pokračuj.
+## Povinný postup při `/continue` nebo „Pokračuj k dalšímu kroku“
 
-Ptej se jen tehdy, pokud by dvě různé varianty vedly k zásadně odlišné architektuře nebo porušení zdroje pravdy.
+1. Přečti:
+   - `.github/context/00-source-of-truth.md`
+   - `.github/context/04-roadmap.md`
+   - `.github/context/05-workflow-rules.md`
+   - `.github/context/08-implementation-state.md`
+2. Najdi první nedokončený krok.
+3. Proveď pouze tento krok.
+4. Spusť build a relevantní testy, pokud to prostředí umožňuje.
+5. Aktualizuj:
+   - `.github/context/08-implementation-state.md`
+   - `.github/context/09-decision-log.md`, pokud padlo rozhodnutí
+   - `.github/context/10-changelog.md`
+6. Vypiš report:
+   - Hotový krok
+   - Co bylo změněno
+   - Ověření
+   - Ruční kontrola pro uživatele
+   - Další krok
 
-## 9. Jak zacházet se stavovými soubory
-`context/08-implementation-state.md`, `context/09-decision-log.md` a `context/10-changelog.md` jsou provozní paměť repozitáře. Při každém kroku je aktualizuj. Bez jejich aktualizace nepovažuj krok za dokončený.
+## Když něco nejde ověřit
 
-## 10. Specifické uživatelské preference
-- Tlačítko 'Zobrazit výsledky' na týmové obrazovce po konci hry zůstane viditelné a bude do zveřejnění výsledků organizátorem pouze disablované, nikoli skryté.
-- Na týmové obrazovce po konci kvízu bude hláška 'Výsledky zatím nebyly zveřejněny organizátorem.' umístěna nad tlačítkem 'Zobrazit výsledky'.
-- Po smazání otázky tlačítkem 'Smazat otázku' na stránce OrganizerQuizDetail má být formulář 'Ruční vložení otázky' automaticky sbalen.
-- V editoru otázek, popis `Otázka číslo:` bude umístěn nad textboxem pořadí a popis `Otázka:` nad textboxem textu otázky.
-- Uživatel preferuje v editoru otázek needitovatelné číslo otázky a změnu pořadí přes šipky nahoru/dolů, přičemž pořadí všech otázek má po posunu vždy tvořit souvislou řadu 1..N.
-- Uživatel preferuje, aby hláška "Otázka byla úspěšně přidána." byla po uložení zobrazena inline přímo nad danou otázkou, ne globálně pro celou sekci.
-- Uživatel preferuje u šipek řazení v gridu dostupných kvízů užší tlačítko a výrazně rychlejší animaci otáčení.
+Nepiš, že je vše hotové bez ověření.
+
+Napiš přesně:
+- který příkaz nešel spustit,
+- proč,
+- co bylo ověřeno jinak,
+- jaký ruční test má uživatel udělat.
+
+## Když najdeš rozpor
+
+Pokud je rozpor mezi dokumentací starého Pub kvízu a kódem:
+- neměň starý kód jen kvůli dokumentaci,
+- ber kód jako zdroj pravdy,
+- případně oprav dokumentaci.
+
+Pokud je rozpor v nové Challenge specifikaci:
+- zastav se u nejmenší bezpečné interpretace,
+- drž se `00-source-of-truth.md`,
+- neexpanduj scope.

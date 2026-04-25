@@ -1,6 +1,6 @@
 ---
 agent: 'agent'
-description: 'Zkontroluj aktuální krok proti specifikaci, buildům a stavovým souborům bez rozšiřování scope'
+description: 'Zkontroluj aktuální Challenge krok proti specifikaci, buildu a stavovým souborům'
 ---
 
 Proveď audit aktuálního stavu repozitáře.
@@ -12,7 +12,7 @@ Nejdřív přečti:
 - `.github/context/06-risks-and-anti-drift.md`
 
 Pak:
-1. určuj, který krok je rozpracovaný nebo naposledy dokončený,
+1. urči, který Challenge krok je rozpracovaný nebo naposledy dokončený,
 2. zkontroluj soulad se specifikací,
 3. spusť build a relevantní testy, pokud je to možné,
 4. oprav jen drobné chyby nutné k dokončení stejného kroku,

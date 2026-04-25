@@ -3,14 +3,14 @@ applyTo: "**/*.cs"
 ---
 # Pravidla pro C# kód
 
-- Piš čitelný a konzistentní C#.
+- Piš čitelný a konzistentní C# podle existujícího stylu projektu.
 - Preferuj malé služby a explicitní business logiku.
 - Nepřidávej patterny jen proto, že vypadají architektonicky zajímavě.
-- Každou veřejnou metodu pojmenuj tak, aby byl zřejmý její účel.
 - Časy zpracovávej v UTC.
-- Dlouhé metody rozděluj na menší privátní části.
 - U asynchronních metod používej `CancellationToken`, kde to dává smysl.
-- U validačních/business chyb vracej konzistentní aplikační výsledek nebo HTTP error model podle vrstvy.
 - Nikdy nevracej hashované tokeny ani hashovaná hesla do DTO.
-- U session logiky mysli na souběh, idempotenci a first-write-wins.
-- Komentáře přidávej jen tam, kde vysvětlují důvod, ne to, co je zřejmé ze syntaxe.
+- Pro Challenge mód nikdy neposílej správné odpovědi tvůrce před odesláním hráčovy submission.
+- U scoringu používej server jako jedinou autoritu.
+- Dlouhé metody rozděl na menší privátní části.
+- Komentáře přidávej jen tam, kde vysvětlují důvod, ne zřejmou syntaxi.
+- Neměň existující live Pub kvíz logiku, pokud to není nutné pro nový krok.

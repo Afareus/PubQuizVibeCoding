@@ -1,54 +1,63 @@
-# Ruční smoke testy
+# Manuální smoke testy pro Challenge MVP
 
-Tento soubor slouží jako rychlý checklist pro člověka po každém důležitém kroku.
+## A. Ověření původní aplikace
 
-## Základní smoke testy podle oblasti
+Po dokončení větších změn krátce ověř:
+- existující Pub kvíz aplikace se spustí,
+- existující hlavní navigace funguje,
+- Organizer/Player flow není zjevně rozbitý.
 
-### Kvízy
-- lze vytvořit nový kvíz,
-- organizer token se ukáže jen jednou,
-- lokální dashboard po refreshi stále obsahuje dříve uložený kvíz,
-- detail kvízu se načte jen s validním tokenem,
-- smazání vyžaduje heslo.
+Detailní retest starého Pub kvízu není cílem každého kroku, ale nesmí být zjevně poškozený.
 
-### CSV import
-- validní CSV projde,
-- nevalidní CSV vrátí chybu s řádkem, sloupcem a důvodem,
-- prázdné řádky se ignorují,
-- bez otázek nelze session vytvořit.
+## B. Vytvoření challenge
 
-### Session
-- session se vytvoří ve stavu WAITING,
-- join code se zobrazí organizátorovi,
-- tým se může připojit jen ve WAITING,
-- po startu už další tým nejoinne,
-- cancel funguje jen po potvrzení.
+1. Otevři `/challenge/create`.
+2. Zadej jméno tvůrce.
+3. Ponech nebo uprav název challenge.
+4. Vyber odpověď u všech 10 otázek.
+5. Klikni na `Vytvořit challenge`.
 
-### Tým
-- duplicitní název týmu je odmítnut,
-- po refreshi se obnoví stav,
-- odpověď jde poslat jen jednou,
-- po odeslání je stav zřetelně uzamčen.
+Očekávání:
+- challenge se uloží,
+- zobrazí se veřejný odkaz,
+- zobrazí se sdílecí text,
+- odkaz obsahuje `publicCode`.
 
-### Hra
-- countdown běží klientsky,
-- server po timeoutu přepne otázku,
-- během RUNNING nejsou vidět výsledky ani správné odpovědi,
-- po poslední otázce se zobrazí finální výsledky.
+## C. Hraní challenge
 
-### Výsledky
-- score je správně,
-- tie-break vyhodnotí nižší součet časů správných odpovědí,
-- organizátor po FINISHED vidí správné odpovědi,
-- tým vidí jen finální pořadí.
+1. Otevři veřejný odkaz v anonymním okně nebo jiném prohlížeči.
+2. Zadej jméno hráče.
+3. Odpověz na všech 10 otázek.
+4. Odešli odpovědi.
 
-## Závěrečný end-to-end smoke test
-1. Založ nový kvíz.
-2. Nahraj validní CSV.
-3. Založ novou session.
-4. Připoj alespoň 2 týmy.
-5. Spusť session.
-6. Odešli odpovědi.
-7. Počkej na konec.
-8. Ověř finální pořadí a správné odpovědi pro organizátora.
-9. Zkus logické smazání kvízu po ukončení všech aktivních session.
+Očekávání:
+- submission se uloží,
+- zobrazí se skóre z 10,
+- nezobrazila se chyba,
+- správné odpovědi nebyly dostupné před odesláním.
+
+## D. Leaderboard
+
+1. Odehraj stejnou challenge alespoň dvěma různými jmény.
+2. Zkontroluj leaderboard.
+
+Očekávání:
+- výsledky jsou seřazené podle skóre sestupně,
+- při shodě dřívější submission vyhrává,
+- zobrazuje se top 20 nebo méně.
+
+## E. Virální CTA
+
+Po dokončení challenge ověř:
+- je vidět tlačítko `Vytvořit vlastní kvíz`,
+- tlačítko vede na `/challenge/create`,
+- sdílecí text obsahuje skóre a odkaz.
+
+## F. Negativní scénáře
+
+Ověř alespoň ručně nebo testem:
+- neexistující `publicCode` vrátí srozumitelnou chybu,
+- nejde odeslat odpovědi bez jména,
+- nejde odeslat nekompletní odpovědi,
+- nejde odeslat neexistující option key,
+- detail challenge pro hráče neobsahuje správné odpovědi.

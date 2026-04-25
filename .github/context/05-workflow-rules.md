@@ -1,66 +1,78 @@
-# Workflow pravidla pro AI vývoj
+# Workflow pravidla pro AI agenta
 
-## Cíl workflow
-Umožnit vývoj stylem:
-- AI udělá malý bezpečný krok,
-- uživatel zkontroluje výsledek,
-- uživatel napíše „Pokračuj k dalšímu kroku“.
+## 1. Hlavní pravidlo
 
-## Povinný algoritmus pro každý implementační tah
-1. Najdi první nedokončený krok v `08-implementation-state.md`.
-2. Přečti plný popis kroku v `04-roadmap.md`.
-3. Udělej minimální množství změn potřebných k dokončení právě tohoto kroku.
-4. Proveď build.
-5. Proveď relevantní testy.
-6. Aktualizuj stavové soubory.
-7. Vrať report a zastav se.
+Původní Pub kvíz aplikace je hotová.
 
-## Jak zabránit scope creepu
-Před každou větší změnou si polož tyto otázky:
-- Je to výslovně v MVP?
-- Je to nezbytné pro aktuální krok?
-- Nevytváří to širší produkt než specifikace?
+Agent má pokračovat výhradně na nové funkci **Challenge mód**, pokud uživatel výslovně neřekne jinak.
 
-Pokud je odpověď „ne“, změnu nedělej.
+## 2. Před každým krokem
 
-## Jak zabránit rozbití kontextu mezi kroky
-Po každém kroku aktualizuj:
-- `08-implementation-state.md`
-- `09-decision-log.md`
-- `10-changelog.md`
+Přečti:
+- `.github/context/00-source-of-truth.md`
+- `.github/context/04-roadmap.md`
+- `.github/context/08-implementation-state.md`
+- relevantní specifikační soubory podle kroku
 
-Tyto soubory slouží jako lokální paměť repozitáře.
+Pak:
+1. najdi první nedokončený krok,
+2. proveď pouze tento krok,
+3. nepřeskakuj roadmapu,
+4. neimplementuj více kroků najednou,
+5. po dokončení aktualizuj stav.
 
-## Kdy se nesmí pokračovat do dalšího kroku
-Nepokračuj dál, když:
-- build padá,
-- krok není skutečně hotový,
-- změny nejsou zapsané do stavových souborů,
-- byly přidané dočasné hacky, které blokují další krok,
-- není jasné, zda byl porušen zdroj pravdy.
+## 3. Co musíš chránit
 
-## Jak řešit blokery
-### Bloker typu A — malá nejasnost
-Zvol nejjednodušší variantu konzistentní s MVP, zapiš ji do decision logu a pokračuj.
+- existující live Pub kvíz mód,
+- existující Organizer/Player flow,
+- existující databázové tabulky, pokud jejich změna není nutná,
+- existující CSV import,
+- existující SignalR logiku,
+- existující deployment konfiguraci,
+- aktuální styl projektu.
 
-### Bloker typu B — rozbitý předchozí krok
-Nejprve oprav předchozí krok.
-Nepřeskakuj.
+## 4. Co bez výslovného pokynu nedělat
 
-### Bloker typu C — rozpor ve zdroji pravdy
-Zastav se, popiš rozpor a navrhni nejmenší bezpečnou variantu.
-Nepokračuj do dalších feature změn.
+- nepřepisuj hotovou aplikaci od nuly,
+- nepřidávej login ani Identity,
+- nepřidávej vlastní otázky pro Challenge MVP,
+- nepřidávej AI generování otázek,
+- nepřidávej platby,
+- nepřidávej reklamy,
+- nepřidávej globální katalog challenge,
+- nepředělávej architekturu na mikroservisy,
+- neměň databázi,
+- neměň framework,
+- nereorganizuj celý projekt kvůli estetice,
+- neskrývej nehotový krok jako hotový.
 
-## Požadovaná granularita změn
-Dobrá změna:
-- jedna oblast,
-- jeden smysluplný cíl,
-- snadno reviewovatelný diff.
+## 5. Styl implementace
 
-Špatná změna:
-- backend + frontend + refaktor + test infra najednou,
-- skok přes více roadmap kroků,
-- změna architektury bez nutnosti.
+- Preferuj jednoduché a čitelné řešení.
+- Drž se existujícího stylu kódu.
+- Server je autorita pro scoring.
+- Časy ukládej v UTC.
+- Endpointy drž tenké.
+- Business pravidla dávej do služeb.
+- DTO nesmí nechtěně vracet správné odpovědi.
+- Nepoužívej složité patterny bez jasného důvodu.
 
-## Doporučený styl commitů
-AI nemusí dělat commity, ale má se chovat tak, aby každé kolo odpovídalo jednomu rozumnému commitu.
+## 6. Definition of Done pro každý krok
+
+Krok je hotový jen tehdy, když:
+- odpovídá specifikaci,
+- build projde nebo je přesně uvedeno, proč nešel spustit,
+- relevantní testy projdou nebo je uvedeno, proč nejsou dostupné,
+- ruční smoke-check je popsán,
+- `08-implementation-state.md` je aktualizovaný,
+- `09-decision-log.md` je aktualizovaný, pokud padlo rozhodnutí,
+- `10-changelog.md` je aktualizovaný.
+
+## 7. Report po kroku
+
+Na konci vypiš:
+- Hotový krok
+- Co bylo změněno
+- Ověření
+- Ruční kontrola pro uživatele
+- Stav dalšího kroku

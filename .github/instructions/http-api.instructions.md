@@ -3,10 +3,12 @@ applyTo: "**/Controllers/**/*.cs,**/Endpoints/**/*.cs,**/*Endpoint*.cs,**/*Contr
 ---
 # Pravidla pro HTTP API
 
-- Organizátorské operace kromě `POST /api/quizzes` vyžadují `X-Organizer-Token`.
-- Týmové operace po joinu vyžadují `X-Team-Reconnect-Token`.
-- Dodržuj error model ze specifikace.
-- Správné odpovědi nesmí být vráceny před `FINISHED`.
-- Výsledky nesmí být vráceny jako oficiální finální pořadí před `FINISHED`.
-- Endpointy musí být tenké; business logika patří do služeb.
-- U stavových přechodů kontroluj stav session explicitně.
+- Endpointy drž tenké; business logika patří do služeb.
+- Použij existující styl API v repozitáři.
+- Challenge endpointy jsou veřejné, protože fungují přes sdílený odkaz.
+- Nepřidávej login ani Identity.
+- `GET /api/challenges/{publicCode}` nesmí vracet správné odpovědi tvůrce.
+- `POST /api/challenges/{publicCode}/submissions` skóruje odpovědi na serveru.
+- Použij konzistentní chybový model aplikace.
+- Validuj délky textů a povinná pole.
+- Neměň existující Pub kvíz API endpointy, pokud to není nutné.

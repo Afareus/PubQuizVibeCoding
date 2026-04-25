@@ -1,26 +1,41 @@
-# S21 — Release readiness checklist
+# Release checklist pro Challenge MVP
 
-Tento checklist uzavírá MVP do předatelného stavu pro další testování.
+## Build a testy
 
-## 1) Build a test baseline
-- [x] `run_build` pro celou solution úspěšný.
-- [x] `run_tests` pro `QuizApp.Tests` úspěšný.
-- [x] Kritické business unit testy pokrývají core pravidla (create/import, auth, start/cancel, submit, progression, results, tie-break, sanitizace).
+- [ ] Backend build projde.
+- [ ] Client build projde.
+- [ ] Testy projdou, pokud existují.
+- [ ] EF Core migrace je čistá a neobsahuje nečekané změny starých tabulek.
 
-## 2) Integrační testy s nejvyšší hodnotou
-- [x] API E2E flow přes HTTP: vytvoření kvízu, import CSV, vytvoření session, join týmu, snapshot organizátora.
-- [x] API auth invariant: týmový state endpoint vyžaduje `X-Team-Reconnect-Token` (missing/invalid/valid).
-- [x] Test host běží izolovaně na InMemory DB (bez závislosti na lokálním PostgreSQL).
+## Funkční kontrola
 
-## 3) MVP scope kontrola
-- [x] Nebyly přidány nové funkce mimo roadmapu.
-- [x] Zachován modulární monolit a server-authoritative session engine.
-- [x] Zachováno bezpečnostní minimum z předchozích kroků (hashing, constant-time compare, rate limiting, reconnect policy).
+- [ ] Lze otevřít `/challenge/create`.
+- [ ] Lze vytvořit challenge.
+- [ ] Vytvoření vrátí veřejný odkaz.
+- [ ] Veřejný odkaz lze otevřít v jiném prohlížeči.
+- [ ] Hráč může zadat jméno.
+- [ ] Hráč může odpovědět na 10 otázek.
+- [ ] Hráč vidí skóre.
+- [ ] Leaderboard zobrazuje výsledky.
+- [ ] CTA `Vytvořit vlastní kvíz` vede na tvorbu nové challenge.
 
-## 4) Známá omezení před produkčním nasazením
-- [x] Ručně ověřit `dotnet ef database update` proti běžícímu PostgreSQL (ověřeno příkazem `dotnet dotnet-ef database update`).
-- [ ] Projít ruční smoke test v reálném browser/SignalR prostředí (join/start/progression/results, rate limit/reconnect).
+## Bezpečnostní kontrola
 
-## 5) Stav předání
-- [x] Roadmapa S00–S21 je implementačně uzavřena.
-- [x] Stavové soubory (`08`, `09`, `10`) jsou aktualizované.
+- [ ] Detail challenge pro hráče neobsahuje správné odpovědi.
+- [ ] API nevrací hashovaná pole.
+- [ ] Vstupy mají délkové limity.
+- [ ] Neexistující public code vrací srozumitelnou chybu.
+
+## Kontrola původní aplikace
+
+- [ ] Existující Pub kvíz hlavní flow je stále dostupný.
+- [ ] Existující Organizer/Player navigace není odstraněná.
+- [ ] Existující SignalR/live session kód není zjevně rozbitý.
+
+## UX kontrola
+
+- [ ] Create flow je použitelný na mobilu.
+- [ ] Play flow je použitelný na mobilu.
+- [ ] Texty jsou česky.
+- [ ] Sdílecí text je krátký a pochopitelný.
+- [ ] Výsledková stránka dokončuje virální smyčku.

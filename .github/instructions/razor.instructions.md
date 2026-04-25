@@ -4,11 +4,11 @@ applyTo: "**/*.razor,**/*.razor.cs,**/*.css"
 # Pravidla pro Razor a UI
 
 - UI je v češtině.
-- Upřednostni mobilní použitelnost.
-- Během hry udržuj layout stabilní; nevyvolávej rušivé přeskakování obrazovky.
-- Po odeslání odpovědi musí být stav zřetelně potvrzen.
-- Nikdy nezobrazuj správné odpovědi během `WAITING` ani `RUNNING`, kromě organizátorské obrazovky v režimu bez časomíry po explicitním kliknutí na tlačítko pro zobrazení správné odpovědi aktuální otázky.
-- Nikdy nezobrazuj průběžný leaderboard během hry.
-- Organizátorské a týmové obrazovky drž oddělené a srozumitelné.
-- Formuláře drž jednoduché a s jasnými chybovými hláškami v češtině.
-- Potvrzovací dialog pro zrušení session je povinný.
+- Primární použití Challenge módu je mobil.
+- Formuláře drž krátké a s jasnými chybovými hláškami.
+- Tlačítka musí být dobře použitelná na mobilu.
+- Challenge create flow má působit rychle a jednoduše.
+- Challenge play flow nesmí zobrazit správné odpovědi před odesláním.
+- Výsledková stránka musí obsahovat skóre, leaderboard a výrazné CTA `Vytvořit vlastní kvíz`.
+- Přidání Challenge módu nesmí odstranit existující vstupy do Pub kvízu.
+- Nepřidávej složité animace ani kosmetiku, pokud zdržují dokončení MVP.

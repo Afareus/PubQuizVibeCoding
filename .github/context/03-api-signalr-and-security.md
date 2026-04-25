@@ -1,72 +1,115 @@
-# API, SignalR a bezpečnostní zásady
+# API, SignalR a bezpečnost pro Challenge mód
 
-## Organizátorské REST endpointy
-- `POST /api/quizzes`
-- `POST /api/quizzes/{quizId}/import-csv`
-- `GET /api/quizzes/{quizId}`
-- `DELETE /api/quizzes/{quizId}`
-- `POST /api/quizzes/{quizId}/sessions`
-- `GET /api/sessions/{sessionId}`
-- `POST /api/sessions/{sessionId}/start`
-- `POST /api/sessions/{sessionId}/cancel`
-- `GET /api/sessions/{sessionId}/results`
-- `GET /api/sessions/{sessionId}/correct-answers`
+## REST endpointy
 
-## Týmové REST endpointy
-- `POST /api/sessions/join`
-- `GET /api/sessions/{sessionId}/state?teamId={teamId}`
-- `POST /api/sessions/{sessionId}/answers`
+Challenge mód má používat REST API. SignalR není potřeba.
 
-## Povinné API zásady
-- Odpověď lze odeslat pouze jednou.
-- Request pro submit musí nést `TeamId` a hlavičku `X-Team-Reconnect-Token`.
-- Duplicitní submit vrací chybu.
-- Pozdní odpověď vrací chybu.
-- Organizátorské endpointy kromě vytvoření kvízu vyžadují `X-Organizer-Token`.
-- Stavové endpointy musí vracet serverový snapshot se stavem session a časovými údaji pro lokální countdown.
-- Všechny organizátorské session mutace musí respektovat concurrency.
+### Veřejné endpointy
 
-## Doporučený chybový model
-- `400` – `ValidationFailed`, `CsvValidationFailed`
-- `401` – `MissingAuthToken`
-- `403` – `InvalidAuthToken`
-- `404` – `ResourceNotFound`
-- `409` – `TeamNameAlreadyUsed`, `QuestionClosed`, `AlreadyAnswered`, `SessionStateChanged`, `QuizHasActiveSessions`, `QuizHasNoQuestions`
-- `429` – `RateLimited`
+```text
+GET  /api/challenges/template
+POST /api/challenges
+GET  /api/challenges/{publicCode}
+POST /api/challenges/{publicCode}/submissions
+GET  /api/challenges/{publicCode}/leaderboard
+```
 
-## SignalR události
-- `session.created`
-- `team.joined`
-- `session.started`
-- `question.changed`
-- `session.finished`
-- `session.cancelled`
-- `results.ready`
+Volitelné, pokud implementace potřebuje detail konkrétního výsledku:
 
-## Zásady real-time vrstvy
-- Neposílej tick každou sekundu.
-- Posílej jen informace potřebné pro lokální countdown.
-- Organizátor i týmy se připojují do session-specific skupin.
-- Po reconnectu musí jít obnovit aktuální stav přes REST snapshot + SignalR resubscribe.
+```text
+GET /api/challenges/{publicCode}/submissions/{submissionId}
+```
+
+## Endpoint: GET /api/challenges/template
+
+Vrací pevnou sadu 10 šablonových otázek včetně 4 možností.
+
+Nesmí vracet žádné správné odpovědi, protože šablona sama o sobě správné odpovědi nemá. Správnou odpovědí je až volba tvůrce.
+
+## Endpoint: POST /api/challenges
+
+Vytvoří challenge z odpovědí tvůrce.
+
+Validace:
+- `creatorName` povinné,
+- `title` povinné nebo automaticky doplněné,
+- přesně 10 odpovědí,
+- každá odpověď musí odkazovat na existující šablonovou otázku,
+- každá odpověď musí mít `selectedOptionKey` z možností A-D,
+- žádná otázka nesmí chybět ani být duplicitní.
+
+Výsledek:
+- uloží challenge,
+- uloží otázky,
+- uloží možnosti,
+- uloží tvůrcovy správné odpovědi,
+- vrátí `publicCode`.
+
+## Endpoint: GET /api/challenges/{publicCode}
+
+Vrátí challenge pro hraní.
+
+Nesmí vracet:
+- `CreatorSelectedOptionKey`,
+- `IsCorrect`,
+- hashe tokenů,
+- interní bezpečnostní údaje.
+
+## Endpoint: POST /api/challenges/{publicCode}/submissions
+
+Odešle hráčovy odpovědi.
+
+Validace:
+- challenge existuje a není smazaná,
+- `participantName` je povinné,
+- přesně jedna odpověď na každou otázku,
+- žádná otázka nesmí chybět ani být duplicitní,
+- selected option musí existovat u dané otázky.
+
+Server:
+- porovná odpovědi s `CreatorSelectedOptionKey`,
+- uloží submission,
+- uloží detail odpovědí,
+- spočítá `score`,
+- vrátí skóre, rank a leaderboard.
+
+## Endpoint: GET /api/challenges/{publicCode}/leaderboard
+
+Vrátí top výsledky.
+
+Pravidla:
+- řadit podle skóre sestupně,
+- při shodě řadit podle `SubmittedAtUtc` vzestupně,
+- pro MVP stačí top 20.
+
+## Chybový model
+
+Použij existující chybový model aplikace. Pokud žádný jednotný model není, drž jednoduché konzistentní chyby.
+
+Doporučené chyby:
+- `ChallengeNotFound`
+- `ChallengeDeleted`
+- `InvalidChallengeTemplateAnswer`
+- `MissingParticipantName`
+- `InvalidSubmissionAnswerCount`
+- `DuplicateSubmissionAnswer`
+- `UnknownChallengeQuestion`
+- `UnknownChallengeOption`
+- `ValidationFailed`
 
 ## Bezpečnostní zásady
-- `QuizOrganizerToken` generuj s minimálně 256bit entropií.
-- Zobraz ho pouze jednou při vytvoření kvízu.
-- Na serveru ukládej pouze hash.
-- Porovnání tokenů prováděj constant-time.
-- Administrátorké heslo kvízu ukládej pouze jako hash.
-- Chraň local storage designem UI a minimalizací XSS rizika.
-- Mimo localhost vyžaduj HTTPS/TLS.
 
-## Rate limiting minimum
-- join: minimálně 10 pokusů/min/IP/session
-- submit: minimálně 20 requestů/min/team
-- organizátorské mutace: minimálně 10 requestů/min/token
+- Správné odpovědi tvůrce nikdy neposílat klientovi před odesláním odpovědí.
+- Nevracet hashovaná pole do DTO.
+- Validovat délku a obsah jmen.
+- Zamezit extrémně dlouhým vstupům.
+- Public challenge je z principu sdílená přes odkaz, ne soukromá.
+- Nepřidávat login, Identity ani sociální přihlášení.
+- Nepřidávat e-mailové účty.
+- Pro první verzi nepřidávat cookies ani komplexní tracking.
 
-## Auditované akce
-- `QUIZ_CREATED`
-- `QUIZ_IMPORTED`
-- `SESSION_CREATED`
-- `SESSION_STARTED`
-- `SESSION_CANCELLED`
-- `QUIZ_DELETED`
+## SignalR
+
+Challenge mód nepoužívá SignalR.
+
+Existující SignalR kód pro live Pub kvíz neměnit, pokud to není nutné kvůli buildu.

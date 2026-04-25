@@ -1,82 +1,81 @@
-# Rizika AI vývoje a prevence driftu
+# Rizika a anti-drift pravidla
 
-## Nejčastější chyby, kterým musíš předcházet
+## Největší riziko
 
-### 1. Přepnutí na jiný produkt než úzké MVP
-Riziko:
-- AI začne přidávat účty, správu uživatelů, editaci otázek, administraci nebo širší SaaS model.
+Agent začne znovu stavět nebo refaktorovat hotovou Pub kvíz aplikaci místo toho, aby přidal malý samostatný Challenge mód.
 
-Prevence:
-- vždy znovu zkontroluj `00-source-of-truth.md`,
-- drž se jen aktuálního kroku z roadmapy.
+Tomu se musí zabránit.
 
-### 2. Špatný Blazor model
-Riziko:
-- AI zvolí server-side interaktivitu jako hlavní model místo klienta ve WebAssembly režimu.
+## Riziko: scope creep
 
-Prevence:
-- respektuj zdroj pravdy: klient ve WASM režimu, server jako API + SignalR.
+Zakázané rozšíření v první verzi:
+- vlastní otázky,
+- AI generování,
+- účty,
+- profily,
+- sociální login,
+- veřejný katalog,
+- platby,
+- reklamy,
+- administrace,
+- mazání výsledků,
+- moderace leaderboardu,
+- obrázky a média.
 
-### 3. Zobrazení zakázaných dat během hry
-Riziko:
-- AI omylem vrátí correct answers nebo průběžné výsledky dříve.
+První verze musí být úzká:
 
-Prevence:
-- každé DTO a endpoint kontroluj podle pravidla:
-  - během `WAITING` a `RUNNING` nic z toho nesmí ven.
+```text
+10 pevných otázek → public link → hráč odpoví → skóre → leaderboard → vytvořit vlastní
+```
 
-### 4. Slabé zacházení s tokeny a hesly
-Riziko:
-- AI uloží token nebo heslo v plain textu, loguje ho nebo ho vrací opakovaně.
+## Riziko: únik správných odpovědí
 
-Prevence:
-- token se vrací jen jednou,
-- na serveru se ukládá jen hash,
-- logy nesmí obsahovat tajné hodnoty.
+Challenge detail pro hráče nesmí obsahovat tvůrcovy správné odpovědi.
 
-### 5. Nedeterministický session engine
-Riziko:
-- klient rozhoduje o času,
-- více paralelních požadavků rozbije stav.
+Kontroluj:
+- DTO,
+- API response,
+- client model,
+- serializaci entit,
+- AutoMapper/projection, pokud existuje.
 
-Prevence:
-- server je autorita,
-- session mutace musí respektovat concurrency,
-- answer submit musí být first-write-wins.
+## Riziko: rozbití live Pub kvízu
 
-### 6. Přehnaná architektura
-Riziko:
-- AI zavede CQRS, MediatR, event sourcing nebo jinou složitost bez reálné potřeby.
+Nezasahuj do:
+- session state machine,
+- SignalR hubů,
+- Organizer/Player flow,
+- CSV importu,
+- existujících API endpointů,
+- existujících rout.
 
-Prevence:
-- preferuj jednoduché aplikační služby a čisté vrstvy.
+Pokud je zásah nutný kvůli sdílené infrastruktuře, musí být minimální a jasně vysvětlený.
 
-### 7. Příliš velké kroky
-Riziko:
-- AI udělá tři roadmap kroky najednou.
+## Riziko: příliš složitý datový model
 
-Prevence:
-- dokončuj jen první nedokončený krok,
-- na konci každého kola se zastav.
+Nepřidávej tabulky pro:
+- uživatele,
+- profily,
+- šablony spravované v DB,
+- marketing kampaně,
+- tracking.
 
-### 8. Neudržovaný stavový soubor
-Riziko:
-- AI zapomene aktualizovat stav a příští kolo naváže špatně.
+Pro MVP stačí entity uvedené v `02-architecture-and-data-model.md`.
 
-Prevence:
-- krok není hotový bez aktualizace `08-implementation-state.md`.
+## Riziko: slabá viralita
 
-### 9. Slabé testování business pravidel
-Riziko:
-- UI funguje, ale pravidla jako duplicate team name, late answer, first-write-wins nebo delete with active session nejsou opravdu chráněna.
+Challenge mód bez CTA není hotový.
 
-Prevence:
-- kritická business pravidla testuj co nejdřív po zavedení příslušné logiky.
+Na výsledkové stránce musí být:
+- skóre,
+- leaderboard,
+- sdílecí text,
+- výrazné tlačítko `Vytvořit vlastní kvíz`.
 
-## Anti-drift checklist před ukončením každého kola
-- Je krok opravdu jen jeden?
-- Je změna v souladu se specifikací?
-- Neunikají správné odpovědi nebo výsledky dřív?
-- Neunikají tokeny nebo hesla?
-- Build prošel?
-- Stavové soubory byly aktualizovány?
+## Riziko: špatné mobilní UX
+
+Primární použití je mobil. Formuláře musí být krátké, tlačítka velká a texty jasné.
+
+## Anti-drift věta
+
+Když máš pochybnost, zvol menší řešení, které dokončí virální smyčku.

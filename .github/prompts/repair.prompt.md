@@ -14,8 +14,9 @@ Nejdřív přečti:
 Pak:
 1. identifikuj, co přesně je rozbité,
 2. oprav jen minimum nutné k návratu do konzistentního stavu,
-3. proveď build a relevantní testy,
+3. spusť build a relevantní testy,
 4. neimplementuj další roadmap krok,
-5. aktualizuj changelog a stavový soubor.
+5. aktualizuj changelog a stavový soubor,
+6. chraň existující Pub kvíz mód.
 
 Doplňující poznámka: ${input:note:Volitelný popis chyby od uživatele}

@@ -3,16 +3,16 @@ applyTo: "**/*Tests*/**/*.cs,**/*.Tests/**/*.cs"
 ---
 # Pravidla pro testy
 
-- Preferuj xUnit.
-- Testuj hlavně business pravidla, ne kosmetické detaily.
+- Preferuj xUnit, pokud ho projekt používá.
+- Testuj hlavně business pravidla.
 - Každý test má mít jedno jasné očekávání.
-- Kritické scénáře:
-  - create session bez otázek je zakázán,
-  - join mimo `WAITING` je zakázán,
-  - duplicitní týmové jméno je zakázáno,
-  - first-write-wins pro odpovědi,
-  - pozdní odpověď je odmítnuta,
-  - `FINISHED` a `CANCELLED` jsou terminální,
-  - delete quiz při aktivní session je zakázán,
-  - výsledky a correct answers nejsou dostupné před `FINISHED`.
-- U testů používej názvy, ze kterých je okamžitě patrné pravidlo a očekávaný výsledek.
+- U Challenge módu testuj hlavně:
+  - vytvoření challenge s přesně 10 odpověďmi,
+  - odmítnutí chybějící odpovědi,
+  - odmítnutí duplicitní odpovědi na stejnou otázku,
+  - odmítnutí neexistující option key,
+  - detail challenge pro hráče neobsahuje správné odpovědi,
+  - submission spočítá správné skóre,
+  - leaderboard řadí podle skóre sestupně a času vzestupně,
+  - neexistující public code vrací srozumitelnou chybu.
+- Netestuj kosmetické detaily UI, pokud nejsou kritické pro flow.

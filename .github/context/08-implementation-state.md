@@ -1,188 +1,46 @@
-# Stav implementace
+# Implementační stav
 
-Tento soubor je provozní paměť repozitáře.
-Po každém kroku jej aktualizuj.
+Datum resetu dokumentace: 2026-04-25
 
-## Jak aktualizovat
-- Označ dokončený krok `[x]`.
-- U dalšího kroku ponech `[ ]`.
-- Aktualizuj sekci „Naposledy dokončeno“.
-- Aktualizuj sekci „Aktuální poznámky“.
-- Aktualizuj sekci „Rizika / dluh“ jen pokud skutečně něco zůstává.
+## Shrnutí
 
-## Roadmap status
-- [x] S00 — Bootstrap repozitáře a solution
-- [x] S01 — Základ hostingu a konfigurace serveru
-- [x] S02 — Základ klienta a routingu
-- [x] S03 — Sdílené kontrakty a enumy
-- [x] S04 — Entitní model domény
-- [x] S05 — EF Core mapování a DbContext
-- [x] S06 — První migrace a databázový bootstrap
-- [x] S07 — CSV kontrakt, parser a validační report
-- [x] S08 — Služba pro založení kvízu a import otázek
-- [x] S09 — REST endpointy pro správu kvízů
-- [x] S10 — Organizátorské UI pro kvízy
-- [x] S11 — Session create backend a join code
-- [x] S12 — Team join backend a reconnect identita
-- [x] S13 — Organizátorský waiting room a session create UI
-- [x] S14 — Start/cancel session backend
-- [x] S15 — Otázkový engine a timeout progression
-- [x] S16 — SignalR session groups a eventy
-- [x] S17 — Team UI: join, waiting room, question screen
-- [x] S18 — Answer submit backend
-- [x] S19 — Výsledky, ranking a correct answers
-- [x] S20 — Hardening a bezpečnostní minimum
-- [x] S21 — Testy a release readiness
+Původní Pub kvíz aplikace je považovaná za hotovou. Tato dokumentace byla zredukována a přesměrována na další vývoj: **virální Challenge mód**.
 
-## Naposledy dokončeno
-- Post-S21 feature — QR kód na čekárně organizátora: pod join kódem se zobrazuje QR kód (generovaný přes `Net.Codecrete.QrCodeGenerator` přímo v WASM, bez externích služeb), který odkazuje na `/tym/pripojeni?joinCode=XXX`; stránka `TeamJoin.razor` předvyplní join kód z query stringu pomocí `[SupplyParameterFromQuery]`.
+## Aktuální strategický stav
 
-## Aktuální poznámky
-- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` a `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` přibyla operace/endpoint `GET /api/quizzes` vracející veřejný seznam kvízů (`QuizId`, `Name`, `CreatedAtUtc`) bez organizátorské autentizace.
-- `QuizApp.Client/Pages/OrganizerDashboard.razor` už nenačítá tabulku pouze z `localStorage`; hlavní seznam bere ze serveru a lokálně uložené tokeny používá jen jako doplňkové metadata.
-- V `QuizApp.Shared/Contracts/QuizContracts.cs` byl přidán kontrakt `QuizListItemResponse`.
-- V `QuizApp.Tests/ApiIntegrationTests.cs` přibyl test `GetQuizzesEndpoint_ReturnsAllCreatedQuizzes`.
-- V `QuizApp.Client/Pages/OrganizerDashboard.razor` je v sekci `Dostupné kvízy` fulltext filtr podle názvu kvízu (`oninput`) integrován přímo do hlavičky gridu a stránkování (`Předchozí`/`Další`) má limit 10 záznamů na stránku.
-- V `QuizApp.Client/Pages/OrganizerDashboard.razor` přibyl druhý fulltext filtr v hlavičce gridu pro sloupec `Datum založení`; oba filtry (`Název kvízu`, `Datum založení`) se aplikují kombinovaně a aktualizují se po každém stisku klávesy.
-- V `QuizApp.Client/Pages/OrganizerDashboard.razor` je filtr `Datum založení` realizován jako `input type="datetime-local"`; aplikace filtruje záznamy podle zvoleného lokálního data a času na minuty.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerDashboard.razor` je filtr `Datum založení` změněn z `datetime-local` na `date` a sloupec zobrazuje pouze datum bez času.
-- Post-S21 UI tweak: zobrazení data ve sloupci `Datum založení` je formátováno jako `dd.MM.yyyy`.
-- Post-S21 UI bugfix: v `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo filtrování v gridu opraveno tak, aby reagovalo po každém stisku klávesy (`oninput`), a grid zůstává zobrazen i při 0 výsledcích (zobrazí informační řádek místo skrytí tabulky).
-- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po úspěšném `DeleteEditedQuestionAsync` formulář `Ruční vložení otázky` automaticky sbalí (`isManualQuestionFormExpanded = false`).
-- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se CSV soubor při uploadu čte jako raw bytes a dekóduje přes UTF-8 (strict) s fallbackem na CP1250, aby se správně načetla čeština i u ne-UTF8 exportů.
-- V `QuizApp.Client/Program.cs` je registrován `CodePagesEncodingProvider`, aby byl fallback dekodér CP1250 dostupný i ve WASM klientu.
-- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` po úspěšném `ImportCsvAsync` automaticky proběhne `LoadQuestionsAsync`, takže importované otázky jsou vidět ihned bez dalšího klikání.
-- `LoadQuestionsAsync` nyní pro načtení otázek akceptuje nejen `X-Quiz-Password`, ale i uložený `X-Organizer-Token`.
-- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `DeleteQuestionAsync` (autorizace `X-Organizer-Token`/`X-Quiz-Password`, blokace při aktivní session, audit `QUESTION_DELETED`, reindex pořadí zbývajících otázek).
-- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `DELETE /api/quizzes/{quizId}/questions/{questionId}` (rate limit `OrganizerMutations`).
-- V `QuizApp.Client/Pages/OrganizerQuizDetail.razor` má formulář úpravy otázky nové tlačítko `Smazat otázku`, které volá API mazání a po úspěchu obnoví seznam otázek.
-- V `QuizApp.Tests/QuizManagementServiceTests.cs` a `QuizApp.Tests/ApiIntegrationTests.cs` přibyly testy pro mazání otázky a přepočet `OrderIndex`.
-- V `QuizApp.Server/Program.cs` je doplněn rate limiting middleware s politikami `JoinPerIp` (10/min), `SubmitPerTeam` (20/min) a `OrganizerMutations` (10/min), plus `UseForwardedHeaders` a `UseHsts` mimo development pro TLS-ready provoz.
-- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` a `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` jsou mutační endpointy napojeny na odpovídající rate limit policy.
-- V `QuizApp.Server/Application/Common/TextInputSanitizer.cs` vznikla centralizovaná sanitizace textových vstupů; je použita v `QuizManagementService` (název kvízu) a `SessionParticipationService` (název týmu) včetně délkových validací dle EF limitů.
-- Klientské SignalR obrazovky (`OrganizerWaitingRoom`, `TeamWaitingRoom`, `TeamQuestion`) používají `ReconnectWithinSixtySecondsPolicy` pro reconnect okno do 60 sekund.
-- V testech přibyly scénáře pro sanitizaci a délkové validace (`QuizManagementServiceTests`, `SessionParticipationServiceTests`).
-- V `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` vzniklo ukládání lokálního seznamu organizátorských kvízů (`quizId + QuizOrganizerToken`) přes `localStorage`.
-- `QuizApp.Client/Pages/OrganizerDashboard.razor` nyní obsahuje funkční formulář „Nový kvíz“, volání `POST /api/quizzes`, zobrazení jednorázového tokenu a lokální dashboard uložených kvízů.
-- `QuizApp.Client/Pages/OrganizerQuizDetail.razor` bylo rozšířeno na funkční UI pro načtení detailu (`GET`), CSV import (`POST /import-csv`) včetně validačního reportu a smazání (`DELETE`) s heslem.
-- Organizátorské UI podporuje autentizaci přes uložený `X-Organizer-Token` i manuálně zadané `X-Quiz-Password`.
-- `QuizApp.Client/Program.cs` registruje `OrganizerQuizLocalStore` do DI; `_Imports.razor` byl rozšířen o `QuizApp.Shared.Contracts` a `QuizApp.Shared.Enums`.
-- Pro opravu volání API z WASM klienta mimo server origin byl doplněn `QuizApp.Client/wwwroot/appsettings.json` s `ApiBaseUrl` a klientský `HttpClient` používá tuto konfiguraci.
-- V `QuizApp.Server/Program.cs` je doplněna CORS policy `ClientOrigins` pro localhost originy, aby UI volání (`POST /api/quizzes` a další) fungovala i při běhu klienta a serveru na různých portech.
-- V `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `CreateSessionAsync`, která při autorizaci (`X-Organizer-Token` nebo `X-Quiz-Password`) založí session jen nad kvízem s otázkami, vygeneruje unikátní join code, nastaví stav `WAITING` a zapisuje audit `SESSION_CREATED`.
-- V `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `POST /api/quizzes/{quizId}/sessions`.
-- V `QuizApp.Tests/QuizManagementServiceTests.cs` přibyly testy pro `CreateSessionAsync` (bez otázek => konflikt, autorizace heslem, opakované vytvoření session).
-- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` vznikly týmové endpointy `POST /api/sessions/join` a `GET /api/sessions/{sessionId}/state?teamId={teamId}` s autorizací přes `X-Team-Reconnect-Token` pro state snapshot.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` byla doplněna join logika: validace join code, stav `WAITING`, unikátní název týmu v session, limit 20 týmů, generování jednorázového `TeamReconnectToken` a ukládání pouze jeho hashe.
-- Session state snapshot ověřuje `TeamReconnectToken` constant-time porovnáním hashů, aktualizuje `LastSeenAtUtc` a vrací stav session + seznam týmů + aktuální otázku (pokud existuje).
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro pravidla S12 (valid join, duplicate team name, invalid join code, valid/invalid reconnect token).
-- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyl organizátorský endpoint `GET /api/sessions/{sessionId}` a v `SessionParticipationService` nová operace `GetOrganizerSessionStateAsync` s autentizací přes `X-Organizer-Token` nebo `X-Quiz-Password`.
-- V `QuizApp.Shared/Contracts/SessionContracts.cs` vznikl kontrakt `OrganizerSessionSnapshotResponse` pro waiting room snapshot (join code, stav session, seznam týmů).
-- `QuizApp.Client/Pages/OrganizerQuizDetail.razor` nově umožňuje vytvořit session (`POST /api/quizzes/{quizId}/sessions`), zobrazit `SessionId + JoinCode` a přejít do čekárny.
-- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` je nahrazeno funkční obrazovkou čekárny: načtení snapshotu přes `GET /api/sessions/{sessionId}`, podpora lokálního tokenu podle `quizId`, zobrazení stavu session a připojených týmů.
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy organizátorského snapshotu (validní heslo, chybějící autentizace).
-- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyly operace `StartSessionAsync` a `CancelSessionAsync` s autorizací (`X-Organizer-Token` nebo `X-Quiz-Password`), validací přechodů (`WAITING -> RUNNING`, zákaz mutace terminálních stavů), podmínkou min. 1 týmu pro start, concurrency ošetřením a audit logy `SESSION_STARTED` / `SESSION_CANCELLED`.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyly endpointy `POST /api/sessions/{sessionId}/start` a `POST /api/sessions/{sessionId}/cancel`; cancel vyžaduje payload `CancelSessionRequest` s explicitním potvrzením.
-- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyl kontrakt `CancelSessionRequest` pro potvrzení zrušení session.
-- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově umožňuje session spustit/zrušit, volá nové endpointy a před rušením vyžaduje potvrzení přes dialog.
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy pro S14 (start bez týmu, start s týmem, cancel bez potvrzení, cancel RUNNING session, zákaz mutace terminálního stavu).
-- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` nyní `StartSessionAsync` nastavuje první otázku (`CurrentQuestionIndex`, `CurrentQuestionStartedAtUtc`, `QuestionDeadlineUtc`) a přibyla operace `ProgressDueSessionsAsync` pro serverový přechod na další otázku po timeoutu i finalizaci session po poslední otázce.
-- V `QuizApp.Server/Application/Sessions/SessionProgressionBackgroundService.cs` vznikla hostovaná služba s periodickým zpracováním běžících session bez sekundových event ticků do klienta.
-- V `QuizApp.Server/Program.cs` je registrována background služba pro timeout progression.
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy S15 pro posun na další otázku po timeoutu a přechod do `FINISHED` po timeoutu poslední otázky.
-- V `QuizApp.Server/Application/Sessions/SessionHub.cs` vznikl SignalR hub s metodami pro subscribe/unsubscribe do session-specific groups (`session:{sessionId}`).
-- V `QuizApp.Server/Application/Sessions/SessionRealtimePublisher.cs` vznikla realtime publikační služba, která emituje eventy podle `RealtimeEventName` do konkrétní session group.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` jsou nyní emitovány eventy `team.joined`, `session.started`, `question.changed`, `session.cancelled`, `session.finished`, `results.ready` při join/start/cancel/progression operacích.
-- V `QuizApp.Server/Program.cs` je namapován endpoint hubu `MapHub<SessionHub>("/hubs/sessions")` a registrován `ISessionRealtimePublisher`.
-- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově navazuje SignalR připojení s automatic reconnect, subscribuje session group a při realtime eventech obnovuje snapshot přes REST.
-- V `QuizApp.Client/QuizApp.Client.csproj` byl přidán balíček `Microsoft.AspNetCore.SignalR.Client` pro WASM klienta.
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy na publikaci realtime eventů (`team.joined`, `session.finished`, `results.ready`).
-- V `QuizApp.Client/Team/TeamSessionLocalStore.cs` vzniklo lokální úložiště týmové identity (`sessionId + teamId + teamName + TeamReconnectToken`) a lokálně uzamčených odpovědí per otázka (`sessionId + questionId + OptionKey`) přes `localStorage`.
-- `QuizApp.Client/Pages/TeamJoin.razor` nyní obsahuje funkční join formulář, volání `POST /api/sessions/join`, uložení identity týmu a přesměrování do týmové čekárny.
-- `QuizApp.Client/Pages/TeamWaitingRoom.razor` bylo rozšířeno na funkční čekárnu týmu: načtení snapshotu přes `GET /api/sessions/{sessionId}/state?teamId={teamId}` s hlavičkou `X-Team-Reconnect-Token`, SignalR subscribe do session group a přechod na otázku po startu session.
-- `QuizApp.Client/Pages/TeamQuestion.razor` bylo rozšířeno na funkční question screen: načtení aktuální otázky ze snapshotu, zobrazení variant `A/B/C/D`, lokální jednorázové uzamčení odpovědi po odeslání a realtime refresh při `question.changed` / ukončovacích eventech.
-- `QuizApp.Client/Program.cs` registruje `TeamSessionLocalStore` do DI; `_Imports.razor` byl rozšířen o namespace `QuizApp.Client.Team`.
-- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyly kontrakty `SubmitAnswerRequest` a `SubmitAnswerResponse` pro endpoint submitu odpovědi.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyla operace `SubmitAnswerAsync` s validací `X-Team-Reconnect-Token`, pravidel `RUNNING + aktivní otázka + deadline`, first-write-wins (`SessionId + TeamId + QuestionId`) a výpočtem `IsCorrect` + `ResponseTimeMs` při uložení `TeamAnswer`.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` byl přidán endpoint `POST /api/sessions/{sessionId}/answers`.
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyly testy S18 (valid submit, duplicate submit, late submit, invalid reconnect token).
-- V `QuizApp.Shared/Contracts/SessionContracts.cs` přibyly kontrakty `SessionResultsResponse`, `SessionResultDto`, `CorrectAnswersResponse`, `CorrectAnswerDto` pro výsledky a správné odpovědi.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` přibyly operace `GetSessionResultsAsync` (dual-auth: tým nebo organizátor), `GetCorrectAnswersAsync` (pouze organizátor) a privátní `ComputeSessionResultsAsync` (ranking: skóre DESC, celkový čas správných odpovědí ASC, sdílený rank při shodě).
-- `ProgressDueSessionsAsync` nyní při finalizaci session (po timeoutu poslední otázky) automaticky počítá a ukládá `SessionResult` entity.
-- V `QuizApp.Server/Application/Sessions/SessionParticipationEndpoints.cs` přibyly endpointy `GET /api/sessions/{sessionId}/results` a `GET /api/sessions/{sessionId}/correct-answers`.
-- `QuizApp.Client/Pages/TeamQuestion.razor` nyní volá backend submit (`POST /api/sessions/{sessionId}/answers` s `X-Team-Reconnect-Token`) místo pouze lokálního uzamčení z S17; rozlišuje FINISHED (přechod na výsledky) a CANCELLED (přechod na hlavní stránku).
-- `QuizApp.Client/Pages/SessionResults.razor` bylo nahrazeno funkční stránkou výsledků pro tým: načtení identity z `TeamSessionLocalStore`, volání `GET /api/sessions/{sessionId}/results?teamId={teamId}` s `X-Team-Reconnect-Token`, ranked tabulka se zvýrazněním vlastního týmu.
-- `QuizApp.Client/Pages/OrganizerSessionResults.razor` vznikla stránka výsledků pro organizátora: načtení tokenu, volání endpointů pro výsledky a správné odpovědi, tabulka rankingu a přehled správných odpovědí s označením správné varianty.
-- `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` nově obsahuje odkaz „Zobrazit výsledky a správné odpovědi" při stavu FINISHED.
-- V `QuizApp.Tests/SessionParticipationServiceTests.cs` přibylo 9 nových testů S19 (výpočet výsledků, ranked výsledky pro tým/organizátora, chybějící auth, pre-FINISHED odmítnutí, správné odpovědi, tie-break).
-- V `QuizApp.Tests/ApiIntegrationTests.cs` přibyly HTTP integrační testy nad hostovaným API (`WebApplicationFactory` + InMemory DB) pro end-to-end organizátorský flow (create/import/create-session/join/snapshot) a pro vynucení `X-Team-Reconnect-Token` na state endpointu.
-- `QuizApp.Server/Program.cs` nyní v prostředí `Testing` přeskočí startup migraci (`MigrateAsync`) a exportuje `public partial class Program`, aby šel API host spouštět v integračních testech.
-- V `QuizApp.Tests/QuizApp.Tests.csproj` je přidán balíček `Microsoft.AspNetCore.Mvc.Testing` pro HTTP-level integrační testování.
-- Vznikl finální checklist release připravenosti `.github/context/11-release-checklist.md`.
-- Ruční ověření `dotnet dotnet-ef database update` proti lokálnímu PostgreSQL bylo úspěšně provedeno (Development prostředí).
-- Roadmapa MVP (`S00`–`S21`) je implementačně uzavřená.
-- Post-S21 bugfix: `QuizApp.Client/Pages/TeamQuestion.razor` ukládá lokální lock odpovědi až po serverově úspěšném submitu (nebo při odpovědi `AlreadyAnswered`), aby se tým nezamkl po neúspěšném requestu.
-- Post-S21 bugfix: `QuizApp.Client/Team/TeamSessionLocalStore.cs` ukládá odpovědi per `sessionId + teamId + questionId`, takže se lokální lock nepropisuje mezi týmy v jedné session.
-- Post-S21 bugfix: týmový flow nyní přenáší `teamId` v URL query (`/tym/cekarna` -> `/tym/otazka` -> `/session/vysledky`) a identita se načítá přes `sessionId + teamId`, takže při více týmech ve stejném browseru nedochází k přepisování identity.
-- Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerDashboard.razor` zobrazuje nejdříve lokální seznam kvízů a formulář „Nový kvíz“ je přesunut pod seznam.
-- Post-S21 UI úprava: grid organizátorských kvízů nyní obsahuje jen `Název kvízu` a `Datum založení`; sloupce `QuizId` a `Organizer token` už se nezobrazují.
-- Post-S21 UI úprava: `QuizApp.Client/Organizer/OrganizerQuizLocalStore.cs` ukládá kromě tokenu i metadata (`QuizName`, `CreatedAtUtc`) a dashboard je u starších záznamů doplňuje přes `GET /api/quizzes/{quizId}` s `X-Organizer-Token`.
-- Post-S21 UI úprava: v `QuizApp.Client/Pages/OrganizerDashboard.razor` bylo do řádku názvu vráceno tlačítko `Detail` (bez přidání sloupce s ID/tokenem).
-- Post-S21 UI úprava: tlačítko `Detail` je v řádku dashboard tabulky zarovnáno úplně doprava (pravý okraj druhého sloupce).
-- Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerQuizDetail.razor` při spuštění session vyžaduje zadání join kódu přímo ve formuláři tlačítka `Spustit kvíz` a posílá jej v requestu `CreateSessionRequest`.
-- Post-S21 UI úprava: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` po otevření s `SessionId` automaticky načte snapshot, takže po přechodu z detailu kvízu odpadá ruční mezikrok `Načíst snapshot`.
-- Post-S21 backend úprava: `POST /api/quizzes/{quizId}/sessions` nyní přijímá `CreateSessionRequest.JoinCode`, kontroluje unikátnost a validačně vyžaduje pouze minimální délku 4 znaky.
-- Post-S21 bugfix: pro join kód při startu session byla zrušena formátová omezení (abeceda/pevná délka); v UI i backendu zůstává jen pravidlo „alespoň 4 znaky“.
-- Post-S21 feature: zaveden `QuestionType` (`MultipleChoice`, `NumericClosest`) a rozšířeny kontrakty (`QuizDetailQuestionDto`, `SnapshotQuestionDto`, `SubmitAnswerRequest/Response`, `CorrectAnswerDto`) o numerické odpovědi.
-- Post-S21 feature: CSV parser podporuje rozšířenou hlavičku s `question_type` a `correct_numeric_value` (stará hlavička zůstává kompatibilní jako multiple-choice).
-- Post-S21 feature: `SessionParticipationService` přijímá submit A-D i numerický tip podle typu otázky; při výpočtu výsledků u `NumericClosest` bodují všechny týmy s minimální absolutní odchylkou od správné hodnoty.
-- Post-S21 feature: klientské stránky `TeamQuestion`, `SessionResults`, `OrganizerSessionResults`, `OrganizerQuizDetail`, `OrganizerWaitingRoom` zobrazují a obsluhují numerické otázky.
-- Post-S21 bugfix: byla vytvořena EF migrace `QuizApp.Server/Persistence/Migrations/20260331190153_AddNumericClosestQuestionFields.cs` (sloupce `Questions.CorrectNumericValue`, `Questions.QuestionType`, `TeamAnswers.NumericValue` + nullable `CorrectOption`/`SelectedOption`) a úspěšně aplikována přes `dotnet ef database update`.
-- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `AddQuestionAsync` s autorizací (`X-Organizer-Token` nebo `X-Quiz-Password`), validacemi pro oba typy otázek, blokací úprav při aktivní session (`WAITING`/`RUNNING`) a auditem `QUESTION_ADDED`.
-- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl přidán endpoint `POST /api/quizzes/{quizId}/questions` (rate limit `OrganizerMutations`), sdílené kontrakty byly rozšířeny o `AddQuizQuestionRequest/Response`.
-- Post-S21 feature: `QuizApp.Client/Pages/OrganizerQuizDetail.razor` v sekci „Otázky kvízu“ obsahuje formulář pro ruční vložení otázky (výběr typu, A-D nebo numerická hodnota, časový limit), odeslání na API a automatický refresh seznamu otázek.
-- Post-S21 feature: v testech přibyly scénáře pro ruční vložení otázky (`QuizManagementServiceTests`: multiple-choice, numeric, blokace při aktivní session; `ApiIntegrationTests`: HTTP endpoint přes `X-Quiz-Password`).
-- Post-S21 feature: ruční formulář v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` podporuje zadání `Pořadí otázky` a editaci již vložených otázek (tlačítko `Upravit` + uložení přes `PUT`).
-- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` přibyla operace `UpdateQuestionAsync` a validace kolize pořadí (při `POST` i `PUT` vrací chybu, pokud požadované pořadí už používá jiná otázka).
-- Post-S21 feature: v `QuizApp.Server/Application/Quizzes/QuizManagementEndpoints.cs` byl doplněn endpoint `PUT /api/quizzes/{quizId}/questions/{questionId}`; kontrakty v `QuizApp.Shared/Contracts/QuizContracts.cs` byly rozšířeny o `AddQuizQuestionRequest.Order` a `UpdateQuizQuestionRequest`.
-- Post-S21 testy: v `QuizApp.Tests/QuizManagementServiceTests.cs` a `QuizApp.Tests/ApiIntegrationTests.cs` přibyly scénáře pro validaci duplicitního pořadí a editaci otázky.
-- Post-S21 UI bugfix: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor`, `QuizApp.Client/Pages/OrganizerSessionResults.razor`, `QuizApp.Client/Pages/SessionResults.razor` a `QuizApp.Client/Pages/TeamQuestion.razor` je sjednoceno zobrazení desetinných hodnot (`0.############################`) bez ne-relevantních nul; totéž platí pro zobrazení času ve výsledcích (bez pevného `F3/F0` s nulovým paddingem).
-- Post-S21 backend bugfix: v `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` je výpočet `CorrectCount` pro `NumericClosest` upraven tak, že se zvyšuje pouze při přesné shodě (`NumericValue == CorrectNumericValue`), zatímco `Score` za nejbližší tip zůstává beze změny.
-- Post-S21 testy: v `QuizApp.Tests/SessionParticipationServiceTests.cs` přibyl test `NumericClosest_NearestButNotExact_GivesScoreButNotCorrectCount` ověřující nové pravidlo pro sloupec `Správně`.
-- Post-S21 UI text tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor`, `QuizApp.Client/Pages/OrganizerSessionResults.razor` a `QuizApp.Client/Pages/SessionResults.razor` byl popisek numerické správné odpovědi změněn na `Správná odpověď:`.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se v sekci `Otázky kvízu` při nulovém počtu otázek zobrazuje formulář `Ruční vložení otázky` okamžitě; pokud už kvíz otázky má, zůstává původní flow se zadáním hesla a tlačítkem `Zobrazit otázky`.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` po přidání první ruční otázky zůstává v aktuálním otevření stránky povolené další ruční přidávání bez hesla; při novém otevření detailu se režim resetuje a opět platí flow se zadáním hesla.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je ve formuláři ručního vkládání pole `Pořadí otázky` umístěno jako první, před výběrem `Typ otázky`.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je celý formulář `Ruční vložení otázky` skrytelný; nadpis má vpravo malé toggle tlačítko pro rozbalení/sbalení.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` toggle šipka formuláře nyní odpovídá stavu (`▼` sbaleno, `▲` rozbaleno).
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` mají jednotlivé question card v sekci `Otázky kvízu` jemné podbarvení přes třídu `quiz-question-item`; styly jsou v `QuizApp.Client/wwwroot/css/app.css`.
-- Post-S21 UI tweak: v `QuizApp.Client/wwwroot/css/app.css` bylo podbarvení `quiz-question-item` zesíleno (`background-color`, `border-color`, jemný `inset`), aby se vizuálně jasně odlišilo od pozadí.
-- Post-S21 UI tweak: styly `quiz-question-item` byly přesunuty do `QuizApp.Client/Pages/OrganizerQuizDetail.razor.css` (CSS isolation), protože globální umístění v `app.css` se neprojevovalo konzistentně.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je nyní podbarvení question card i transparentní pozadí option řádků nastavené inline (`style=...`), aby se vizuální změna projevila i při potížích s načtením CSS.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je badge `Správná` upraven na `badge bg-light text-success border border-success`, takže text badge je zelený stejně jako zvýraznění správné odpovědi.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` mají jednotlivé question card nové pořadí metadat (`Otázka číslo` -> text otázky -> `Typ otázky` -> `Čas na odpověď`) a tlačítko `Upravit` je zarovnáno do pravého horního rohu.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je text „Otázky i správné odpovědi se zobrazí až po zadání Administrátorského hesla kvízu.“ podmíněný jen pro kvízy s alespoň jednou otázkou.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je formulář `Import otázek CSV` přesunut pod sekci `Otázky kvízu` (nad `Smazání kvízu`).
-- Post-S21 backend validation: v `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` je v `CreateSessionAsync` doplněna kontrola kompletního pořadí (`OrderIndex` musí být souvislý od 0 bez mezer); jinak vrací `ValidationFailed` s hláškou „Kvíz není možné spustit, protože neobsahuje kompletní pořadí otázek.“.
-- Post-S21 testy: v `QuizApp.Tests/QuizManagementServiceTests.cs` přibyl test `CreateSessionAsync_IncompleteQuestionOrder_ReturnsValidationFailed`.
-- Post-S21 UI validation: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je před odesláním formuláře ruční otázky klientská validace (`Pořadí`, `Text otázky`, `Časový limit`, odpovědi A-D / správná odpověď / správná číselná hodnota) a chybové hlášky se vykreslují přímo pod konkrétními poli.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je doplněna logika `GetNextAvailableManualOrder()`, která po přidání/načtení otázek nastavuje `Pořadí otázky` na nejnižší volné pořadí (při načteném seznamu podle skutečných `OrderIndex`).
-- Post-S21 UX tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je v sekci `Import otázek CSV` odkaz na stažení šablony `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv`.
-- Post-S21 UX/API tweak: `QuizApp.Server/Application/QuizImport/QuizCsvParser.cs` používá delimiter `;` a akceptuje volitelný první řádek `sep=;`; šablona `QuizApp.Client/wwwroot/templates/quiz-question-import-template.csv` je upravena na semicolon formát a v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` je zobrazena informace o oddělovači `;`.
-- Post-S21 UI tweak: v `QuizApp.Client/Pages/OrganizerQuizDetail.razor` se po kliknutí na `Vygenerovat kód` už nezobrazuje info hláška „Byl vygenerován volný join kód.“; vygenerovaná hodnota se pouze vyplní do pole join kódu.
+```text
+Hotovo:
+- existující Pub kvíz aplikace
 
-- Post-S21 bugfix: `QuizApp.Shared/Contracts/SessionContracts.cs` — `OrganizerSessionSnapshotResponse` rozšířen o property `QuizName` (3. pozičný parametr za `QuizId`), aby organizátorská čekárna zobrazovala název kvízu místo „(neznámý název)".
-- Post-S21 bugfix: `QuizApp.Server/Application/Sessions/SessionParticipationService.cs` — `ToOrganizerSnapshot()` nyní předává `session.Quiz?.Name ?? string.Empty` jako `QuizName`.
-- Post-S21 bugfix: `QuizApp.Client/Pages/OrganizerWaitingRoom.razor` — zobrazuje `snapshot.QuizName` s `storedQuizName` jako fallback.
-- Post-S21 product rule: `QuizApp.Server/Application/Quizzes/QuizManagementService.cs` — `CreateSessionAsync` kontroluje `IsStartAllowedForEveryone` bez výjimky pro organizátora; ani zakladatel kvízu nemůže spustit session, pokud kvíz nemá zapnutý příznak. Kvíz defaultně vzniká uzamčený (`IsStartAllowedForEveryone = false`).
-- Post-S21 test fix: `QuizApp.Tests/SessionParticipationServiceTests.cs`, `QuizApp.Tests/QuizManagementServiceTests.cs`, `QuizApp.Tests/ApiIntegrationTests.cs` — všechny testy vyžadující session creation nyní explicitně volají `UpdateQuizStartPermissionAsync(true)` (unit testy) nebo `PUT /api/quizzes/{id}/start-permission` (integrační testy) před `CreateSessionAsync`.
+Nově se má implementovat:
+- Challenge mód „Kdo mě zná nejlíp?“
+```
 
-## Rizika / dluh
-- Aktuálně bez kritického otevřeného dluhu blokujícího MVP předání.
+## Stav roadmapy
 
-## Poslední ověření
-- Build: úspěšný (`run_build`)
-- Testy: úspěšné (`run_tests`, `Project=QuizApp.Tests`, 99/99 passed)
-- Database update: úspěšný (`dotnet ef database update` pro `QuizApp.Server` v `Development`; aplikována migrace `20260331190153_AddNumericClosestQuestionFields`)
-- Post-S21 QR kód feature: build úspěšný, `Net.Codecrete.QrCodeGenerator 2.0.3` přidán a zkompilován v WASM klientu
-- Ruční smoke check: neproběhl (finální release smoke v browser/SignalR prostředí stále vyžaduje interaktivní provoz)
+| Krok | Stav | Poznámka |
+|---|---:|---|
+| CH-01 Datový model a EF Core migrace | Nezahájeno | První další krok |
+| CH-02 Shared DTO a validační kontrakty | Nezahájeno | Čeká na CH-01 |
+| CH-03 Challenge aplikační služba | Nezahájeno | Čeká na CH-02 |
+| CH-04 HTTP API endpointy | Nezahájeno | Čeká na CH-03 |
+| CH-05 UI pro vytvoření challenge | Nezahájeno | Čeká na CH-04 |
+| CH-06 UI pro hraní challenge | Nezahájeno | Čeká na CH-04 |
+| CH-07 Výsledek, leaderboard a virální CTA | Nezahájeno | Čeká na CH-06 |
+| CH-08 Vstup do Challenge módu z aplikace | Nezahájeno | Čeká na CH-07 |
+| CH-09 Stabilizace, testy a release checklist | Nezahájeno | Finální krok |
+
+## První další krok
+
+```text
+CH-01 — Datový model a EF Core migrace
+```
+
+Agent má začít tímto krokem a nemá implementovat UI ani API endpointy ve stejném kroku.
+
+## Poznámky pro agenta
+
+- Staré soubory o budování Pub kvízu od nuly byly záměrně odstraněny nebo nahrazeny.
+- Pokud v kódu existují funkce, které tato dokumentace nepopisuje, neodstraňuj je.
+- Pokud dokumentace neodpovídá skutečnému stavu staré aplikace, ber kód jako zdroj pravdy.
+- Pro Challenge mód se řiď touto dokumentací.

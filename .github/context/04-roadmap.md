@@ -1,523 +1,273 @@
-# Roadmapa implementace po malých krocích
+# Roadmapa dalšího vývoje
 
-Tato roadmapa je rozpadnutá jemněji než původních 9 fází, aby bylo možné bezpečně fungovat stylem:
-**zkontroluj -> potvrď -> „Pokračuj k dalšímu kroku“**.
+Tato roadmapa začíná po dokončení původní Pub kvíz aplikace.
 
-## Pravidla pro práci s roadmapou
-- Vždy implementuj pouze první nedokončený krok.
-- Každý krok musí být samostatně buildovatelný.
-- Po každém kroku aktualizuj stav, decision log a changelog.
-- Pokud při kroku narazíš na chybu z předchozího kroku, nejdřív ji oprav a stále zůstaň ve stejném kroku.
+## Stav původní aplikace
 
----
+- [x] Live Pub kvíz aplikace existuje.
+- [x] Organizer/Player flow existuje.
+- [x] Databáze a deployment základ existují.
+- [x] Původní MVP dokumentace byla zredukována, aby agent zbytečně nereimplementoval hotové části.
 
-## Krok S00 — Bootstrap repozitáře a solution
-**Cíl**  
-Založit základní solution a minimální projektovou kostru.
+## Nový cíl
 
-**Uděláš**
-- vytvoříš solution,
-- vytvoříš projekty `QuizApp.Client`, `QuizApp.Server`, `QuizApp.Shared`, `QuizApp.Tests`,
-- nastavíš reference mezi projekty,
-- ověříš, že solution buildí i s placeholder implementací.
+Implementovat samostatný virální Challenge MVP:
 
-**Nesmíš měnit**
-- stack,
-- názvy hlavních projektů,
-- architekturu na jiný model než Client / Server / Shared.
+```text
+Kdo mě zná nejlíp?
+```
 
-**Hotovo když**
-- solution existuje,
-- projekty jsou součástí solution,
-- build projde.
+## CH-01 — Datový model a EF Core migrace
 
-**Ruční kontrola**
-- solution se otevře bez chyb,
-- všechny 4 projekty jsou vidět v Solution Exploreru.
+### Cíl
+Přidat databázový model pro Challenge mód bez zásahu do existující live session logiky.
 
----
+### Udělej
+- Zkontroluj existující solution a aktuální styl entit.
+- Přidej entity:
+  - `Challenge`
+  - `ChallengeQuestion`
+  - `ChallengeAnswerOption`
+  - `ChallengeSubmission`
+  - `ChallengeSubmissionAnswer`
+- Přidej EF Core konfigurace podle existujícího stylu.
+- Přidej indexy a unikátní omezení podle `02-architecture-and-data-model.md`.
+- Přidej migraci.
+- Před i po změně se pokus spustit build.
 
-## Krok S01 — Základ hostingu a konfigurace serveru
-**Cíl**  
-Připravit serverovou kostru, konfiguraci a základní middleware pipeline.
+### Nedělej
+- Neměň existující Pub kvíz entity, pokud to není nutné.
+- Nepřidávej UI.
+- Nepřidávej API endpointy.
+- Nepřidávej SignalR.
 
-**Uděláš**
-- nastavíš ASP.NET Core host,
-- připravíš konfiguraci pro PostgreSQL,
-- přidáš health endpoint,
-- připravíš základní registraci služeb a konfiguraci SignalR.
+### Hotovo, když
+- Build projde.
+- Migrace je vygenerovaná.
+- Datový model odpovídá specifikaci.
+- Stavové soubory jsou aktualizované.
 
-**Nesmíš měnit**
-- nepřidávej business logiku,
-- nepřidávej auth systém.
-
-**Hotovo když**
-- server startuje,
-- health endpoint vrací úspěch,
-- build projde.
-
-**Ruční kontrola**
-- server se spustí,
-- health endpoint odpoví.
+### Ruční kontrola
+- Zkontrolovat migraci, že nevytváří nečekané změny ve starých tabulkách.
 
 ---
 
-## Krok S02 — Základ klienta a routingu
-**Cíl**  
-Připravit navigaci a základní obrazovky bez finální logiky.
+## CH-02 — Shared DTO a validační kontrakty
 
-**Uděláš**
-- landing page,
-- role volbu organizátor / tým,
-- základ routingu,
-- placeholdery hlavních obrazovek.
+### Cíl
+Přidat sdílené request/response typy pro Challenge mód.
 
-**Nesmíš měnit**
-- žádné finální API napojení kromě nutného minima,
-- žádné přidávání funkcí mimo specifikaci.
+### Udělej
+- Přidej DTO pro:
+  - template,
+  - vytvoření challenge,
+  - detail challenge pro hraní,
+  - odeslání odpovědí,
+  - leaderboard,
+  - výsledek submission.
+- Dodrž, že DTO pro hraní nesmí obsahovat správné odpovědi.
+- Přidej jednoduché validační konstanty, pokud to odpovídá stylu projektu.
 
-**Hotovo když**
-- klientská aplikace běží,
-- všechny klíčové stránky mají dosažitelnou routu.
+### Nedělej
+- Neimplementuj endpointy.
+- Neimplementuj UI.
 
-**Ruční kontrola**
-- lze přepnout mezi hlavními obrazovkami,
-- UI je v češtině.
+### Hotovo, když
+- DTO jsou ve `QuizApp.Shared` nebo ekvivalentu.
+- Build projde.
+- Názvy jsou čitelné a konzistentní.
 
----
-
-## Krok S03 — Sdílené kontrakty a enumy
-**Cíl**  
-Vytvořit sdílené enumy, základ DTO a kontrakty používané napříč aplikací.
-
-**Uděláš**
-- enumy pro session status, option keys, error codes, event names,
-- základ request/response DTO pro create quiz, import, session create, join, state snapshot.
-
-**Nesmíš měnit**
-- nesmíš do DTO propisovat hashovaná tajemství,
-- nesmíš předčasně finálně uzamknout všechny kontrakty, které ještě nejsou potřeba.
-
-**Hotovo když**
-- sdílený projekt obsahuje čitelné kontrakty pro první backendové kroky,
-- projekty buildí.
-
-**Ruční kontrola**
-- DTO a enumy odpovídají názvosloví ze specifikace.
+### Ruční kontrola
+- Ověřit, že žádný response typ neposílá `CreatorSelectedOptionKey`.
 
 ---
 
-## Krok S04 — Entitní model domény
-**Cíl**  
-Vytvořit entity a jejich základní vztahy.
+## CH-03 — Challenge aplikační služba
 
-**Uděláš**
-- entity `Quiz`, `Question`, `QuestionOption`, `QuizSession`, `Team`, `TeamAnswer`, `SessionResult`, `AuditLog`,
-- navigace a základní invariants,
-- pomocné factory/metody jen tam, kde zvyšují čitelnost.
+### Cíl
+Implementovat serverovou business logiku pro tvorbu, načtení, skórování a leaderboard.
 
-**Nesmíš měnit**
-- žádné předčasné repository patterny navíc,
-- žádné UI změny.
+### Udělej
+- Přidej službu pro Challenge mód.
+- Implementuj pevnou šablonu 10 otázek.
+- Implementuj vytvoření challenge.
+- Implementuj načtení challenge pro hráče.
+- Implementuj odeslání odpovědí.
+- Implementuj výpočet skóre.
+- Implementuj leaderboard top 20.
+- Přidej relevantní unit/integration testy, pokud projekt testy má.
 
-**Hotovo když**
-- model odpovídá specifikaci,
-- žádná klíčová entita nechybí.
+### Nedělej
+- Nepřidávej UI.
+- Neměň live Pub kvíz services.
+- Nezobrazuj správné odpovědi klientovi před submission.
 
-**Ruční kontrola**
-- model pokrývá všechny business pojmy ze specifikace.
+### Hotovo, když
+- Business pravidla z `01-product-spec.md` jsou pokrytá.
+- Build a relevantní testy projdou.
 
----
-
-## Krok S05 — EF Core mapování a DbContext
-**Cíl**  
-Zafixovat persistence vrstvu.
-
-**Uděláš**
-- `DbContext`,
-- entity konfigurace,
-- indexy a unique constraints,
-- concurrency konfiguraci pro `QuizSession`.
-
-**Nesmíš měnit**
-- nepoužívej lazy loading,
-- nepoužívej provider-specific hacky bez důvodu.
-
-**Hotovo když**
-- schéma odpovídá pravidlům,
-- unique constraints podporují business pravidla.
-
-**Ruční kontrola**
-- zkontroluj mapování kritických omezení: týmové jméno, answer uniqueness, logické smazání.
+### Ruční kontrola
+- Ověřit testem nebo debugem, že submission se skóruje správně.
 
 ---
 
-## Krok S06 — První migrace a databázový bootstrap
-**Cíl**  
-Mít fyzicky vytvořitelné schéma databáze.
+## CH-04 — HTTP API endpointy
 
-**Uděláš**
-- vytvoříš první migraci,
-- zapojíš inicializační flow nebo popis, jak databázi vytvořit,
-- ověříš běh proti PostgreSQL.
+### Cíl
+Zpřístupnit Challenge službu přes REST API.
 
-**Nesmíš měnit**
-- žádná business logika navíc.
+### Udělej
+- Přidej endpointy:
+  - `GET /api/challenges/template`
+  - `POST /api/challenges`
+  - `GET /api/challenges/{publicCode}`
+  - `POST /api/challenges/{publicCode}/submissions`
+  - `GET /api/challenges/{publicCode}/leaderboard`
+- Použij existující styl controllerů nebo minimal APIs.
+- Dodrž chybový model aplikace.
+- Ověř, že endpoint pro detail challenge nevrací správné odpovědi.
 
-**Hotovo když**
-- migrace jde vytvořit a aplikovat,
-- aplikace se umí připojit k DB.
+### Nedělej
+- Nepřidávej SignalR.
+- Nepřidávej login.
+- Nepřidávej administraci challenge.
 
-**Ruční kontrola**
-- databáze se založí,
-- tabulky odpovídají modelu.
+### Hotovo, když
+- Endpointy fungují.
+- Build projde.
+- Relevantní API testy nebo ruční HTTP testy dávají smysl.
 
----
-
-## Krok S07 — CSV kontrakt, parser a validační report
-**Cíl**  
-Připravit importní jádro odděleně od UI.
-
-**Uděláš**
-- parser CSV,
-- validátor kontraktu,
-- strukturovaný validační report s řádkem, sloupcem a důvodem,
-- ignorování prázdných řádků.
-
-**Nesmíš měnit**
-- nepodporuj žádný jiný formát než CSV,
-- nepovoluj volnější hlavičku.
-
-**Hotovo když**
-- validní CSV projde,
-- nevalidní vrátí přesné chyby.
-
-**Ruční kontrola**
-- vyzkoušej validní a nevalidní CSV soubor.
+### Ruční kontrola
+- Vytvořit challenge přes API.
+- Načíst challenge přes public code.
+- Odeslat odpovědi.
+- Získat leaderboard.
 
 ---
 
-## Krok S08 — Služba pro založení kvízu a import otázek
-**Cíl**  
-Zprovoznit jádro správy kvízů bez kompletního UI.
+## CH-05 — UI pro vytvoření challenge
 
-**Uděláš**
-- create quiz service,
-- jednorázové vrácení organizer tokenu,
-- import service navázanou na create quiz / empty quiz flow,
-- hashování Administrátorkého hesla kvízu a organizer tokenu,
-- audit log pro `QUIZ_CREATED` a `QUIZ_IMPORTED`.
+### Cíl
+Přidat mobilně pohodlnou stránku `/challenge/create`.
 
-**Nesmíš měnit**
-- nepřidávej editaci otázek,
-- neukládej token ani heslo čitelně.
+### Udělej
+- Přidej obrazovku pro zadání jména a názvu.
+- Načti šablonu otázek.
+- Umožni tvůrci vybrat odpověď pro každou otázku.
+- Po vytvoření zobraz veřejný odkaz a sdílecí text.
+- Přidej tlačítko pro zkopírování odkazu, pokud to jde jednoduše.
 
-**Hotovo když**
-- lze programově vytvořit kvíz a naimportovat otázky,
-- token se vrátí jen jednou při vytvoření.
+### Nedělej
+- Nepřidávej vlastní otázky.
+- Nepřidávej AI generování.
+- Nepřidávej registraci.
 
-**Ruční kontrola**
-- vytvoření vrátí token,
-- import vytvoří otázky v pořadí.
+### Hotovo, když
+- Uživatel vytvoří challenge z UI.
+- Vidí veřejný odkaz.
+- Build projde.
 
----
-
-## Krok S09 — REST endpointy pro správu kvízů
-**Cíl**  
-Zveřejnit backendové kontrakty pro create/import/detail/delete.
-
-**Uděláš**
-- `POST /api/quizzes`
-- `POST /api/quizzes/{quizId}/import-csv`
-- `GET /api/quizzes/{quizId}`
-- `DELETE /api/quizzes/{quizId}`
-- správný error model a auth hlavičky.
-
-**Nesmíš měnit**
-- nesmí vzniknout globální list endpoint všech kvízů.
-
-**Hotovo když**
-- endpointy fungují,
-- delete respektuje token + heslo + zákaz při aktivní session.
-
-**Ruční kontrola**
-- detail funguje jen s validním tokenem,
-- delete odmítne špatné heslo.
+### Ruční kontrola
+- Na mobilním rozlišení vytvořit challenge za cca 1 minutu.
 
 ---
 
-## Krok S10 — Organizátorské UI pro kvízy
-**Cíl**  
-Dodat použitelné minimum UI pro create/import/detail/delete.
+## CH-06 — UI pro hraní challenge
 
-**Uděláš**
-- dashboard z local storage,
-- formulář Nový kvíz,
-- uložení `quizId + QuizOrganizerToken` do local storage,
-- upload CSV a zobrazení validačního reportu,
-- detail kvízu,
-- smazání s heslem.
+### Cíl
+Přidat stránku `/challenge/{publicCode}` pro hráče.
 
-**Nesmíš měnit**
-- nepřidávej serverový seznam všech kvízů,
-- nepřidávej editaci otázek.
+### Udělej
+- Načti challenge podle public code.
+- Zobraz název, tvůrce a otázky.
+- Hráč zadá jméno.
+- Hráč vybere právě jednu odpověď u každé otázky.
+- Odešli submission.
+- Po úspěchu přesměruj nebo zobraz výsledek.
 
-**Hotovo když**
-- organizátor může čistě z UI vytvořit kvíz a nahrát otázky.
+### Nedělej
+- Nezobrazuj správné odpovědi před odesláním.
+- Nepřidávej časomíru.
+- Nepřidávej live prvky.
 
-**Ruční kontrola**
-- refresh zachová lokální seznam kvízů v daném browseru.
+### Hotovo, když
+- Hráč odehraje challenge z veřejného odkazu.
+- Výsledek se uloží.
+- Build projde.
 
----
-
-## Krok S11 — Session create backend a join code
-**Cíl**  
-Připravit backend pro založení session ve stavu WAITING.
-
-**Uděláš**
-- create session service,
-- generaci dostatečně neuhodnutelného join code,
-- kontrolu, že kvíz má aspoň jednu otázku,
-- audit log `SESSION_CREATED`.
-
-**Nesmíš měnit**
-- nepovoluj start session v tomto kroku,
-- nepovoluj join po startu.
-
-**Hotovo když**
-- session lze vytvořit pouze nad validním kvízem s otázkami,
-- session začíná ve stavu `WAITING`.
-
-**Ruční kontrola**
-- opakované create session nad stejným kvízem funguje.
+### Ruční kontrola
+- Otevřít odkaz v anonymním okně a odehrát jako hráč.
 
 ---
 
-## Krok S12 — Team join backend a reconnect identita
-**Cíl**  
-Zprovoznit připojení týmů a jejich identitu.
+## CH-07 — Výsledek, leaderboard a virální CTA
 
-**Uděláš**
-- `POST /api/sessions/join`,
-- validaci join code,
-- validaci unikátního názvu týmu v session,
-- generování a jednorázové vrácení `TeamReconnectToken`,
-- `GET /api/sessions/{sessionId}/state?teamId={teamId}`.
+### Cíl
+Dokončit virální smyčku.
 
-**Nesmíš měnit**
-- nepovoluj join mimo `WAITING`,
-- nepovoluj více aktivních identit bez takeover pravidla.
+### Udělej
+- Zobraz skóre hráče.
+- Zobraz leaderboard top 20.
+- Přidej sdílecí text po dohrání.
+- Přidej výrazné CTA `Vytvořit vlastní kvíz`.
+- CTA musí vést na `/challenge/create`.
 
-**Hotovo když**
-- tým dostane teamId + reconnect token,
-- reconnect state endpoint vrací snapshot.
+### Nedělej
+- Nepřidávej platební prvky.
+- Nepřidávej reklamy.
+- Nepřidávej veřejný katalog.
 
-**Ruční kontrola**
-- duplicitní název týmu je odmítnut,
-- neplatný join code je odmítnut.
+### Hotovo, když
+- Hráč po dokončení vidí skóre, pořadí a CTA.
+- Další uživatel může přes CTA vytvořit vlastní challenge.
 
----
-
-## Krok S13 — Organizátorský waiting room a session create UI
-**Cíl**  
-Připravit UI a základní backend napojení pro waiting room.
-
-**Uděláš**
-- UI pro vytvoření session nad kvízem,
-- zobrazení join code,
-- waiting room obrazovku,
-- seznam připojených týmů přes snapshot nebo dočasné pollování.
-
-**Nesmíš měnit**
-- zatím nefinalizuj game engine.
-
-**Hotovo když**
-- organizátor vidí novou WAITING session a připojené týmy.
-
-**Ruční kontrola**
-- po joinu týmu se waiting room aktualizuje nebo jde obnovit refreshí.
+### Ruční kontrola
+- Odehrát challenge dvěma různými jmény a ověřit pořadí.
 
 ---
 
-## Krok S14 — Start/cancel session backend
-**Cíl**  
-Zprovoznit řízené stavové přechody session.
+## CH-08 — Vstup do Challenge módu z aplikace
 
-**Uděláš**
-- `POST /api/sessions/{sessionId}/start`
-- `POST /api/sessions/{sessionId}/cancel`
-- validace přechodů,
-- podmínka min. 1 připojený tým pro start,
-- potvrzovací požadavek pro cancel na UI vrstvě,
-- audit log `SESSION_STARTED` a `SESSION_CANCELLED`.
+### Cíl
+Udělat Challenge mód objevitelný, ale nerozbít původní hlavní flow.
 
-**Nesmíš měnit**
-- nepovoluj mutace terminálních stavů.
+### Udělej
+- Přidej odkaz/dlaždici na Challenge mód na vhodné místo v aplikaci.
+- Texty drž krátké:
+  - `Kdo mě zná nejlíp?`
+  - `Vytvořit zábavný kvíz pro přátele`
+- Zachovej existující Organizer/Player navigaci.
 
-**Hotovo když**
-- start přepne WAITING do RUNNING,
-- cancel funguje v WAITING i RUNNING,
-- terminální stavy jsou uzamčené.
+### Nedělej
+- Nepřepisuj homepage kompletně, pokud to není nutné.
+- Neodstraňuj existující vstupy do Pub kvízu.
 
-**Ruční kontrola**
-- start bez týmu je odmítnut,
-- zrušení vyžaduje potvrzení v UI.
+### Hotovo, když
+- Uživatel najde Challenge mód z aplikace.
+- Starý Pub kvíz flow je stále dostupný.
 
----
-
-## Krok S15 — Otázkový engine a timeout progression
-**Cíl**  
-Dodat deterministický průběh hry řízený serverem.
-
-**Uděláš**
-- určení aktuální otázky,
-- nastavení `CurrentQuestionIndex`, `CurrentQuestionStartedAtUtc`, `QuestionDeadlineUtc`,
-- automatický přechod po timeoutu,
-- finalizaci po poslední otázce.
-
-**Nesmíš měnit**
-- neposílej sekundové tikání ze serveru,
-- nenechávej klienta rozhodovat o deadline.
-
-**Hotovo když**
-- server sám posouvá otázky,
-- poslední otázka vede do `FINISHED`.
-
-**Ruční kontrola**
-- po vypršení času dojde k přechodu i bez zásahu klienta.
+### Ruční kontrola
+- Projít homepage / navigaci na desktopu i mobilu.
 
 ---
 
-## Krok S16 — SignalR session groups a eventy
-**Cíl**  
-Napojit real-time vrstvu.
+## CH-09 — Stabilizace, testy a release checklist
 
-**Uděláš**
-- session-specific skupiny,
-- eventy pro team joined, session started, question changed, session cancelled, session finished, results ready,
-- reconnect flow pro znovunapojení klienta.
+### Cíl
+Připravit Challenge MVP k nasazení.
 
-**Nesmíš měnit**
-- nepřenášej sekundové tick eventy.
+### Udělej
+- Spusť build.
+- Spusť testy, pokud existují.
+- Projdi smoke testy z `07-manual-smoke-tests.md`.
+- Oprav drobné chyby.
+- Aktualizuj `11-release-checklist.md`.
+- Zapiš konečný stav do `08-implementation-state.md`.
 
-**Hotovo když**
-- waiting room a průběh session lze synchronizovat real-time.
+### Nedělej
+- Nepřidávej novou velkou funkcionalitu.
+- Nepřidávej AI, platby ani vlastní otázky.
 
-**Ruční kontrola**
-- dvě otevřená okna vidí změnu téměř okamžitě.
-
----
-
-## Krok S17 — Team UI: join, waiting room, question screen
-**Cíl**  
-Dodat použitelné týmové rozhraní.
-
-**Uděláš**
-- join formulář,
-- uložení team identity lokálně,
-- waiting room týmu,
-- question screen s odpověďmi A/B/C/D,
-- jasné potvrzení po odeslání odpovědi.
-
-**Nesmíš měnit**
-- nezobrazuj správnou odpověď během hry,
-- nepovol druhý submit téže otázky.
-
-**Hotovo když**
-- tým projde flow od joinu po otázku.
-
-**Ruční kontrola**
-- po odeslání se odpověď uzamkne a UI to jasně ukáže.
-
----
-
-## Krok S18 — Answer submit backend
-**Cíl**  
-Doplnit backend pro odpovědi a pravidlo first-write-wins.
-
-**Uděláš**
-- `POST /api/sessions/{sessionId}/answers`,
-- validaci stavu session,
-- validaci deadline,
-- unikátní answer per team/question,
-- výpočet `IsCorrect` a `ResponseTimeMs`.
-
-**Nesmíš měnit**
-- nesmí projít duplicitní ani pozdní submit.
-
-**Hotovo když**
-- odpověď se uloží přesně jednou,
-- pozdní/duplicitní odpovědi vrací správný business error.
-
-**Ruční kontrola**
-- rychlý dvojitý klik nezpůsobí dvě odpovědi.
-
----
-
-## Krok S19 — Výsledky, ranking a correct answers
-**Cíl**  
-Zfinalizovat konec hry.
-
-**Uděláš**
-- výpočet `SessionResult`,
-- ranking podle score a tie-breaku,
-- endpoint pro finální výsledky,
-- endpoint pro správné odpovědi po skončení,
-- team results screen a organizer results screen.
-
-**Nesmíš měnit**
-- nezobrazuj výsledky ani správné odpovědi před `FINISHED`.
-
-**Hotovo když**
-- po skončení session existují finální výsledky,
-- organizátor vidí i správné odpovědi.
-
-**Ruční kontrola**
-- při stejném score rozhoduje nižší součet časů správných odpovědí.
-
----
-
-## Krok S20 — Hardening a bezpečnostní minimum
-**Cíl**  
-Doplnit nejnutnější odolnost.
-
-**Uděláš**
-- rate limiting,
-- sanitizaci textových vstupů,
-- dotažení hashování a constant-time compare,
-- audit log minimum,
-- HTTPS/TLS ready konfiguraci,
-- ošetření reconnectu do 60 s.
-
-**Nesmíš měnit**
-- nerozšiřuj scope o enterprise funkce navíc.
-
-**Hotovo když**
-- základní bezpečnostní a provozní minima jsou implementována.
-
-**Ruční kontrola**
-- rate limit a reconnect chování jsou aspoň základně ověřené.
-
----
-
-## Krok S21 — Testy a release readiness
-**Cíl**  
-Uzavřít MVP do stavu rozumně předatelného k dalšímu testu.
-
-**Uděláš**
-- unit testy pro kritická business pravidla,
-- integrační testy tam, kde dávají největší hodnotu,
-- závěrečné dočištění,
-- kontrolu souladu s akceptačními kritérii,
-- aktualizaci stavových souborů do finální podoby.
-
-**Nesmíš měnit**
-- nepouštěj se do nových feature nápadů.
-
-**Hotovo když**
-- kritické business invariants mají testové pokrytí,
-- existuje finální checklist a projekt je konzistentní.
-
-**Ruční kontrola**
-- projdi celý happy path:
-  create quiz -> import -> create session -> join -> start -> answer -> finish -> results.
+### Hotovo, když
+- Challenge MVP projde manuálním testem od vytvoření po virální CTA.
+- Původní Pub kvíz aplikace stále funguje.

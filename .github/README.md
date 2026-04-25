@@ -1,26 +1,25 @@
-# .github sada pro AI‑řízený vývoj pub kvíz aplikace
+# .github sada pro pokračování vývoje: virální Challenge mód
 
-Tato složka je navržená pro vývoj ve Visual Studiu s GitHub Copilotem tak, aby hlavní pracovní režim mohl být co nejjednodušší:
+Tato složka je připravená pro Visual Studio + GitHub Copilot/Codex Agent tak, aby šlo navázat na hotovou Pub kvíz aplikaci a pokračovat novou funkcí:
 
-1. zkontroluješ výstup aktuálního kroku,
-2. případně spustíš krátký ruční test,
-3. napíšeš jen **„Pokračuj k dalšímu kroku“** nebo použiješ **`/continue`**.
+**virální asynchronní Challenge mód „Kdo mě zná nejlíp?“**
+
+Původní live Pub kvíz aplikace se bere jako hotová. Tyto instrukce už nevedou agenta k budování původního MVP od nuly.
 
 ## Co je uvnitř
 
 - `copilot-instructions.md`  
-  Trvalá pravidla pro každý chat a každou změnu v repozitáři.
+  Trvalá pravidla pro agenta při každé změně.
 - `context/`  
-  Zdroj pravdy pro produkt, architekturu, roadmapu, workflow, rizika a průběžný stav.
+  Zdroj pravdy pro nový Challenge mód, architekturu, roadmapu, stav a rizika.
 - `instructions/`  
-  Path-specific pravidla pro C#, Razor, EF Core, HTTP vrstvu a testy.
+  Path-specific pravidla pro C#, Razor, EF Core, HTTP API a testy.
 - `prompts/`  
-  Znovupoužitelné prompt soubory pro pokračování, review, opravy a finální stabilizaci.
+  Prompt soubory pro pokračování, audit, opravy a srovnání dokumentace se skutečným kódem.
 
 ## Doporučený způsob použití
 
-### Běžný režim
-Do Copilot chatu napiš:
+V Copilot/Codex Agent chatu napiš:
 
 ```text
 Pokračuj k dalšímu kroku
@@ -32,49 +31,28 @@ nebo použij:
 /continue
 ```
 
-Agent má v tom případě:
-1. přečíst `context/08-implementation-state.md`,
-2. najít první nedokončený krok v `context/04-roadmap.md`,
+Agent má:
+1. přečíst `.github/context/08-implementation-state.md`,
+2. najít první nedokončený krok v `.github/context/04-roadmap.md`,
 3. provést pouze tento krok,
-4. udělat build a relevantní testy,
+4. ověřit build a relevantní testy,
 5. aktualizovat stav, decision log a changelog,
-6. zastavit se a předat ti stručný report.
+6. zastavit se a předat stručný report.
 
-### Když se něco rozbije
-Použij:
+## Důležité
 
-```text
-/repair
-```
+Tyto soubory záměrně odstraňují většinu detailů původního Pub kvíz MVP, protože aplikace už je hotová.
 
-### Když chceš jen audit bez nových změn
-Použij:
+Pro existující funkce platí:
 
 ```text
-/review
+Skutečný kód je zdroj pravdy.
+Nerozbíjet, nepřepisovat, nereimplementovat.
 ```
 
-### Když se rozjede stav a dokumentace
-Použij:
+Pro novou funkci platí:
 
 ```text
-/resync-state
+Dokumentace v .github/context je zdroj pravdy.
+Implementovat postupně podle roadmapy.
 ```
-
-## Důležitá poznámka
-Prompt files jsou preview funkce, ale tento adresář je navržen tak, aby základní workflow fungovalo i bez nich. Primární logika je proto uložená v `copilot-instructions.md` a ve stavových/context souborech.
-
-## Co musíš udělat ručně jen jednou
-- otevřít repozitář ve Visual Studiu,
-- mít zapnutý GitHub Copilot Chat a Agent mode,
-- zkontrolovat, že Copilot používá custom instructions z `.github`,
-- ponechat tuto složku v repozitáři od úplného začátku vývoje.
-
-## Praktická rada
-První zpráva v novém repozitáři může být rovnou:
-
-```text
-Pokračuj k dalšímu kroku
-```
-
-Protože roadmapa začíná bootstrapem řešení od nuly.
