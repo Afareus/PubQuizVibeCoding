@@ -20,9 +20,9 @@ Nově se má implementovat:
 
 | Krok | Stav | Poznámka |
 |---|---:|---|
-| CH-01 Datový model a EF Core migrace | ✅ Hotovo | Entity vytvořeny, migrace `AddChallengeMode` vygenerována |
-| CH-02 Shared DTO a validační kontrakty | Nezahájeno | Čeká na CH-01 |
-| CH-03 Challenge aplikační služba | Nezahájeno | Čeká na CH-02 |
+| CH-01 Datový model a EF Core migrace | ✅ Hotovo | Entity vytvořeny, migrace `AddChallengeMode` aplikována na DB |
+| CH-02 Shared DTO a validační kontrakty | ✅ Hotovo | `ChallengeContracts.cs` přidáno do `QuizApp.Shared/Contracts` |
+| CH-03 Challenge aplikační služba | ✅ Hotovo | `ChallengeService`, `ChallengeTemplate`, 12 unit testů |
 | CH-04 HTTP API endpointy | Nezahájeno | Čeká na CH-03 |
 | CH-05 UI pro vytvoření challenge | Nezahájeno | Čeká na CH-04 |
 | CH-06 UI pro hraní challenge | Nezahájeno | Čeká na CH-04 |
@@ -33,10 +33,10 @@ Nově se má implementovat:
 ## První další krok
 
 ```text
-CH-02 — Shared DTO a validační kontrakty
+CH-04 — HTTP API endpointy
 ```
 
-Agent má začít tímto krokem a nemá implementovat UI ani API endpointy ve stejném kroku.
+Agent má začít tímto krokem a nemá implementovat UI ve stejném kroku.
 
 ## Poznámky pro agenta
 

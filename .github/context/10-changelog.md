@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-05-01 — CH-03 Challenge aplikační služba
+
+Změny:
+- Přidán `QuizApp.Server/Application/Challenges/ChallengeService.cs` s rozhraním `IChallengeService`.
+- Přidán `QuizApp.Server/Application/Challenges/ChallengeTemplate.cs` s pevnou šablonou 10 otázek.
+- `IChallengeService` zaregistrován v `Program.cs`.
+- Přidány unit testy `QuizApp.Tests/ChallengeServiceTests.cs` (12 testů, všechny projšly).
+- Správné odpovědi tvůrce nejsou předávány klientovi v `GetChallengeResponse`.
+- Build prošel.
+
+---
+
+## 2026-05-01 — CH-02 Shared DTO a validační kontrakty
+
+Změny:
+- Přidán soubor `QuizApp.Shared/Contracts/ChallengeContracts.cs`.
+- Obsahuje DTO: `GetChallengeTemplateResponse`, `CreateChallengeRequest/Response`, `GetChallengeResponse`, `SubmitChallengeAnswersRequest/Response`, `ChallengeLeaderboardResponse`, `GetChallengeSubmissionResultResponse` a pomocné DTO.
+- `GetChallengeResponse` a `GetChallengeTemplateResponse` pro hraní neobsahují správné odpovědi.
+- Build prošel.
+
+---
+
 ## 2026-04-25 — CH-01 Datový model a EF Core migrace
 
 Změny:

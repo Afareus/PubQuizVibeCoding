@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using QuizApp.Server.Application.Challenges;
 using QuizApp.Server.Application.QuizImport;
 using QuizApp.Server.Application.Quizzes;
 using QuizApp.Server.Application.Sessions;
@@ -33,6 +34,7 @@ builder.Services.AddDbContext<QuizAppDbContext>((serviceProvider, options) =>
 builder.Services.AddScoped<IQuizCsvParser, QuizCsvParser>();
 builder.Services.AddScoped<IQuizManagementService, QuizManagementService>();
 builder.Services.AddScoped<ISessionParticipationService, SessionParticipationService>();
+builder.Services.AddScoped<IChallengeService, ChallengeService>();
 builder.Services.AddSingleton<ISessionRealtimePublisher, SessionRealtimePublisher>();
 builder.Services.AddHostedService<SessionProgressionBackgroundService>();
 
