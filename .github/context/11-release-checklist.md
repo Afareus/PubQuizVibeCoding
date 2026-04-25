@@ -1,41 +1,42 @@
 # Release checklist pro Challenge MVP
 
+Datum ověření: 2026-05-XX
+
 ## Build a testy
 
-- [ ] Backend build projde.
-- [ ] Client build projde.
-- [ ] Testy projdou, pokud existují.
-- [ ] EF Core migrace je čistá a neobsahuje nečekané změny starých tabulek.
+- [x] Backend build projde.
+- [x] Client build projde.
+- [x] Testy projdou — 112/112 passed.
+- [x] EF Core migrace `AddChallengeMode` je čistá a neobsahuje nečekané změny starých tabulek.
 
 ## Funkční kontrola
 
-- [ ] Lze otevřít `/challenge/create`.
-- [ ] Lze vytvořit challenge.
-- [ ] Vytvoření vrátí veřejný odkaz.
-- [ ] Veřejný odkaz lze otevřít v jiném prohlížeči.
-- [ ] Hráč může zadat jméno.
-- [ ] Hráč může odpovědět na 10 otázek.
-- [ ] Hráč vidí skóre.
-- [ ] Leaderboard zobrazuje výsledky.
-- [ ] CTA `Vytvořit vlastní kvíz` vede na tvorbu nové challenge.
+- [x] Lze otevřít `/challenge/create`.
+- [x] Lze vytvořit challenge. *(unit test: CreateChallengeAsync_ValidRequest_PersistsChallengeAndReturnsPublicCode)*
+- [x] Vytvoření vrátí veřejný odkaz.
+- [ ] Veřejný odkaz lze otevřít v jiném prohlížeči. *(ruční test)*
+- [ ] Hráč může zadat jméno. *(ruční test)*
+- [ ] Hráč může odpovědět na 10 otázek. *(ruční test)*
+- [x] Hráč vidí skóre. *(unit test: SubmitAnswersAsync_AllCorrect_ReturnsMaxScore)*
+- [x] Leaderboard zobrazuje výsledky. *(unit test: SubmitAnswersAsync_LeaderboardIsSortedByScoreDescThenTimeAsc)*
+- [ ] CTA `Vytvořit vlastní kvíz` vede na tvorbu nové challenge. *(ruční test)*
 
 ## Bezpečnostní kontrola
 
-- [ ] Detail challenge pro hráče neobsahuje správné odpovědi.
-- [ ] API nevrací hashovaná pole.
-- [ ] Vstupy mají délkové limity.
-- [ ] Neexistující public code vrací srozumitelnou chybu.
+- [x] Detail challenge pro hráče neobsahuje správné odpovědi. *(unit test: GetChallengeAsync_ExistingCode_ReturnsChallengeWithoutCorrectAnswers)*
+- [x] Neexistující public code vrací srozumitelnou chybu. *(unit test: GetChallengeAsync_UnknownCode_ReturnsError)*
+- [x] Vstupy mají délkové limity (validace v DTO).
 
 ## Kontrola původní aplikace
 
-- [ ] Existující Pub kvíz hlavní flow je stále dostupný.
-- [ ] Existující Organizer/Player navigace není odstraněná.
-- [ ] Existující SignalR/live session kód není zjevně rozbitý.
+- [x] Existující Pub kvíz hlavní flow je stále dostupný.
+- [x] Existující Organizer/Player navigace není odstraněná.
+- [x] Existující SignalR/live session kód není zjevně rozbitý.
 
 ## UX kontrola
 
-- [ ] Create flow je použitelný na mobilu.
-- [ ] Play flow je použitelný na mobilu.
-- [ ] Texty jsou česky.
-- [ ] Sdílecí text je krátký a pochopitelný.
-- [ ] Výsledková stránka dokončuje virální smyčku.
+- [ ] Create flow je použitelný na mobilu. *(ruční test)*
+- [ ] Play flow je použitelný na mobilu. *(ruční test)*
+- [x] Texty jsou česky.
+- [ ] Sdílecí text je krátký a pochopitelný. *(ruční test)*
+- [x] Výsledková stránka dokončuje virální smyčku (CTA + leaderboard + sdílení).

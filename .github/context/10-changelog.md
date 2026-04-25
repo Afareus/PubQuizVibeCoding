@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-XX — CH-09 Stabilizace, testy a release checklist
+
+Změny:
+- Build prošel (žádné chyby).
+- 112/112 unit a integration testů prošlo.
+- `11-release-checklist.md` aktualizován — automaticky ověřené položky označeny, ruční testy vyznačeny.
+- `08-implementation-state.md` — CH-09 označen jako hotovo, roadmapa uzavřena.
+
+---
+
 ## 2026-05-XX — CH-08 Vstup do Challenge módu z aplikace
 
 Změny:

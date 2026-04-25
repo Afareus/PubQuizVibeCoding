@@ -28,12 +28,13 @@ Nově se má implementovat:
 | CH-06 UI pro hraní challenge | ✅ Hotovo | `ChallengePlay.razor`, route `/challenge/{publicCode}` |
 | CH-07 Výsledek, leaderboard a virální CTA | ✅ Hotovo | Sdílecí sekce přidána do ChallengePlay.razor |
 | CH-08 Vstup do Challenge módu z aplikace | ✅ Hotovo | Dlaždice na Home.razor |
-| CH-09 Stabilizace, testy a release checklist | Nezahájeno | Finální krok |
+| CH-09 Stabilizace, testy a release checklist | ✅ Hotovo | 112/112 testů, release checklist aktualizován |
 
 ## První další krok
 
 ```text
-CH-09 — Stabilizace, testy a release checklist
+✅ Všechny kroky roadmapy jsou dokončeny.
+Challenge MVP je připraven k nasazení po manuálním smoke testu.
 ```
 
 ## Poznámky pro agenta
