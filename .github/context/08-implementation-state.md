@@ -23,7 +23,7 @@ Nově se má implementovat:
 | CH-01 Datový model a EF Core migrace | ✅ Hotovo | Entity vytvořeny, migrace `AddChallengeMode` aplikována na DB |
 | CH-02 Shared DTO a validační kontrakty | ✅ Hotovo | `ChallengeContracts.cs` přidáno do `QuizApp.Shared/Contracts` |
 | CH-03 Challenge aplikační služba | ✅ Hotovo | `ChallengeService`, `ChallengeTemplate`, 12 unit testů |
-| CH-04 HTTP API endpointy | Nezahájeno | Čeká na CH-03 |
+| CH-04 HTTP API endpointy | ✅ Hotovo | `ChallengeEndpoints.cs`, 6 endpointů, zaregistrováno v Program.cs |
 | CH-05 UI pro vytvoření challenge | Nezahájeno | Čeká na CH-04 |
 | CH-06 UI pro hraní challenge | Nezahájeno | Čeká na CH-04 |
 | CH-07 Výsledek, leaderboard a virální CTA | Nezahájeno | Čeká na CH-06 |
@@ -33,7 +33,7 @@ Nově se má implementovat:
 ## První další krok
 
 ```text
-CH-04 — HTTP API endpointy
+CH-05 — UI pro vytvoření challenge
 ```
 
 Agent má začít tímto krokem a nemá implementovat UI ve stejném kroku.

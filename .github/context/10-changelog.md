@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-05-01 — CH-04 HTTP API endpointy
+
+Změny:
+- Přidán `QuizApp.Server/Application/Challenges/ChallengeEndpoints.cs`.
+- Endpointy: `GET /api/challenges/template`, `POST /api/challenges/`, `GET /api/challenges/{publicCode}`, `POST /api/challenges/{publicCode}/submissions`, `GET /api/challenges/{publicCode}/leaderboard`, `GET /api/challenges/{publicCode}/submissions/{submissionId}`.
+- Endpointy zaregistrovány v `Program.cs` voláním `app.MapChallengeEndpoints()`.
+- Rate limiting: vytvoření challenge `OrganizerMutations`, odeslání odpovědí `SubmitPerTeam`.
+- Chybové odpovědi vracejí `ApiErrorResponse` se správnými HTTP status kódy (400/404).
+- Build prošel.
+
+---
+
 ## 2026-05-01 — CH-03 Challenge aplikační služba
 
 Změny:

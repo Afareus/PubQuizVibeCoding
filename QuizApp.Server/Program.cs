@@ -158,6 +158,7 @@ app.UseRateLimiter();
 app.MapHealthChecks("/health");
 app.MapQuizManagementEndpoints();
 app.MapSessionParticipationEndpoints();
+app.MapChallengeEndpoints();
 app.MapHub<SessionHub>("/hubs/sessions");
 
 app.Run();
